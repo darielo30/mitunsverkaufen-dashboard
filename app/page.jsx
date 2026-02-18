@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Check, Eye, Heart, MessageCircle, Share2, Instagram, Music,
   TrendingUp, TrendingDown, Calendar, ChevronDown, Plus, BarChart3,
-  Users, Search, Bell, X, Clock, Send, Image, Link2, Loader2,
-  RefreshCw, Wifi, WifiOff
+  Users, Search, X, Clock, Send, Image, Link2, Loader2,
+  RefreshCw, Wifi, WifiOff, Upload, FileVideo, Trash2, ChevronLeft, ChevronRight
 } from "lucide-react";
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip,
@@ -14,27 +14,13 @@ import {
 
 // ── Brand Colors ────────────────────────────────────────────────
 const C = {
-  bg: "#0B0F19",
-  bgSoft: "#0F1320",
-  card: "#131825",
-  cardHover: "#1A2035",
-  border: "#1E2A3A",
-  red: "#DC2626",
-  redGlow: "rgba(220,38,38,0.12)",
-  redLight: "#EF4444",
-  green: "#22C55E",
-  greenGlow: "rgba(34,197,94,0.12)",
-  blue: "#3B82F6",
-  blueGlow: "rgba(59,130,246,0.12)",
-  purple: "#8B5CF6",
-  purpleGlow: "rgba(139,92,246,0.12)",
-  yellow: "#EAB308",
-  yellowGlow: "rgba(234,179,8,0.12)",
-  white: "#F9FAFB",
-  muted: "#9CA3AF",
-  dimmed: "#6B7280",
-  instagram: "#E1306C",
-  tiktok: "#00F2EA",
+  bg: "#0B0F19", bgSoft: "#0F1320", card: "#131825", cardHover: "#1A2035",
+  border: "#1E2A3A", red: "#DC2626", redGlow: "rgba(220,38,38,0.12)",
+  redLight: "#EF4444", green: "#22C55E", greenGlow: "rgba(34,197,94,0.12)",
+  blue: "#3B82F6", blueGlow: "rgba(59,130,246,0.12)", purple: "#8B5CF6",
+  purpleGlow: "rgba(139,92,246,0.12)", yellow: "#EAB308",
+  yellowGlow: "rgba(234,179,8,0.12)", white: "#F9FAFB", muted: "#9CA3AF",
+  dimmed: "#6B7280", instagram: "#E1306C", tiktok: "#00F2EA",
 };
 
 const fmt = (n) => {
@@ -43,7 +29,10 @@ const fmt = (n) => {
   return n.toString();
 };
 
-// ── Demo Data (used when Late API is not connected) ─────────────
+const MONTHS_DE = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
+const SHORT_MONTHS = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
+
+// ── Demo Data ───────────────────────────────────────────────────
 const demoPerformance = [
   { month: "Sep", views: 42000, likes: 3200, comments: 890, shares: 420 },
   { month: "Okt", views: 58000, likes: 4100, comments: 1200, shares: 680 },
@@ -65,29 +54,19 @@ const demoPosts = [
   { id: 9, platform: "tiktok", type: "Video", title: "Recruiting-Strategie für Agenturen", date: "2026-02-21", views: 0, likes: 0, comments: 0, shares: 0, done: false, status: "draft" },
   { id: 10, platform: "instagram", type: "Karussell", title: "5 Gründe für mitunsverkaufen.de", date: "2026-02-24", views: 0, likes: 0, comments: 0, shares: 0, done: false, status: "draft" },
   { id: 11, platform: "tiktok", type: "Video", title: "Live-Coaching: Einwandbehandlung", date: "2026-02-26", views: 0, likes: 0, comments: 0, shares: 0, done: false, status: "draft" },
-  { id: 12, platform: "instagram", type: "Reel", title: "Monatsrückblick Februar – Highlights", date: "2026-02-28", views: 0, likes: 0, comments: 0, shares: 0, done: false, status: "draft" },
+  { id: 12, platform: "instagram", type: "Reel", title: "Monatsrückblick Februar", date: "2026-02-28", views: 0, likes: 0, comments: 0, shares: 0, done: false, status: "draft" },
 ];
 
-// ── Stat Card Component ─────────────────────────────────────────
+// ── Stat Card ───────────────────────────────────────────────────
 function StatCard({ icon: Icon, label, value, change, color, glowColor }) {
   const isUp = change >= 0;
   return (
-    <div style={{
-      background: C.card, borderRadius: 16, padding: "20px 24px",
-      border: `1px solid ${C.border}`, flex: 1, minWidth: 170,
-      transition: "all 0.25s", cursor: "default",
-    }}
-    onMouseOver={(e) => { e.currentTarget.style.borderColor = color; e.currentTarget.style.boxShadow = `0 0 24px ${glowColor}`; }}
-    onMouseOut={(e) => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.boxShadow = "none"; }}
-    >
+    <div style={{ background: C.card, borderRadius: 16, padding: "20px 24px", border: `1px solid ${C.border}`, flex: 1, minWidth: 170, transition: "all 0.25s", cursor: "default" }}
+      onMouseOver={(e) => { e.currentTarget.style.borderColor = color; e.currentTarget.style.boxShadow = `0 0 24px ${glowColor}`; }}
+      onMouseOut={(e) => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.boxShadow = "none"; }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-        <div style={{ width: 42, height: 42, borderRadius: 12, background: glowColor, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <Icon size={20} color={color} />
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13, color: isUp ? C.green : C.redLight, fontWeight: 600 }}>
-          {isUp ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
-          {isUp ? "+" : ""}{change}%
-        </div>
+        <div style={{ width: 42, height: 42, borderRadius: 12, background: glowColor, display: "flex", alignItems: "center", justifyContent: "center" }}><Icon size={20} color={color} /></div>
+        <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13, color: isUp ? C.green : C.redLight, fontWeight: 600 }}>{isUp ? <TrendingUp size={14} /> : <TrendingDown size={14} />}{isUp ? "+" : ""}{change}%</div>
       </div>
       <div style={{ fontSize: 28, fontWeight: 800, color: C.white, letterSpacing: "-0.03em" }}>{value}</div>
       <div style={{ fontSize: 13, color: C.muted, marginTop: 4, fontWeight: 500 }}>{label}</div>
@@ -95,66 +74,142 @@ function StatCard({ icon: Icon, label, value, change, color, glowColor }) {
   );
 }
 
-// ── Custom Tooltip ──────────────────────────────────────────────
 function ChartTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
   return (
     <div style={{ background: "#1A2035", border: `1px solid ${C.border}`, borderRadius: 12, padding: "12px 16px", boxShadow: "0 12px 40px rgba(0,0,0,0.5)" }}>
       <div style={{ fontSize: 13, color: C.muted, marginBottom: 8, fontWeight: 600 }}>{label}</div>
-      {payload.map((p, i) => (
-        <div key={i} style={{ fontSize: 13, color: p.color, fontWeight: 600, marginBottom: 2 }}>{p.name}: {fmt(p.value)}</div>
-      ))}
+      {payload.map((p, i) => (<div key={i} style={{ fontSize: 13, color: p.color, fontWeight: 600, marginBottom: 2 }}>{p.name}: {fmt(p.value)}</div>))}
     </div>
   );
 }
 
-// ── Status Badge ────────────────────────────────────────────────
 function StatusBadge({ status }) {
-  const config = {
-    published: { label: "Live", color: C.green, bg: C.greenGlow },
-    scheduled: { label: "Geplant", color: C.yellow, bg: C.yellowGlow },
-    draft: { label: "Entwurf", color: C.dimmed, bg: "rgba(107,114,128,0.12)" },
-  };
+  const config = { published: { label: "Live", color: C.green, bg: C.greenGlow }, scheduled: { label: "Geplant", color: C.yellow, bg: C.yellowGlow }, draft: { label: "Entwurf", color: C.dimmed, bg: "rgba(107,114,128,0.12)" } };
   const c = config[status] || config.draft;
+  return (<div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 700, color: c.color, background: c.bg, padding: "3px 10px", borderRadius: 6, textTransform: "uppercase", letterSpacing: "0.06em" }}><div style={{ width: 6, height: 6, borderRadius: "50%", background: c.color }} />{c.label}</div>);
+}
+
+// ── Month Picker Dropdown ───────────────────────────────────────
+function MonthPicker({ selectedMonth, selectedYear, onSelect }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  const [year, setYear] = useState(selectedYear);
+
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 700, color: c.color, background: c.bg, padding: "3px 10px", borderRadius: 6, textTransform: "uppercase", letterSpacing: "0.06em" }}>
-      <div style={{ width: 6, height: 6, borderRadius: "50%", background: c.color }} />
-      {c.label}
+    <div ref={ref} style={{ position: "relative" }}>
+      <button onClick={() => setOpen(!open)} style={{ display: "flex", alignItems: "center", gap: 8, background: C.card, border: `1px solid ${open ? C.red : C.border}`, borderRadius: 10, padding: "8px 14px", color: C.white, fontSize: 13, cursor: "pointer", fontFamily: "inherit", transition: "all 0.2s" }}>
+        <Calendar size={15} color={C.muted} /> {MONTHS_DE[selectedMonth]} {selectedYear} <ChevronDown size={13} color={C.muted} style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform 0.2s" }} />
+      </button>
+      {open && (
+        <div style={{ position: "absolute", top: "100%", right: 0, marginTop: 6, background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: 16, width: 280, boxShadow: "0 12px 40px rgba(0,0,0,0.5)", zIndex: 60 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+            <button onClick={() => setYear(year - 1)} style={{ width: 30, height: 30, borderRadius: 8, background: C.bg, border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}><ChevronLeft size={16} color={C.muted} /></button>
+            <div style={{ fontSize: 15, fontWeight: 700, color: C.white }}>{year}</div>
+            <button onClick={() => setYear(year + 1)} style={{ width: 30, height: 30, borderRadius: 8, background: C.bg, border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}><ChevronRight size={16} color={C.muted} /></button>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6 }}>
+            {SHORT_MONTHS.map((m, i) => {
+              const isSelected = i === selectedMonth && year === selectedYear;
+              return (
+                <button key={m} onClick={() => { onSelect(i, year); setOpen(false); }} style={{
+                  padding: "8px 4px", borderRadius: 8, border: "none", fontSize: 13, fontWeight: isSelected ? 700 : 500,
+                  background: isSelected ? C.red : "transparent", color: isSelected ? "#fff" : C.muted,
+                  cursor: "pointer", transition: "all 0.15s", fontFamily: "inherit",
+                }} onMouseOver={(e) => { if (!isSelected) e.currentTarget.style.background = C.bg; }}
+                   onMouseOut={(e) => { if (!isSelected) e.currentTarget.style.background = "transparent"; }}>
+                  {m}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-// ── Create Post Modal ───────────────────────────────────────────
+// ── Create Post Modal with Media Upload ─────────────────────────
 function CreatePostModal({ onClose, onSubmit, isSubmitting }) {
   const [content, setContent] = useState("");
   const [platforms, setPlatforms] = useState({ instagram: true, tiktok: true });
   const [scheduleDate, setScheduleDate] = useState("");
   const [scheduleTime, setScheduleTime] = useState("");
   const [postNow, setPostNow] = useState(false);
+  const [mediaFiles, setMediaFiles] = useState([]);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef(null);
+
+  const handleFiles = async (files) => {
+    const validTypes = ["image/jpeg", "image/png", "image/webp", "image/gif", "video/mp4", "video/quicktime", "video/webm"];
+    const newFiles = [];
+
+    for (const file of files) {
+      if (!validTypes.includes(file.type)) continue;
+      const isVideo = file.type.startsWith("video/");
+      const preview = isVideo ? null : URL.createObjectURL(file);
+      newFiles.push({ file, name: file.name, type: isVideo ? "video" : "image", size: file.size, preview, uploading: false, url: null });
+    }
+    setMediaFiles((prev) => [...prev, ...newFiles]);
+
+    // Upload each file via presigned URL
+    setIsUploading(true);
+    for (const mf of newFiles) {
+      try {
+        const presignRes = await fetch("/api/late", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "presign-upload", filename: mf.file.name, contentType: mf.file.type }),
+        });
+        const presignData = await presignRes.json();
+
+        if (presignData.uploadUrl) {
+          await fetch(presignData.uploadUrl, { method: "PUT", body: mf.file, headers: { "Content-Type": mf.file.type } });
+          setMediaFiles((prev) => prev.map((f) => f.name === mf.name ? { ...f, url: presignData.publicUrl, uploading: false } : f));
+        } else {
+          // API not connected – keep file locally for display
+          setMediaFiles((prev) => prev.map((f) => f.name === mf.name ? { ...f, uploading: false, url: "local" } : f));
+        }
+      } catch {
+        setMediaFiles((prev) => prev.map((f) => f.name === mf.name ? { ...f, uploading: false, url: "local" } : f));
+      }
+    }
+    setIsUploading(false);
+  };
+
+  const removeFile = (name) => setMediaFiles((prev) => prev.filter((f) => f.name !== name));
 
   const handleSubmit = () => {
     if (!content.trim()) return;
     const selectedPlatforms = Object.entries(platforms).filter(([, v]) => v).map(([k]) => k);
     if (selectedPlatforms.length === 0) return;
 
-    let scheduledDate = null;
+    let scheduledFor = null;
     if (!postNow && scheduleDate && scheduleTime) {
-      scheduledDate = new Date(`${scheduleDate}T${scheduleTime}`).toISOString();
+      scheduledFor = new Date(`${scheduleDate}T${scheduleTime}`).toISOString();
     }
 
-    onSubmit({ content, platforms: selectedPlatforms, scheduledDate });
+    const mediaItems = mediaFiles.filter((f) => f.url && f.url !== "local").map((f) => ({ type: f.type, url: f.url }));
+
+    onSubmit({ content, platforms: selectedPlatforms, scheduledFor, publishNow: postNow, mediaItems });
   };
+
+  const fmtSize = (bytes) => bytes > 1024 * 1024 ? (bytes / 1024 / 1024).toFixed(1) + " MB" : (bytes / 1024).toFixed(0) + " KB";
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 }} onClick={onClose}>
-      <div style={{ background: C.card, borderRadius: 20, border: `1px solid ${C.border}`, width: 520, maxWidth: "90vw", boxShadow: "0 24px 80px rgba(0,0,0,0.6)" }} onClick={(e) => e.stopPropagation()}>
+      <div style={{ background: C.card, borderRadius: 20, border: `1px solid ${C.border}`, width: 560, maxWidth: "90vw", maxHeight: "90vh", overflow: "auto", boxShadow: "0 24px 80px rgba(0,0,0,0.6)" }} onClick={(e) => e.stopPropagation()}>
 
-        {/* Modal Header */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "20px 24px", borderBottom: `1px solid ${C.border}` }}>
           <div style={{ fontSize: 17, fontWeight: 700, color: C.white }}>Neuer Beitrag</div>
-          <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 8, background: C.bg, border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
-            <X size={16} color={C.muted} />
-          </button>
+          <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 8, background: C.bg, border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}><X size={16} color={C.muted} /></button>
         </div>
 
         <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20 }}>
@@ -163,21 +218,14 @@ function CreatePostModal({ onClose, onSubmit, isSubmitting }) {
           <div>
             <div style={{ fontSize: 13, fontWeight: 600, color: C.muted, marginBottom: 8 }}>Plattformen</div>
             <div style={{ display: "flex", gap: 10 }}>
-              {[
-                { key: "instagram", label: "Instagram", icon: Instagram, color: C.instagram },
-                { key: "tiktok", label: "TikTok", icon: Music, color: C.tiktok },
-              ].map((p) => (
+              {[{ key: "instagram", label: "Instagram", icon: Instagram, color: C.instagram }, { key: "tiktok", label: "TikTok", icon: Music, color: C.tiktok }].map((p) => (
                 <button key={p.key} onClick={() => setPlatforms({ ...platforms, [p.key]: !platforms[p.key] })} style={{
                   display: "flex", alignItems: "center", gap: 8, padding: "10px 18px", borderRadius: 10,
                   border: `1.5px solid ${platforms[p.key] ? p.color : C.border}`,
                   background: platforms[p.key] ? p.color + "15" : "transparent",
                   color: platforms[p.key] ? p.color : C.dimmed,
                   fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "all 0.2s", fontFamily: "inherit",
-                }}>
-                  <p.icon size={16} />
-                  {p.label}
-                  {platforms[p.key] && <Check size={14} />}
-                </button>
+                }}><p.icon size={16} />{p.label}{platforms[p.key] && <Check size={14} />}</button>
               ))}
             </div>
           </div>
@@ -185,29 +233,65 @@ function CreatePostModal({ onClose, onSubmit, isSubmitting }) {
           {/* Content */}
           <div>
             <div style={{ fontSize: 13, fontWeight: 600, color: C.muted, marginBottom: 8 }}>Beitragstext</div>
-            <textarea
-              value={content} onChange={(e) => setContent(e.target.value)}
-              placeholder="Was möchtet ihr posten? Schreibt euren Text hier..."
-              rows={5}
-              style={{
-                width: "100%", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 12,
-                padding: 14, color: C.white, fontSize: 14, fontFamily: "inherit", resize: "vertical",
-                outline: "none", lineHeight: 1.6, boxSizing: "border-box",
-              }}
-              onFocus={(e) => e.target.style.borderColor = C.red}
-              onBlur={(e) => e.target.style.borderColor = C.border}
-            />
-            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6 }}>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button style={{ display: "flex", alignItems: "center", gap: 5, background: "none", border: "none", color: C.dimmed, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>
-                  <Image size={14} /> Medien
-                </button>
-                <button style={{ display: "flex", alignItems: "center", gap: 5, background: "none", border: "none", color: C.dimmed, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>
-                  <Link2 size={14} /> Link
-                </button>
-              </div>
+            <textarea value={content} onChange={(e) => setContent(e.target.value)}
+              placeholder="Was möchtet ihr posten? Schreibt euren Text hier..." rows={4}
+              style={{ width: "100%", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, color: C.white, fontSize: 14, fontFamily: "inherit", resize: "vertical", outline: "none", lineHeight: 1.6, boxSizing: "border-box" }}
+              onFocus={(e) => e.target.style.borderColor = C.red} onBlur={(e) => e.target.style.borderColor = C.border} />
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}>
               <div style={{ fontSize: 12, color: content.length > 2200 ? C.redLight : C.dimmed }}>{content.length} / 2.200</div>
             </div>
+          </div>
+
+          {/* Media Upload */}
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: C.muted, marginBottom: 8 }}>Medien</div>
+            <input type="file" ref={fileInputRef} accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime,video/webm" multiple
+              style={{ display: "none" }} onChange={(e) => handleFiles(Array.from(e.target.files))} />
+
+            {/* Drop Zone */}
+            <div
+              onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+              onDragLeave={() => setIsDragging(false)}
+              onDrop={(e) => { e.preventDefault(); setIsDragging(false); handleFiles(Array.from(e.dataTransfer.files)); }}
+              onClick={() => fileInputRef.current?.click()}
+              style={{
+                border: `2px dashed ${isDragging ? C.red : C.border}`, borderRadius: 12, padding: "24px 16px",
+                display: "flex", flexDirection: "column", alignItems: "center", gap: 8, cursor: "pointer",
+                background: isDragging ? C.redGlow : "transparent", transition: "all 0.2s",
+              }}>
+              <Upload size={24} color={isDragging ? C.red : C.dimmed} />
+              <div style={{ fontSize: 13, fontWeight: 600, color: isDragging ? C.red : C.muted }}>
+                Bilder oder Videos hierher ziehen
+              </div>
+              <div style={{ fontSize: 12, color: C.dimmed }}>oder klicken zum Durchsuchen · JPG, PNG, MP4, MOV</div>
+            </div>
+
+            {/* Uploaded Files Preview */}
+            {mediaFiles.length > 0 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12 }}>
+                {mediaFiles.map((f) => (
+                  <div key={f.name} style={{ display: "flex", alignItems: "center", gap: 12, background: C.bg, borderRadius: 10, padding: "8px 12px", border: `1px solid ${C.border}` }}>
+                    {f.preview ? (
+                      <img src={f.preview} alt="" style={{ width: 40, height: 40, borderRadius: 8, objectFit: "cover" }} />
+                    ) : (
+                      <div style={{ width: 40, height: 40, borderRadius: 8, background: C.purpleGlow, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <FileVideo size={18} color={C.purple} />
+                      </div>
+                    )}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: C.white, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.name}</div>
+                      <div style={{ fontSize: 11, color: C.dimmed }}>{fmtSize(f.size)} · {f.type === "video" ? "Video" : "Bild"}{f.uploading ? " · Wird hochgeladen..." : ""}</div>
+                    </div>
+                    {f.uploading && <Loader2 size={16} color={C.muted} style={{ animation: "spin 1s linear infinite" }} />}
+                    {f.url === "local" && <div style={{ fontSize: 10, color: C.yellow, fontWeight: 600, padding: "2px 6px", background: C.yellowGlow, borderRadius: 4 }}>Lokal</div>}
+                    {f.url && f.url !== "local" && <Check size={16} color={C.green} />}
+                    <button onClick={(e) => { e.stopPropagation(); removeFile(f.name); }} style={{ width: 28, height: 28, borderRadius: 6, background: "transparent", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+                      <Trash2 size={14} color={C.dimmed} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Scheduling */}
@@ -218,42 +302,32 @@ function CreatePostModal({ onClose, onSubmit, isSubmitting }) {
                 display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 8,
                 border: `1px solid ${postNow ? C.green : C.border}`, background: postNow ? C.greenGlow : "transparent",
                 color: postNow ? C.green : C.dimmed, fontSize: 13, fontWeight: 500, cursor: "pointer", fontFamily: "inherit",
-              }}>
-                <Send size={14} /> Sofort posten
-              </button>
+              }}><Send size={14} /> Sofort posten</button>
               <button onClick={() => setPostNow(false)} style={{
                 display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 8,
                 border: `1px solid ${!postNow ? C.blue : C.border}`, background: !postNow ? C.blueGlow : "transparent",
                 color: !postNow ? C.blue : C.dimmed, fontSize: 13, fontWeight: 500, cursor: "pointer", fontFamily: "inherit",
-              }}>
-                <Clock size={14} /> Planen
-              </button>
+              }}><Clock size={14} /> Planen</button>
             </div>
             {!postNow && (
               <div style={{ display: "flex", gap: 10 }}>
                 <input type="date" value={scheduleDate} onChange={(e) => setScheduleDate(e.target.value)}
-                  style={{ flex: 1, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 12px", color: C.white, fontSize: 13, fontFamily: "inherit", outline: "none", colorScheme: "dark" }}
-                />
+                  style={{ flex: 1, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 12px", color: C.white, fontSize: 13, fontFamily: "inherit", outline: "none", colorScheme: "dark" }} />
                 <input type="time" value={scheduleTime} onChange={(e) => setScheduleTime(e.target.value)}
-                  style={{ width: 120, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 12px", color: C.white, fontSize: 13, fontFamily: "inherit", outline: "none", colorScheme: "dark" }}
-                />
+                  style={{ width: 120, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 12px", color: C.white, fontSize: 13, fontFamily: "inherit", outline: "none", colorScheme: "dark" }} />
               </div>
             )}
           </div>
         </div>
 
-        {/* Modal Footer */}
+        {/* Footer */}
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, padding: "16px 24px", borderTop: `1px solid ${C.border}` }}>
-          <button onClick={onClose} style={{
-            padding: "10px 20px", borderRadius: 10, background: "transparent", border: `1px solid ${C.border}`,
-            color: C.muted, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
-          }}>Abbrechen</button>
+          <button onClick={onClose} style={{ padding: "10px 20px", borderRadius: 10, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Abbrechen</button>
           <button onClick={handleSubmit} disabled={isSubmitting || !content.trim()} style={{
             display: "flex", alignItems: "center", gap: 6, padding: "10px 24px", borderRadius: 10,
-            background: (!content.trim()) ? C.border : C.red, border: "none",
-            color: "#fff", fontSize: 13, fontWeight: 700, cursor: (!content.trim()) ? "not-allowed" : "pointer",
-            fontFamily: "inherit", boxShadow: content.trim() ? `0 4px 16px ${C.redGlow}` : "none",
-            opacity: isSubmitting ? 0.7 : 1,
+            background: !content.trim() ? C.border : C.red, border: "none",
+            color: "#fff", fontSize: 13, fontWeight: 700, cursor: !content.trim() ? "not-allowed" : "pointer",
+            fontFamily: "inherit", boxShadow: content.trim() ? `0 4px 16px ${C.redGlow}` : "none", opacity: isSubmitting ? 0.7 : 1,
           }}>
             {isSubmitting ? <Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} /> : postNow ? <Send size={15} /> : <Clock size={15} />}
             {isSubmitting ? "Wird gesendet..." : postNow ? "Jetzt posten" : "Beitrag planen"}
@@ -267,7 +341,7 @@ function CreatePostModal({ onClose, onSubmit, isSubmitting }) {
 // ── Main Dashboard ──────────────────────────────────────────────
 export default function Dashboard() {
   const [posts, setPosts] = useState(demoPosts);
-  const [performance, setPerformance] = useState(demoPerformance);
+  const [performance] = useState(demoPerformance);
   const [filter, setFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -275,30 +349,26 @@ export default function Dashboard() {
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [notification, setNotification] = useState(null);
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
-  // ── Fetch posts from Late API ─────────────────────────────
+  const showNotif = (text, color) => { setNotification({ text, color }); setTimeout(() => setNotification(null), 4000); };
+
   const fetchPosts = useCallback(async () => {
     try {
       setIsLoading(true);
       const res = await fetch("/api/late?action=posts");
-      if (!res.ok) throw new Error("API nicht erreichbar");
+      if (!res.ok) throw new Error();
       const data = await res.json();
-
-      if (data.error) {
-        setIsConnected(false);
-        return;
-      }
-
+      if (data.error) { setIsConnected(false); return; }
       setIsConnected(true);
-
-      // Transform Late API response to our format
       if (data.posts && Array.isArray(data.posts)) {
         const transformed = data.posts.map((p, i) => ({
           id: p.id || i + 1,
-          platform: p.platforms?.[0] || "instagram",
-          type: p.mediaType === "video" ? "Video" : p.mediaType === "carousel" ? "Karussell" : "Post",
+          platform: p.platforms?.[0]?.platform || p.platforms?.[0] || "instagram",
+          type: p.mediaItems?.some((m) => m.type === "video") ? "Video" : "Post",
           title: p.content?.substring(0, 60) + (p.content?.length > 60 ? "..." : "") || "Unbenannt",
-          date: p.scheduledDate || p.createdAt || new Date().toISOString(),
+          date: p.scheduledFor || p.createdAt || new Date().toISOString(),
           views: p.analytics?.impressions || 0,
           likes: p.analytics?.likes || 0,
           comments: p.analytics?.comments || 0,
@@ -317,185 +387,109 @@ export default function Dashboard() {
 
   useEffect(() => { fetchPosts(); }, [fetchPosts]);
 
-  // ── Create / Schedule Post via Late API ────────────────────
-  const handleCreatePost = async ({ content, platforms, scheduledDate }) => {
+  const handleCreatePost = async ({ content, platforms, scheduledFor, publishNow, mediaItems }) => {
     setIsSubmitting(true);
     try {
       const res = await fetch("/api/late", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "create-post", content, platforms, scheduledDate }),
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "create-post", content, platforms, scheduledFor, publishNow, mediaItems }),
       });
       const data = await res.json();
-
       if (data.error) {
-        // Fallback: add locally in demo mode
-        const newPost = {
-          id: Date.now(),
-          platform: platforms[0],
-          type: "Post",
+        const np = { id: Date.now(), platform: platforms[0], type: mediaItems?.length ? "Video" : "Post",
           title: content.substring(0, 60) + (content.length > 60 ? "..." : ""),
-          date: scheduledDate || new Date().toISOString(),
-          views: 0, likes: 0, comments: 0, shares: 0,
-          done: false,
-          status: scheduledDate ? "scheduled" : "draft",
-        };
-        setPosts((prev) => [newPost, ...prev]);
-        showNotification("Beitrag lokal gespeichert (Demo-Modus)", "yellow");
+          date: scheduledFor || new Date().toISOString(), views: 0, likes: 0, comments: 0, shares: 0,
+          done: false, status: scheduledFor ? "scheduled" : publishNow ? "published" : "draft" };
+        setPosts((prev) => [np, ...prev]);
+        showNotif("Beitrag lokal gespeichert (Demo-Modus)", "yellow");
       } else {
-        showNotification(scheduledDate ? "Beitrag erfolgreich geplant!" : "Beitrag wird gepostet!", "green");
+        showNotif(scheduledFor ? "Beitrag erfolgreich geplant!" : "Beitrag wird gepostet!", "green");
         fetchPosts();
       }
     } catch {
-      showNotification("Fehler beim Erstellen – im Demo-Modus gespeichert", "yellow");
-      const newPost = {
-        id: Date.now(),
-        platform: platforms[0],
-        type: "Post",
+      const np = { id: Date.now(), platform: platforms[0], type: "Post",
         title: content.substring(0, 60) + (content.length > 60 ? "..." : ""),
-        date: scheduledDate || new Date().toISOString(),
-        views: 0, likes: 0, comments: 0, shares: 0,
-        done: false,
-        status: scheduledDate ? "scheduled" : "draft",
-      };
-      setPosts((prev) => [newPost, ...prev]);
-    } finally {
-      setIsSubmitting(false);
-      setShowCreateModal(false);
-    }
+        date: scheduledFor || new Date().toISOString(), views: 0, likes: 0, comments: 0, shares: 0,
+        done: false, status: scheduledFor ? "scheduled" : "draft" };
+      setPosts((prev) => [np, ...prev]);
+      showNotif("Beitrag lokal gespeichert (Demo-Modus)", "yellow");
+    } finally { setIsSubmitting(false); setShowCreateModal(false); }
   };
 
-  const showNotification = (text, color) => {
-    setNotification({ text, color });
-    setTimeout(() => setNotification(null), 4000);
-  };
+  const toggle = (id) => setPosts(posts.map((p) => p.id === id ? { ...p, done: !p.done } : p));
 
-  const toggle = (id) => setPosts(posts.map((p) => (p.id === id ? { ...p, done: !p.done } : p)));
-
+  // Filter by month + search + platform/status
   const filtered = posts.filter((p) => {
-    const matchesFilter =
-      filter === "all" ? true :
-      filter === "instagram" ? p.platform === "instagram" :
-      filter === "tiktok" ? p.platform === "tiktok" :
-      filter === "offen" ? !p.done :
-      filter === "erledigt" ? p.done : true;
+    const d = new Date(p.date);
+    const matchesMonth = d.getMonth() === selectedMonth && d.getFullYear() === selectedYear;
+    const matchesFilter = filter === "all" ? true : filter === "instagram" ? p.platform === "instagram" : filter === "tiktok" ? p.platform === "tiktok" : filter === "offen" ? !p.done : filter === "erledigt" ? p.done : true;
     const matchesSearch = p.title.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesFilter && matchesSearch;
+    return matchesMonth && matchesFilter && matchesSearch;
   });
 
-  const totalViews = posts.reduce((a, p) => a + p.views, 0);
-  const totalLikes = posts.reduce((a, p) => a + p.likes, 0);
-  const totalComments = posts.reduce((a, p) => a + p.comments, 0);
-  const totalShares = posts.reduce((a, p) => a + p.shares, 0);
-  const doneCount = posts.filter((p) => p.done).length;
-  const progress = posts.length > 0 ? Math.round((doneCount / posts.length) * 100) : 0;
+  const totalViews = filtered.reduce((a, p) => a + p.views, 0);
+  const totalLikes = filtered.reduce((a, p) => a + p.likes, 0);
+  const totalComments = filtered.reduce((a, p) => a + p.comments, 0);
+  const totalShares = filtered.reduce((a, p) => a + p.shares, 0);
+  const doneCount = filtered.filter((p) => p.done).length;
+  const progress = filtered.length > 0 ? Math.round((doneCount / filtered.length) * 100) : 0;
 
   return (
     <div style={{ minHeight: "100vh", background: C.bg, color: C.white }}>
-
-      {/* ── CSS Animation ─────────────────────────────────── */}
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
 
-      {/* ── Notification Toast ─────────────────────────────── */}
       {notification && (
-        <div style={{
-          position: "fixed", top: 20, right: 20, zIndex: 200,
-          background: C.card, border: `1px solid ${notification.color === "green" ? C.green : C.yellow}`,
-          borderRadius: 12, padding: "12px 20px", display: "flex", alignItems: "center", gap: 10,
-          boxShadow: "0 8px 32px rgba(0,0,0,0.4)", animation: "fadeIn 0.3s ease",
-        }}>
+        <div style={{ position: "fixed", top: 20, right: 20, zIndex: 200, background: C.card, border: `1px solid ${notification.color === "green" ? C.green : C.yellow}`, borderRadius: 12, padding: "12px 20px", display: "flex", alignItems: "center", gap: 10, boxShadow: "0 8px 32px rgba(0,0,0,0.4)" }}>
           <div style={{ width: 8, height: 8, borderRadius: "50%", background: notification.color === "green" ? C.green : C.yellow }} />
           <span style={{ fontSize: 13, fontWeight: 600, color: C.white }}>{notification.text}</span>
         </div>
       )}
 
-      {/* ── Header ─────────────────────────────────────────── */}
-      <header style={{
-        display: "flex", alignItems: "center", justifyContent: "space-between",
-        padding: "16px 32px", borderBottom: `1px solid ${C.border}`,
-        background: "rgba(11,15,25,0.85)", backdropFilter: "blur(12px)",
-        position: "sticky", top: 0, zIndex: 50,
-      }}>
+      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 32px", borderBottom: `1px solid ${C.border}`, background: "rgba(11,15,25,0.85)", backdropFilter: "blur(12px)", position: "sticky", top: 0, zIndex: 50 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          <div style={{
-            width: 40, height: 40, borderRadius: 12,
-            background: `linear-gradient(135deg, ${C.red}, #991B1B)`,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            fontWeight: 800, fontSize: 18, color: "#fff", letterSpacing: "-0.04em",
-            boxShadow: `0 4px 16px ${C.redGlow}`
-          }}>M</div>
+          <div style={{ width: 40, height: 40, borderRadius: 12, background: `linear-gradient(135deg, ${C.red}, #991B1B)`, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 18, color: "#fff", letterSpacing: "-0.04em", boxShadow: `0 4px 16px ${C.redGlow}` }}>M</div>
           <div>
             <div style={{ fontSize: 17, fontWeight: 700, letterSpacing: "-0.02em" }}>mitunsverkaufen.de</div>
             <div style={{ fontSize: 12, color: C.muted, fontWeight: 500, display: "flex", alignItems: "center", gap: 6 }}>
               Social Media Dashboard
               <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: isConnected ? C.green : C.yellow, fontWeight: 600 }}>
-                {isConnected ? <Wifi size={11} /> : <WifiOff size={11} />}
-                {isConnected ? "Late API verbunden" : "Demo-Modus"}
+                {isConnected ? <Wifi size={11} /> : <WifiOff size={11} />} {isConnected ? "Late API verbunden" : "Demo-Modus"}
               </span>
             </div>
           </div>
         </div>
-
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{
-            display: "flex", alignItems: "center", gap: 8,
-            background: C.card, border: `1px solid ${C.border}`, borderRadius: 10,
-            padding: "8px 14px", width: 220,
-          }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "8px 14px", width: 220 }}>
             <Search size={16} color={C.dimmed} />
-            <input type="text" placeholder="Beiträge suchen..." value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              style={{ background: "transparent", border: "none", outline: "none", color: C.white, fontSize: 13, width: "100%", fontFamily: "inherit" }}
-            />
+            <input type="text" placeholder="Beiträge suchen..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+              style={{ background: "transparent", border: "none", outline: "none", color: C.white, fontSize: 13, width: "100%", fontFamily: "inherit" }} />
           </div>
-          <button onClick={fetchPosts} title="Daten aktualisieren" style={{
-            width: 38, height: 38, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center",
-            background: C.card, border: `1px solid ${C.border}`, cursor: "pointer",
-          }}>
+          <button onClick={fetchPosts} title="Daten aktualisieren" style={{ width: 38, height: 38, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", background: C.card, border: `1px solid ${C.border}`, cursor: "pointer" }}>
             <RefreshCw size={16} color={C.muted} style={isLoading ? { animation: "spin 1s linear infinite" } : {}} />
           </button>
-          <button style={{
-            display: "flex", alignItems: "center", gap: 8,
-            background: C.card, border: `1px solid ${C.border}`, borderRadius: 10,
-            padding: "8px 14px", color: C.white, fontSize: 13, cursor: "pointer",
-          }}>
-            <Calendar size={15} color={C.muted} /> Feb 2026 <ChevronDown size={13} color={C.muted} />
-          </button>
-          <button onClick={() => setShowCreateModal(true)} style={{
-            display: "flex", alignItems: "center", gap: 6, background: C.red, border: "none",
-            borderRadius: 10, padding: "8px 18px", color: "#fff", fontSize: 13,
-            fontWeight: 600, cursor: "pointer", boxShadow: `0 4px 16px ${C.redGlow}`,
-          }}>
+          <MonthPicker selectedMonth={selectedMonth} selectedYear={selectedYear} onSelect={(m, y) => { setSelectedMonth(m); setSelectedYear(y); }} />
+          <button onClick={() => setShowCreateModal(true)} style={{ display: "flex", alignItems: "center", gap: 6, background: C.red, border: "none", borderRadius: 10, padding: "8px 18px", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer", boxShadow: `0 4px 16px ${C.redGlow}` }}>
             <Plus size={15} /> Neuer Beitrag
           </button>
         </div>
       </header>
 
       <div style={{ padding: "28px 32px", maxWidth: 1440, margin: "0 auto" }}>
-
-        {/* ── Stats Row ────────────────────────────────────── */}
         <div style={{ display: "flex", gap: 14, marginBottom: 28, flexWrap: "wrap" }}>
-          <StatCard icon={Eye} label="Gesamte Views" value={fmt(totalViews)} change={18.2} color={C.red} glowColor={C.redGlow} />
-          <StatCard icon={Heart} label="Gesamte Likes" value={fmt(totalLikes)} change={12.5} color={C.redLight} glowColor={C.redGlow} />
+          <StatCard icon={Eye} label="Views" value={fmt(totalViews)} change={18.2} color={C.red} glowColor={C.redGlow} />
+          <StatCard icon={Heart} label="Likes" value={fmt(totalLikes)} change={12.5} color={C.redLight} glowColor={C.redGlow} />
           <StatCard icon={MessageCircle} label="Kommentare" value={fmt(totalComments)} change={24.1} color={C.blue} glowColor={C.blueGlow} />
           <StatCard icon={Share2} label="Shares" value={fmt(totalShares)} change={31.4} color={C.green} glowColor={C.greenGlow} />
-          <StatCard icon={Users} label="Fortschritt" value={`${doneCount}/${posts.length}`} change={progress} color={C.purple} glowColor={C.purpleGlow} />
+          <StatCard icon={Users} label="Fortschritt" value={`${doneCount}/${filtered.length}`} change={progress} color={C.purple} glowColor={C.purpleGlow} />
         </div>
 
-        {/* ── Charts Row ──────────────────────────────────── */}
         <div style={{ display: "flex", gap: 14, marginBottom: 28, flexWrap: "wrap" }}>
           <div style={{ flex: 2, minWidth: 400, background: C.card, borderRadius: 16, border: `1px solid ${C.border}`, padding: 24 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
-              <div>
-                <div style={{ fontSize: 16, fontWeight: 700 }}>Performance Trend</div>
-                <div style={{ fontSize: 13, color: C.muted, marginTop: 2 }}>Views & Engagement – letzte 6 Monate</div>
-              </div>
+              <div><div style={{ fontSize: 16, fontWeight: 700 }}>Performance Trend</div><div style={{ fontSize: 13, color: C.muted, marginTop: 2 }}>Letzte 6 Monate</div></div>
               <div style={{ display: "flex", gap: 16 }}>
                 {[{ color: C.red, label: "Views" }, { color: C.green, label: "Likes" }, { color: C.blue, label: "Kommentare" }].map((l) => (
-                  <div key={l.label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <div style={{ width: 10, height: 10, borderRadius: "50%", background: l.color }} />
-                    <span style={{ fontSize: 12, color: C.muted }}>{l.label}</span>
-                  </div>
+                  <div key={l.label} style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ width: 10, height: 10, borderRadius: "50%", background: l.color }} /><span style={{ fontSize: 12, color: C.muted }}>{l.label}</span></div>
                 ))}
               </div>
             </div>
@@ -505,126 +499,63 @@ export default function Dashboard() {
                   <linearGradient id="vG" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={C.red} stopOpacity={0.25} /><stop offset="100%" stopColor={C.red} stopOpacity={0} /></linearGradient>
                   <linearGradient id="lG" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={C.green} stopOpacity={0.25} /><stop offset="100%" stopColor={C.green} stopOpacity={0} /></linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
-                <XAxis dataKey="month" stroke={C.dimmed} fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis stroke={C.dimmed} fontSize={12} tickLine={false} axisLine={false} tickFormatter={fmt} />
-                <Tooltip content={<ChartTooltip />} />
+                <CartesianGrid strokeDasharray="3 3" stroke={C.border} /><XAxis dataKey="month" stroke={C.dimmed} fontSize={12} tickLine={false} axisLine={false} /><YAxis stroke={C.dimmed} fontSize={12} tickLine={false} axisLine={false} tickFormatter={fmt} /><Tooltip content={<ChartTooltip />} />
                 <Area type="monotone" dataKey="views" name="Views" stroke={C.red} strokeWidth={2.5} fill="url(#vG)" dot={false} />
                 <Area type="monotone" dataKey="likes" name="Likes" stroke={C.green} strokeWidth={2.5} fill="url(#lG)" dot={false} />
                 <Area type="monotone" dataKey="comments" name="Kommentare" stroke={C.blue} strokeWidth={2} fill="transparent" dot={false} strokeDasharray="5 3" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
-
           <div style={{ flex: 1, minWidth: 280, background: C.card, borderRadius: 16, border: `1px solid ${C.border}`, padding: 24 }}>
             <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>Plattform-Vergleich</div>
             <div style={{ fontSize: 13, color: C.muted, marginBottom: 20 }}>Instagram vs. TikTok</div>
             <ResponsiveContainer width="100%" height={230}>
-              <BarChart data={(() => {
-                const ig = posts.filter(p => p.platform === "instagram");
-                const tt = posts.filter(p => p.platform === "tiktok");
-                const sum = (arr, k) => arr.reduce((a, p) => a + p[k], 0);
-                return [
-                  { name: "Views", ig: sum(ig, "views"), tt: sum(tt, "views") },
-                  { name: "Likes", ig: sum(ig, "likes"), tt: sum(tt, "likes") },
-                  { name: "Komm.", ig: sum(ig, "comments"), tt: sum(tt, "comments") },
-                  { name: "Shares", ig: sum(ig, "shares"), tt: sum(tt, "shares") },
-                ];
-              })()} barGap={4}>
-                <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
-                <XAxis dataKey="name" stroke={C.dimmed} fontSize={11} tickLine={false} axisLine={false} />
-                <YAxis stroke={C.dimmed} fontSize={11} tickLine={false} axisLine={false} tickFormatter={fmt} />
-                <Tooltip content={<ChartTooltip />} />
-                <Bar dataKey="ig" name="Instagram" fill={C.instagram} radius={[6, 6, 0, 0]} />
-                <Bar dataKey="tt" name="TikTok" fill={C.tiktok} radius={[6, 6, 0, 0]} />
+              <BarChart data={(() => { const ig = filtered.filter(p => p.platform === "instagram"); const tt = filtered.filter(p => p.platform === "tiktok"); const sum = (a, k) => a.reduce((s, p) => s + p[k], 0); return [{ name: "Views", ig: sum(ig, "views"), tt: sum(tt, "views") }, { name: "Likes", ig: sum(ig, "likes"), tt: sum(tt, "likes") }, { name: "Komm.", ig: sum(ig, "comments"), tt: sum(tt, "comments") }, { name: "Shares", ig: sum(ig, "shares"), tt: sum(tt, "shares") }]; })()} barGap={4}>
+                <CartesianGrid strokeDasharray="3 3" stroke={C.border} /><XAxis dataKey="name" stroke={C.dimmed} fontSize={11} tickLine={false} axisLine={false} /><YAxis stroke={C.dimmed} fontSize={11} tickLine={false} axisLine={false} tickFormatter={fmt} /><Tooltip content={<ChartTooltip />} />
+                <Bar dataKey="ig" name="Instagram" fill={C.instagram} radius={[6, 6, 0, 0]} /><Bar dataKey="tt" name="TikTok" fill={C.tiktok} radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* ── Progress Bar ────────────────────────────────── */}
         <div style={{ background: C.card, borderRadius: 14, border: `1px solid ${C.border}`, padding: "14px 24px", marginBottom: 20, display: "flex", alignItems: "center", gap: 20 }}>
           <div style={{ fontSize: 14, fontWeight: 600, whiteSpace: "nowrap" }}>Monatsfortschritt</div>
-          <div style={{ flex: 1, height: 8, borderRadius: 4, background: "#1E2A3A", overflow: "hidden" }}>
-            <div style={{ height: "100%", width: `${progress}%`, borderRadius: 4, background: `linear-gradient(90deg, ${C.red}, ${C.redLight})`, transition: "width 0.6s cubic-bezier(0.4,0,0.2,1)" }} />
-          </div>
+          <div style={{ flex: 1, height: 8, borderRadius: 4, background: "#1E2A3A", overflow: "hidden" }}><div style={{ height: "100%", width: `${progress}%`, borderRadius: 4, background: `linear-gradient(90deg, ${C.red}, ${C.redLight})`, transition: "width 0.6s cubic-bezier(0.4,0,0.2,1)" }} /></div>
           <div style={{ fontSize: 15, fontWeight: 800, color: C.red, whiteSpace: "nowrap" }}>{progress}%</div>
-          <div style={{ fontSize: 13, color: C.muted, whiteSpace: "nowrap" }}>{doneCount} von {posts.length} erledigt</div>
+          <div style={{ fontSize: 13, color: C.muted, whiteSpace: "nowrap" }}>{doneCount} von {filtered.length} erledigt</div>
         </div>
 
-        {/* ── Filter Bar ──────────────────────────────────── */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
-          {[
-            { key: "all", label: "Alle", count: posts.length },
-            { key: "instagram", label: "Instagram", icon: Instagram, color: C.instagram, count: posts.filter(p => p.platform === "instagram").length },
-            { key: "tiktok", label: "TikTok", icon: Music, color: C.tiktok, count: posts.filter(p => p.platform === "tiktok").length },
-            { key: "offen", label: "Offen", count: posts.filter(p => !p.done).length },
-            { key: "erledigt", label: "Erledigt", count: posts.filter(p => p.done).length },
-          ].map((f) => (
-            <button key={f.key} onClick={() => setFilter(f.key)} style={{
-              display: "flex", alignItems: "center", gap: 6, padding: "7px 16px", borderRadius: 8,
-              border: `1px solid ${filter === f.key ? (f.color || C.red) : C.border}`,
-              background: filter === f.key ? (f.color ? f.color + "15" : C.redGlow) : "transparent",
-              color: filter === f.key ? (f.color || C.red) : C.muted,
-              fontSize: 13, fontWeight: 500, cursor: "pointer", transition: "all 0.2s", fontFamily: "inherit",
-            }}>
-              {f.icon && <f.icon size={14} />} {f.label}
-              <span style={{ background: filter === f.key ? (f.color || C.red) + "30" : C.border, padding: "1px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700, color: filter === f.key ? (f.color || C.red) : C.dimmed }}>{f.count}</span>
+          {[{ key: "all", label: "Alle", count: filtered.length }, { key: "instagram", label: "Instagram", icon: Instagram, color: C.instagram, count: filtered.filter(p => p.platform === "instagram").length }, { key: "tiktok", label: "TikTok", icon: Music, color: C.tiktok, count: filtered.filter(p => p.platform === "tiktok").length }, { key: "offen", label: "Offen", count: filtered.filter(p => !p.done).length }, { key: "erledigt", label: "Erledigt", count: filtered.filter(p => p.done).length }].map((f) => (
+            <button key={f.key} onClick={() => setFilter(f.key)} style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 16px", borderRadius: 8, border: `1px solid ${filter === f.key ? (f.color || C.red) : C.border}`, background: filter === f.key ? (f.color ? f.color + "15" : C.redGlow) : "transparent", color: filter === f.key ? (f.color || C.red) : C.muted, fontSize: 13, fontWeight: 500, cursor: "pointer", transition: "all 0.2s", fontFamily: "inherit" }}>
+              {f.icon && <f.icon size={14} />} {f.label} <span style={{ background: filter === f.key ? (f.color || C.red) + "30" : C.border, padding: "1px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700, color: filter === f.key ? (f.color || C.red) : C.dimmed }}>{f.count}</span>
             </button>
           ))}
         </div>
 
-        {/* ── Table Header ────────────────────────────────── */}
         <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "10px 20px", fontSize: 11, fontWeight: 600, color: C.dimmed, textTransform: "uppercase", letterSpacing: "0.08em" }}>
-          <div style={{ width: 28 }} />
-          <div style={{ width: 36 }} />
-          <div style={{ flex: 1 }}>Beitrag</div>
-          <div style={{ width: 80 }}>Status</div>
-          <div style={{ width: 70, textAlign: "right" }}>Views</div>
-          <div style={{ width: 60, textAlign: "right" }}>Likes</div>
-          <div style={{ width: 60, textAlign: "right" }}>Komm.</div>
-          <div style={{ width: 60, textAlign: "right" }}>Shares</div>
+          <div style={{ width: 28 }} /><div style={{ width: 36 }} /><div style={{ flex: 1 }}>Beitrag</div><div style={{ width: 80 }}>Status</div><div style={{ width: 70, textAlign: "right" }}>Views</div><div style={{ width: 60, textAlign: "right" }}>Likes</div><div style={{ width: 60, textAlign: "right" }}>Komm.</div><div style={{ width: 60, textAlign: "right" }}>Shares</div>
         </div>
 
-        {/* ── Posting List ────────────────────────────────── */}
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {filtered.length === 0 && (
+            <div style={{ padding: 40, textAlign: "center", color: C.dimmed, fontSize: 14 }}>Keine Beiträge für {MONTHS_DE[selectedMonth]} {selectedYear} gefunden.</div>
+          )}
           {filtered.map((post) => {
-            const platformColor = post.platform === "instagram" ? C.instagram : C.tiktok;
-            const PlatformIcon = post.platform === "instagram" ? Instagram : Music;
+            const pc = post.platform === "instagram" ? C.instagram : C.tiktok;
+            const PI = post.platform === "instagram" ? Instagram : Music;
             return (
-              <div key={post.id} onClick={() => toggle(post.id)} style={{
-                display: "flex", alignItems: "center", gap: 16, padding: "12px 20px",
-                borderRadius: 12, background: C.card, border: `1px solid ${C.border}`,
-                cursor: "pointer", transition: "all 0.2s", opacity: post.done ? 0.6 : 1,
-              }}
-              onMouseOver={(e) => { e.currentTarget.style.background = C.cardHover; e.currentTarget.style.borderColor = platformColor + "40"; }}
-              onMouseOut={(e) => { e.currentTarget.style.background = C.card; e.currentTarget.style.borderColor = C.border; }}
-              >
-                <div style={{
-                  width: 26, height: 26, borderRadius: 8, flexShrink: 0,
-                  border: post.done ? "none" : `2px solid ${C.border}`,
-                  background: post.done ? `linear-gradient(135deg, ${C.red}, #991B1B)` : "transparent",
-                  display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s",
-                  boxShadow: post.done ? `0 2px 8px ${C.redGlow}` : "none",
-                }}>
+              <div key={post.id} onClick={() => toggle(post.id)} style={{ display: "flex", alignItems: "center", gap: 16, padding: "12px 20px", borderRadius: 12, background: C.card, border: `1px solid ${C.border}`, cursor: "pointer", transition: "all 0.2s", opacity: post.done ? 0.6 : 1 }}
+                onMouseOver={(e) => { e.currentTarget.style.background = C.cardHover; e.currentTarget.style.borderColor = pc + "40"; }}
+                onMouseOut={(e) => { e.currentTarget.style.background = C.card; e.currentTarget.style.borderColor = C.border; }}>
+                <div style={{ width: 26, height: 26, borderRadius: 8, flexShrink: 0, border: post.done ? "none" : `2px solid ${C.border}`, background: post.done ? `linear-gradient(135deg, ${C.red}, #991B1B)` : "transparent", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s", boxShadow: post.done ? `0 2px 8px ${C.redGlow}` : "none" }}>
                   {post.done && <Check size={14} color="#fff" strokeWidth={3} />}
                 </div>
-
-                <div style={{ width: 36, height: 36, borderRadius: 10, flexShrink: 0, background: platformColor + "15", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <PlatformIcon size={17} color={platformColor} />
-                </div>
-
+                <div style={{ width: 36, height: 36, borderRadius: 10, flexShrink: 0, background: pc + "15", display: "flex", alignItems: "center", justifyContent: "center" }}><PI size={17} color={pc} /></div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: C.white, textDecoration: post.done ? "line-through" : "none", textDecorationColor: C.dimmed, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                    {post.title}
-                  </div>
-                  <div style={{ fontSize: 12, color: C.muted, marginTop: 2, display: "flex", gap: 8, alignItems: "center" }}>
-                    <span style={{ color: platformColor, fontWeight: 600 }}>{post.type}</span>
-                    <span style={{ color: C.border }}>·</span>
-                    <span>{new Date(post.date).toLocaleDateString("de-DE", { day: "numeric", month: "short" })}</span>
-                  </div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: C.white, textDecoration: post.done ? "line-through" : "none", textDecorationColor: C.dimmed, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{post.title}</div>
+                  <div style={{ fontSize: 12, color: C.muted, marginTop: 2, display: "flex", gap: 8, alignItems: "center" }}><span style={{ color: pc, fontWeight: 600 }}>{post.type}</span><span style={{ color: C.border }}>·</span><span>{new Date(post.date).toLocaleDateString("de-DE", { day: "numeric", month: "short" })}</span></div>
                 </div>
-
                 <div style={{ width: 80 }}><StatusBadge status={post.status} /></div>
                 <div style={{ width: 70, textAlign: "right", fontSize: 13, fontWeight: 700, color: post.views > 0 ? C.white : C.dimmed }}>{post.views > 0 ? fmt(post.views) : "–"}</div>
                 <div style={{ width: 60, textAlign: "right", fontSize: 13, fontWeight: 600, color: post.likes > 0 ? C.redLight : C.dimmed }}>{post.likes > 0 ? fmt(post.likes) : "–"}</div>
@@ -635,39 +566,27 @@ export default function Dashboard() {
           })}
         </div>
 
-        {/* ── Setup Guide (shown when not connected) ──────── */}
         {!isConnected && (
           <div style={{ marginTop: 32, padding: 24, background: C.card, borderRadius: 16, border: `1px solid ${C.border}`, display: "flex", gap: 16, alignItems: "flex-start" }}>
-            <div style={{ width: 44, height: 44, borderRadius: 12, background: C.redGlow, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <BarChart3 size={22} color={C.red} />
-            </div>
+            <div style={{ width: 44, height: 44, borderRadius: 12, background: C.redGlow, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><BarChart3 size={22} color={C.red} /></div>
             <div>
               <div style={{ fontSize: 15, fontWeight: 700, color: C.white, marginBottom: 8 }}>Late API verbinden – 3 Schritte</div>
               <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.8 }}>
                 <span style={{ color: C.red, fontWeight: 700 }}>1.</span> Erstelle einen Account auf <span style={{ color: C.blue, fontWeight: 600 }}>getlate.dev</span> und verbinde Instagram + TikTok<br />
                 <span style={{ color: C.red, fontWeight: 700 }}>2.</span> Kopiere deinen API-Key unter Settings → API<br />
-                <span style={{ color: C.red, fontWeight: 700 }}>3.</span> Füge ihn als <span style={{ color: C.green, fontWeight: 600 }}>LATE_API_KEY</span> in deinen Vercel Environment Variables ein und deploye erneut<br />
-                <span style={{ marginTop: 8, display: "block", color: C.dimmed, fontStyle: "italic" }}>Danach werden echte Daten geladen und du kannst direkt aus dem Dashboard posten.</span>
+                <span style={{ color: C.red, fontWeight: 700 }}>3.</span> Füge ihn als <span style={{ color: C.green, fontWeight: 600 }}>LATE_API_KEY</span> in deinen Vercel Environment Variables ein und deploye erneut
               </div>
             </div>
           </div>
         )}
 
-        {/* ── Footer ──────────────────────────────────────── */}
         <div style={{ marginTop: 48, paddingTop: 20, borderTop: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: 32 }}>
           <div style={{ fontSize: 12, color: C.dimmed }}>© 2026 mitunsverkaufen.de GmbH</div>
           <div style={{ fontSize: 12, color: C.dimmed }}>Powered by Late API · Built with Claude AI</div>
         </div>
       </div>
 
-      {/* ── Create Post Modal ─────────────────────────────── */}
-      {showCreateModal && (
-        <CreatePostModal
-          onClose={() => setShowCreateModal(false)}
-          onSubmit={handleCreatePost}
-          isSubmitting={isSubmitting}
-        />
-      )}
+      {showCreateModal && <CreatePostModal onClose={() => setShowCreateModal(false)} onSubmit={handleCreatePost} isSubmitting={isSubmitting} />}
     </div>
   );
 }

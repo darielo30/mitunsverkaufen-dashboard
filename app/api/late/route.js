@@ -2,39 +2,59 @@
 // Keeps your API key secure on the server side
 // Set LATE_API_KEY in your Vercel Environment Variables
 
-const LATE_API = "https://api.getlate.dev/v1";
+const BASE = "https://getlate.dev/api/v1";
 const API_KEY = process.env.LATE_API_KEY;
 
-function headers() {
+function authHeaders() {
   return {
     Authorization: `Bearer ${API_KEY}`,
     "Content-Type": "application/json",
   };
 }
 
+// ── GET: Fetch posts, analytics ─────────────────────────────────
 export async function GET(request) {
+  if (!API_KEY) {
+    return Response.json({ error: "LATE_API_KEY not configured" }, { status: 500 });
+  }
+
   const { searchParams } = new URL(request.url);
   const action = searchParams.get("action");
 
   try {
-    // ── Fetch all posts with analytics ──────────────────────
+    // Fetch all posts
     if (action === "posts") {
-      const res = await fetch(`${LATE_API}/posts`, { headers: headers() });
+      const res = await fetch(`${BASE}/posts`, {
+        headers: authHeaders(),
+      });
       const data = await res.json();
       return Response.json(data);
     }
 
-    // ── Fetch analytics for a specific post ─────────────────
+    // Fetch analytics overview
     if (action === "analytics") {
-      const postId = searchParams.get("postId");
-      const res = await fetch(`${LATE_API}/analytics/post/${postId}`, { headers: headers() });
+      const res = await fetch(`${BASE}/analytics`, {
+        headers: authHeaders(),
+      });
       const data = await res.json();
       return Response.json(data);
     }
 
-    // ── Fetch overall analytics ─────────────────────────────
-    if (action === "analytics-overview") {
-      const res = await fetch(`${LATE_API}/analytics`, { headers: headers() });
+    // Fetch analytics for a specific post
+    if (action === "post-analytics") {
+      const postId = searchParams.get("postId");
+      const res = await fetch(`${BASE}/analytics/${postId}`, {
+        headers: authHeaders(),
+      });
+      const data = await res.json();
+      return Response.json(data);
+    }
+
+    // Fetch publishing logs
+    if (action === "logs") {
+      const res = await fetch(`${BASE}/logs`, {
+        headers: authHeaders(),
+      });
       const data = await res.json();
       return Response.json(data);
     }
@@ -45,7 +65,12 @@ export async function GET(request) {
   }
 }
 
+// ── POST: Create posts, upload media ────────────────────────────
 export async function POST(request) {
+  if (!API_KEY) {
+    return Response.json({ error: "LATE_API_KEY not configured" }, { status: 500 });
+  }
+
   const body = await request.json();
   const { action } = body;
 
@@ -53,30 +78,57 @@ export async function POST(request) {
     // ── Create & schedule a post ────────────────────────────
     if (action === "create-post") {
       const payload = {
-        platforms: body.platforms, // ["instagram", "tiktok"]
         content: body.content,
-        mediaUrls: body.mediaUrls || [],
+        platforms: body.platforms.map((p) => ({
+          platform: p,
+          // accountId is auto-selected if only one account per platform
+        })),
       };
 
-      // If scheduledDate is provided, add it for scheduling
-      if (body.scheduledDate) {
-        payload.scheduledDate = body.scheduledDate; // ISO 8601 format
+      // Media items (array of { type: "image"|"video", url: "..." })
+      if (body.mediaItems && body.mediaItems.length > 0) {
+        payload.mediaItems = body.mediaItems;
       }
 
-      const res = await fetch(`${LATE_API}/posts`, {
+      // Schedule for later or post now
+      if (body.scheduledFor) {
+        payload.scheduledFor = body.scheduledFor;
+      } else if (body.publishNow) {
+        payload.publishNow = true;
+      }
+
+      if (body.timezone) {
+        payload.timezone = body.timezone;
+      }
+
+      const res = await fetch(`${BASE}/posts`, {
         method: "POST",
-        headers: headers(),
+        headers: authHeaders(),
         body: JSON.stringify(payload),
       });
       const data = await res.json();
       return Response.json(data);
     }
 
-    // ── Delete a scheduled post ─────────────────────────────
+    // ── Request presigned upload URL ────────────────────────
+    if (action === "presign-upload") {
+      const res = await fetch(`${BASE}/media/presign`, {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({
+          filename: body.filename,
+          contentType: body.contentType,
+        }),
+      });
+      const data = await res.json();
+      return Response.json(data);
+    }
+
+    // ── Delete a post ───────────────────────────────────────
     if (action === "delete-post") {
-      const res = await fetch(`${LATE_API}/posts/${body.postId}`, {
+      const res = await fetch(`${BASE}/posts/${body.postId}`, {
         method: "DELETE",
-        headers: headers(),
+        headers: authHeaders(),
       });
       const data = await res.json();
       return Response.json(data);
