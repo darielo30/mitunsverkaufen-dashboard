@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Check, Eye, Heart, MessageCircle, Share2, Instagram, Music,
   TrendingUp, TrendingDown, Calendar, ChevronDown, Plus, BarChart3,
-  Users, Search, Bell, Settings, LogOut
+  Users, Search, Bell, X, Clock, Send, Image, Link2, Loader2,
+  RefreshCw, Wifi, WifiOff
 } from "lucide-react";
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip,
@@ -27,6 +28,8 @@ const C = {
   blueGlow: "rgba(59,130,246,0.12)",
   purple: "#8B5CF6",
   purpleGlow: "rgba(139,92,246,0.12)",
+  yellow: "#EAB308",
+  yellowGlow: "rgba(234,179,8,0.12)",
   white: "#F9FAFB",
   muted: "#9CA3AF",
   dimmed: "#6B7280",
@@ -34,8 +37,14 @@ const C = {
   tiktok: "#00F2EA",
 };
 
-// ── Mock Data ───────────────────────────────────────────────────
-const monthlyPerformance = [
+const fmt = (n) => {
+  if (n >= 1000000) return (n / 1000000).toFixed(1) + "M";
+  if (n >= 1000) return (n / 1000).toFixed(1) + "K";
+  return n.toString();
+};
+
+// ── Demo Data (used when Late API is not connected) ─────────────
+const demoPerformance = [
   { month: "Sep", views: 42000, likes: 3200, comments: 890, shares: 420 },
   { month: "Okt", views: 58000, likes: 4100, comments: 1200, shares: 680 },
   { month: "Nov", views: 71000, likes: 5400, comments: 1500, shares: 890 },
@@ -44,45 +53,35 @@ const monthlyPerformance = [
   { month: "Feb", views: 94000, likes: 7100, comments: 2100, shares: 1340 },
 ];
 
-const initialPostings = [
-  { id: 1, platform: "instagram", type: "Reel", title: "Energievertrieb 2026 – So startest du durch", date: "2026-02-03", views: 12400, likes: 890, comments: 124, shares: 67, done: true },
-  { id: 2, platform: "tiktok", type: "Video", title: "Door-to-Door Sales: 5 Tipps vom Profi", date: "2026-02-05", views: 34200, likes: 2100, comments: 310, shares: 445, done: true },
-  { id: 3, platform: "instagram", type: "Karussell", title: "Partnermodell erklärt – Passives Einkommen", date: "2026-02-08", views: 8900, likes: 620, comments: 89, shares: 34, done: true },
-  { id: 4, platform: "tiktok", type: "Video", title: "Tag im Leben eines Energieberaters", date: "2026-02-10", views: 51000, likes: 3400, comments: 520, shares: 780, done: false },
-  { id: 5, platform: "instagram", type: "Reel", title: "Stadtwerke Krefeld Partnerschaft – Behind the Scenes", date: "2026-02-12", views: 6200, likes: 410, comments: 56, shares: 23, done: false },
-  { id: 6, platform: "instagram", type: "Story", title: "Q&A: Häufigste Fragen zu unserem Netzwerk", date: "2026-02-14", views: 0, likes: 0, comments: 0, shares: 0, done: false },
-  { id: 7, platform: "tiktok", type: "Video", title: "Vorher/Nachher: Agentur-Transformation", date: "2026-02-17", views: 0, likes: 0, comments: 0, shares: 0, done: false },
-  { id: 8, platform: "instagram", type: "Reel", title: "Warum Stadtwerke Krefeld? Die Vorteile erklärt", date: "2026-02-19", views: 0, likes: 0, comments: 0, shares: 0, done: false },
-  { id: 9, platform: "tiktok", type: "Video", title: "Recruiting-Strategie für Vertriebsagenturen", date: "2026-02-21", views: 0, likes: 0, comments: 0, shares: 0, done: false },
-  { id: 10, platform: "instagram", type: "Karussell", title: "5 Gründe für mitunsverkaufen.de", date: "2026-02-24", views: 0, likes: 0, comments: 0, shares: 0, done: false },
-  { id: 11, platform: "tiktok", type: "Video", title: "Live-Coaching: Einwandbehandlung an der Haustür", date: "2026-02-26", views: 0, likes: 0, comments: 0, shares: 0, done: false },
-  { id: 12, platform: "instagram", type: "Reel", title: "Monatsrückblick Februar – Highlights", date: "2026-02-28", views: 0, likes: 0, comments: 0, shares: 0, done: false },
+const demoPosts = [
+  { id: 1, platform: "instagram", type: "Reel", title: "Energievertrieb 2026 – So startest du durch", date: "2026-02-03", views: 12400, likes: 890, comments: 124, shares: 67, done: true, status: "published" },
+  { id: 2, platform: "tiktok", type: "Video", title: "Door-to-Door Sales: 5 Tipps vom Profi", date: "2026-02-05", views: 34200, likes: 2100, comments: 310, shares: 445, done: true, status: "published" },
+  { id: 3, platform: "instagram", type: "Karussell", title: "Partnermodell erklärt – Passives Einkommen", date: "2026-02-08", views: 8900, likes: 620, comments: 89, shares: 34, done: true, status: "published" },
+  { id: 4, platform: "tiktok", type: "Video", title: "Tag im Leben eines Energieberaters", date: "2026-02-10", views: 51000, likes: 3400, comments: 520, shares: 780, done: false, status: "published" },
+  { id: 5, platform: "instagram", type: "Reel", title: "Stadtwerke Krefeld – Behind the Scenes", date: "2026-02-12", views: 6200, likes: 410, comments: 56, shares: 23, done: false, status: "published" },
+  { id: 6, platform: "instagram", type: "Story", title: "Q&A: Häufigste Fragen zu unserem Netzwerk", date: "2026-02-14", views: 0, likes: 0, comments: 0, shares: 0, done: false, status: "scheduled" },
+  { id: 7, platform: "tiktok", type: "Video", title: "Vorher/Nachher: Agentur-Transformation", date: "2026-02-17", views: 0, likes: 0, comments: 0, shares: 0, done: false, status: "scheduled" },
+  { id: 8, platform: "instagram", type: "Reel", title: "Warum Stadtwerke Krefeld? Die Vorteile", date: "2026-02-19", views: 0, likes: 0, comments: 0, shares: 0, done: false, status: "draft" },
+  { id: 9, platform: "tiktok", type: "Video", title: "Recruiting-Strategie für Agenturen", date: "2026-02-21", views: 0, likes: 0, comments: 0, shares: 0, done: false, status: "draft" },
+  { id: 10, platform: "instagram", type: "Karussell", title: "5 Gründe für mitunsverkaufen.de", date: "2026-02-24", views: 0, likes: 0, comments: 0, shares: 0, done: false, status: "draft" },
+  { id: 11, platform: "tiktok", type: "Video", title: "Live-Coaching: Einwandbehandlung", date: "2026-02-26", views: 0, likes: 0, comments: 0, shares: 0, done: false, status: "draft" },
+  { id: 12, platform: "instagram", type: "Reel", title: "Monatsrückblick Februar – Highlights", date: "2026-02-28", views: 0, likes: 0, comments: 0, shares: 0, done: false, status: "draft" },
 ];
 
-const fmt = (n) => {
-  if (n >= 1000000) return (n / 1000000).toFixed(1) + "M";
-  if (n >= 1000) return (n / 1000).toFixed(1) + "K";
-  return n.toString();
-};
-
-// ── Stat Card ───────────────────────────────────────────────────
+// ── Stat Card Component ─────────────────────────────────────────
 function StatCard({ icon: Icon, label, value, change, color, glowColor }) {
   const isUp = change >= 0;
   return (
     <div style={{
       background: C.card, borderRadius: 16, padding: "20px 24px",
-      border: `1px solid ${C.border}`, flex: 1, minWidth: 190,
-      transition: "all 0.2s", cursor: "default",
+      border: `1px solid ${C.border}`, flex: 1, minWidth: 170,
+      transition: "all 0.25s", cursor: "default",
     }}
     onMouseOver={(e) => { e.currentTarget.style.borderColor = color; e.currentTarget.style.boxShadow = `0 0 24px ${glowColor}`; }}
     onMouseOut={(e) => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.boxShadow = "none"; }}
     >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-        <div style={{
-          width: 42, height: 42, borderRadius: 12,
-          background: glowColor,
-          display: "flex", alignItems: "center", justifyContent: "center"
-        }}>
+        <div style={{ width: 42, height: 42, borderRadius: 12, background: glowColor, display: "flex", alignItems: "center", justifyContent: "center" }}>
           <Icon size={20} color={color} />
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13, color: isUp ? C.green : C.redLight, fontWeight: 600 }}>
@@ -90,7 +89,7 @@ function StatCard({ icon: Icon, label, value, change, color, glowColor }) {
           {isUp ? "+" : ""}{change}%
         </div>
       </div>
-      <div style={{ fontSize: 30, fontWeight: 800, color: C.white, letterSpacing: "-0.03em" }}>{value}</div>
+      <div style={{ fontSize: 28, fontWeight: 800, color: C.white, letterSpacing: "-0.03em" }}>{value}</div>
       <div style={{ fontSize: 13, color: C.muted, marginTop: 4, fontWeight: 500 }}>{label}</div>
     </div>
   );
@@ -100,25 +99,276 @@ function StatCard({ icon: Icon, label, value, change, color, glowColor }) {
 function ChartTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
   return (
-    <div style={{
-      background: "#1A2035", border: `1px solid ${C.border}`, borderRadius: 12,
-      padding: "12px 16px", boxShadow: "0 12px 40px rgba(0,0,0,0.5)"
-    }}>
+    <div style={{ background: "#1A2035", border: `1px solid ${C.border}`, borderRadius: 12, padding: "12px 16px", boxShadow: "0 12px 40px rgba(0,0,0,0.5)" }}>
       <div style={{ fontSize: 13, color: C.muted, marginBottom: 8, fontWeight: 600 }}>{label}</div>
       {payload.map((p, i) => (
-        <div key={i} style={{ fontSize: 13, color: p.color, fontWeight: 600, marginBottom: 2 }}>
-          {p.name}: {fmt(p.value)}
-        </div>
+        <div key={i} style={{ fontSize: 13, color: p.color, fontWeight: 600, marginBottom: 2 }}>{p.name}: {fmt(p.value)}</div>
       ))}
+    </div>
+  );
+}
+
+// ── Status Badge ────────────────────────────────────────────────
+function StatusBadge({ status }) {
+  const config = {
+    published: { label: "Live", color: C.green, bg: C.greenGlow },
+    scheduled: { label: "Geplant", color: C.yellow, bg: C.yellowGlow },
+    draft: { label: "Entwurf", color: C.dimmed, bg: "rgba(107,114,128,0.12)" },
+  };
+  const c = config[status] || config.draft;
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 700, color: c.color, background: c.bg, padding: "3px 10px", borderRadius: 6, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+      <div style={{ width: 6, height: 6, borderRadius: "50%", background: c.color }} />
+      {c.label}
+    </div>
+  );
+}
+
+// ── Create Post Modal ───────────────────────────────────────────
+function CreatePostModal({ onClose, onSubmit, isSubmitting }) {
+  const [content, setContent] = useState("");
+  const [platforms, setPlatforms] = useState({ instagram: true, tiktok: true });
+  const [scheduleDate, setScheduleDate] = useState("");
+  const [scheduleTime, setScheduleTime] = useState("");
+  const [postNow, setPostNow] = useState(false);
+
+  const handleSubmit = () => {
+    if (!content.trim()) return;
+    const selectedPlatforms = Object.entries(platforms).filter(([, v]) => v).map(([k]) => k);
+    if (selectedPlatforms.length === 0) return;
+
+    let scheduledDate = null;
+    if (!postNow && scheduleDate && scheduleTime) {
+      scheduledDate = new Date(`${scheduleDate}T${scheduleTime}`).toISOString();
+    }
+
+    onSubmit({ content, platforms: selectedPlatforms, scheduledDate });
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 }} onClick={onClose}>
+      <div style={{ background: C.card, borderRadius: 20, border: `1px solid ${C.border}`, width: 520, maxWidth: "90vw", boxShadow: "0 24px 80px rgba(0,0,0,0.6)" }} onClick={(e) => e.stopPropagation()}>
+
+        {/* Modal Header */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "20px 24px", borderBottom: `1px solid ${C.border}` }}>
+          <div style={{ fontSize: 17, fontWeight: 700, color: C.white }}>Neuer Beitrag</div>
+          <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 8, background: C.bg, border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+            <X size={16} color={C.muted} />
+          </button>
+        </div>
+
+        <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20 }}>
+
+          {/* Platform Selection */}
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: C.muted, marginBottom: 8 }}>Plattformen</div>
+            <div style={{ display: "flex", gap: 10 }}>
+              {[
+                { key: "instagram", label: "Instagram", icon: Instagram, color: C.instagram },
+                { key: "tiktok", label: "TikTok", icon: Music, color: C.tiktok },
+              ].map((p) => (
+                <button key={p.key} onClick={() => setPlatforms({ ...platforms, [p.key]: !platforms[p.key] })} style={{
+                  display: "flex", alignItems: "center", gap: 8, padding: "10px 18px", borderRadius: 10,
+                  border: `1.5px solid ${platforms[p.key] ? p.color : C.border}`,
+                  background: platforms[p.key] ? p.color + "15" : "transparent",
+                  color: platforms[p.key] ? p.color : C.dimmed,
+                  fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "all 0.2s", fontFamily: "inherit",
+                }}>
+                  <p.icon size={16} />
+                  {p.label}
+                  {platforms[p.key] && <Check size={14} />}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Content */}
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: C.muted, marginBottom: 8 }}>Beitragstext</div>
+            <textarea
+              value={content} onChange={(e) => setContent(e.target.value)}
+              placeholder="Was möchtet ihr posten? Schreibt euren Text hier..."
+              rows={5}
+              style={{
+                width: "100%", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 12,
+                padding: 14, color: C.white, fontSize: 14, fontFamily: "inherit", resize: "vertical",
+                outline: "none", lineHeight: 1.6, boxSizing: "border-box",
+              }}
+              onFocus={(e) => e.target.style.borderColor = C.red}
+              onBlur={(e) => e.target.style.borderColor = C.border}
+            />
+            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6 }}>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button style={{ display: "flex", alignItems: "center", gap: 5, background: "none", border: "none", color: C.dimmed, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>
+                  <Image size={14} /> Medien
+                </button>
+                <button style={{ display: "flex", alignItems: "center", gap: 5, background: "none", border: "none", color: C.dimmed, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>
+                  <Link2 size={14} /> Link
+                </button>
+              </div>
+              <div style={{ fontSize: 12, color: content.length > 2200 ? C.redLight : C.dimmed }}>{content.length} / 2.200</div>
+            </div>
+          </div>
+
+          {/* Scheduling */}
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: C.muted, marginBottom: 8 }}>Zeitplanung</div>
+            <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
+              <button onClick={() => setPostNow(true)} style={{
+                display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 8,
+                border: `1px solid ${postNow ? C.green : C.border}`, background: postNow ? C.greenGlow : "transparent",
+                color: postNow ? C.green : C.dimmed, fontSize: 13, fontWeight: 500, cursor: "pointer", fontFamily: "inherit",
+              }}>
+                <Send size={14} /> Sofort posten
+              </button>
+              <button onClick={() => setPostNow(false)} style={{
+                display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 8,
+                border: `1px solid ${!postNow ? C.blue : C.border}`, background: !postNow ? C.blueGlow : "transparent",
+                color: !postNow ? C.blue : C.dimmed, fontSize: 13, fontWeight: 500, cursor: "pointer", fontFamily: "inherit",
+              }}>
+                <Clock size={14} /> Planen
+              </button>
+            </div>
+            {!postNow && (
+              <div style={{ display: "flex", gap: 10 }}>
+                <input type="date" value={scheduleDate} onChange={(e) => setScheduleDate(e.target.value)}
+                  style={{ flex: 1, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 12px", color: C.white, fontSize: 13, fontFamily: "inherit", outline: "none", colorScheme: "dark" }}
+                />
+                <input type="time" value={scheduleTime} onChange={(e) => setScheduleTime(e.target.value)}
+                  style={{ width: 120, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 12px", color: C.white, fontSize: 13, fontFamily: "inherit", outline: "none", colorScheme: "dark" }}
+                />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Modal Footer */}
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, padding: "16px 24px", borderTop: `1px solid ${C.border}` }}>
+          <button onClick={onClose} style={{
+            padding: "10px 20px", borderRadius: 10, background: "transparent", border: `1px solid ${C.border}`,
+            color: C.muted, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
+          }}>Abbrechen</button>
+          <button onClick={handleSubmit} disabled={isSubmitting || !content.trim()} style={{
+            display: "flex", alignItems: "center", gap: 6, padding: "10px 24px", borderRadius: 10,
+            background: (!content.trim()) ? C.border : C.red, border: "none",
+            color: "#fff", fontSize: 13, fontWeight: 700, cursor: (!content.trim()) ? "not-allowed" : "pointer",
+            fontFamily: "inherit", boxShadow: content.trim() ? `0 4px 16px ${C.redGlow}` : "none",
+            opacity: isSubmitting ? 0.7 : 1,
+          }}>
+            {isSubmitting ? <Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} /> : postNow ? <Send size={15} /> : <Clock size={15} />}
+            {isSubmitting ? "Wird gesendet..." : postNow ? "Jetzt posten" : "Beitrag planen"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
 
 // ── Main Dashboard ──────────────────────────────────────────────
 export default function Dashboard() {
-  const [posts, setPosts] = useState(initialPostings);
+  const [posts, setPosts] = useState(demoPosts);
+  const [performance, setPerformance] = useState(demoPerformance);
   const [filter, setFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [notification, setNotification] = useState(null);
+
+  // ── Fetch posts from Late API ─────────────────────────────
+  const fetchPosts = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const res = await fetch("/api/late?action=posts");
+      if (!res.ok) throw new Error("API nicht erreichbar");
+      const data = await res.json();
+
+      if (data.error) {
+        setIsConnected(false);
+        return;
+      }
+
+      setIsConnected(true);
+
+      // Transform Late API response to our format
+      if (data.posts && Array.isArray(data.posts)) {
+        const transformed = data.posts.map((p, i) => ({
+          id: p.id || i + 1,
+          platform: p.platforms?.[0] || "instagram",
+          type: p.mediaType === "video" ? "Video" : p.mediaType === "carousel" ? "Karussell" : "Post",
+          title: p.content?.substring(0, 60) + (p.content?.length > 60 ? "..." : "") || "Unbenannt",
+          date: p.scheduledDate || p.createdAt || new Date().toISOString(),
+          views: p.analytics?.impressions || 0,
+          likes: p.analytics?.likes || 0,
+          comments: p.analytics?.comments || 0,
+          shares: p.analytics?.shares || 0,
+          done: p.status === "published",
+          status: p.status || "draft",
+        }));
+        setPosts(transformed);
+      }
+    } catch {
+      setIsConnected(false);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchPosts(); }, [fetchPosts]);
+
+  // ── Create / Schedule Post via Late API ────────────────────
+  const handleCreatePost = async ({ content, platforms, scheduledDate }) => {
+    setIsSubmitting(true);
+    try {
+      const res = await fetch("/api/late", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "create-post", content, platforms, scheduledDate }),
+      });
+      const data = await res.json();
+
+      if (data.error) {
+        // Fallback: add locally in demo mode
+        const newPost = {
+          id: Date.now(),
+          platform: platforms[0],
+          type: "Post",
+          title: content.substring(0, 60) + (content.length > 60 ? "..." : ""),
+          date: scheduledDate || new Date().toISOString(),
+          views: 0, likes: 0, comments: 0, shares: 0,
+          done: false,
+          status: scheduledDate ? "scheduled" : "draft",
+        };
+        setPosts((prev) => [newPost, ...prev]);
+        showNotification("Beitrag lokal gespeichert (Demo-Modus)", "yellow");
+      } else {
+        showNotification(scheduledDate ? "Beitrag erfolgreich geplant!" : "Beitrag wird gepostet!", "green");
+        fetchPosts();
+      }
+    } catch {
+      showNotification("Fehler beim Erstellen – im Demo-Modus gespeichert", "yellow");
+      const newPost = {
+        id: Date.now(),
+        platform: platforms[0],
+        type: "Post",
+        title: content.substring(0, 60) + (content.length > 60 ? "..." : ""),
+        date: scheduledDate || new Date().toISOString(),
+        views: 0, likes: 0, comments: 0, shares: 0,
+        done: false,
+        status: scheduledDate ? "scheduled" : "draft",
+      };
+      setPosts((prev) => [newPost, ...prev]);
+    } finally {
+      setIsSubmitting(false);
+      setShowCreateModal(false);
+    }
+  };
+
+  const showNotification = (text, color) => {
+    setNotification({ text, color });
+    setTimeout(() => setNotification(null), 4000);
+  };
 
   const toggle = (id) => setPosts(posts.map((p) => (p.id === id ? { ...p, done: !p.done } : p)));
 
@@ -138,16 +388,32 @@ export default function Dashboard() {
   const totalComments = posts.reduce((a, p) => a + p.comments, 0);
   const totalShares = posts.reduce((a, p) => a + p.shares, 0);
   const doneCount = posts.filter((p) => p.done).length;
-  const progress = Math.round((doneCount / posts.length) * 100);
+  const progress = posts.length > 0 ? Math.round((doneCount / posts.length) * 100) : 0;
 
   return (
     <div style={{ minHeight: "100vh", background: C.bg, color: C.white }}>
+
+      {/* ── CSS Animation ─────────────────────────────────── */}
+      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+
+      {/* ── Notification Toast ─────────────────────────────── */}
+      {notification && (
+        <div style={{
+          position: "fixed", top: 20, right: 20, zIndex: 200,
+          background: C.card, border: `1px solid ${notification.color === "green" ? C.green : C.yellow}`,
+          borderRadius: 12, padding: "12px 20px", display: "flex", alignItems: "center", gap: 10,
+          boxShadow: "0 8px 32px rgba(0,0,0,0.4)", animation: "fadeIn 0.3s ease",
+        }}>
+          <div style={{ width: 8, height: 8, borderRadius: "50%", background: notification.color === "green" ? C.green : C.yellow }} />
+          <span style={{ fontSize: 13, fontWeight: 600, color: C.white }}>{notification.text}</span>
+        </div>
+      )}
 
       {/* ── Header ─────────────────────────────────────────── */}
       <header style={{
         display: "flex", alignItems: "center", justifyContent: "space-between",
         padding: "16px 32px", borderBottom: `1px solid ${C.border}`,
-        background: "rgba(11,15,25,0.8)", backdropFilter: "blur(12px)",
+        background: "rgba(11,15,25,0.85)", backdropFilter: "blur(12px)",
         position: "sticky", top: 0, zIndex: 50,
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
@@ -160,41 +426,42 @@ export default function Dashboard() {
           }}>M</div>
           <div>
             <div style={{ fontSize: 17, fontWeight: 700, letterSpacing: "-0.02em" }}>mitunsverkaufen.de</div>
-            <div style={{ fontSize: 12, color: C.muted, fontWeight: 500 }}>Social Media Dashboard</div>
+            <div style={{ fontSize: 12, color: C.muted, fontWeight: 500, display: "flex", alignItems: "center", gap: 6 }}>
+              Social Media Dashboard
+              <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: isConnected ? C.green : C.yellow, fontWeight: 600 }}>
+                {isConnected ? <Wifi size={11} /> : <WifiOff size={11} />}
+                {isConnected ? "Late API verbunden" : "Demo-Modus"}
+              </span>
+            </div>
           </div>
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          {/* Search */}
           <div style={{
             display: "flex", alignItems: "center", gap: 8,
             background: C.card, border: `1px solid ${C.border}`, borderRadius: 10,
-            padding: "8px 14px", width: 240,
+            padding: "8px 14px", width: 220,
           }}>
             <Search size={16} color={C.dimmed} />
-            <input
-              type="text" placeholder="Beiträge suchen..." value={searchQuery}
+            <input type="text" placeholder="Beiträge suchen..." value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              style={{
-                background: "transparent", border: "none", outline: "none",
-                color: C.white, fontSize: 13, width: "100%", fontFamily: "inherit"
-              }}
+              style={{ background: "transparent", border: "none", outline: "none", color: C.white, fontSize: 13, width: "100%", fontFamily: "inherit" }}
             />
           </div>
+          <button onClick={fetchPosts} title="Daten aktualisieren" style={{
+            width: 38, height: 38, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center",
+            background: C.card, border: `1px solid ${C.border}`, cursor: "pointer",
+          }}>
+            <RefreshCw size={16} color={C.muted} style={isLoading ? { animation: "spin 1s linear infinite" } : {}} />
+          </button>
           <button style={{
             display: "flex", alignItems: "center", gap: 8,
             background: C.card, border: `1px solid ${C.border}`, borderRadius: 10,
             padding: "8px 14px", color: C.white, fontSize: 13, cursor: "pointer",
           }}>
-            <Calendar size={15} color={C.muted} /> Februar 2026 <ChevronDown size={13} color={C.muted} />
+            <Calendar size={15} color={C.muted} /> Feb 2026 <ChevronDown size={13} color={C.muted} />
           </button>
-          <button style={{
-            width: 38, height: 38, borderRadius: 10, display: "flex", alignItems: "center",
-            justifyContent: "center", background: C.card, border: `1px solid ${C.border}`, cursor: "pointer",
-          }}>
-            <Bell size={16} color={C.muted} />
-          </button>
-          <button style={{
+          <button onClick={() => setShowCreateModal(true)} style={{
             display: "flex", alignItems: "center", gap: 6, background: C.red, border: "none",
             borderRadius: 10, padding: "8px 18px", color: "#fff", fontSize: 13,
             fontWeight: 600, cursor: "pointer", boxShadow: `0 4px 16px ${C.redGlow}`,
@@ -217,22 +484,14 @@ export default function Dashboard() {
 
         {/* ── Charts Row ──────────────────────────────────── */}
         <div style={{ display: "flex", gap: 14, marginBottom: 28, flexWrap: "wrap" }}>
-          {/* Views Trend */}
-          <div style={{
-            flex: 2, minWidth: 420, background: C.card, borderRadius: 16,
-            border: `1px solid ${C.border}`, padding: 24
-          }}>
+          <div style={{ flex: 2, minWidth: 400, background: C.card, borderRadius: 16, border: `1px solid ${C.border}`, padding: 24 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
               <div>
                 <div style={{ fontSize: 16, fontWeight: 700 }}>Performance Trend</div>
                 <div style={{ fontSize: 13, color: C.muted, marginTop: 2 }}>Views & Engagement – letzte 6 Monate</div>
               </div>
               <div style={{ display: "flex", gap: 16 }}>
-                {[
-                  { color: C.red, label: "Views" },
-                  { color: C.green, label: "Likes" },
-                  { color: C.blue, label: "Kommentare" },
-                ].map((l) => (
+                {[{ color: C.red, label: "Views" }, { color: C.green, label: "Likes" }, { color: C.blue, label: "Kommentare" }].map((l) => (
                   <div key={l.label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     <div style={{ width: 10, height: 10, borderRadius: "50%", background: l.color }} />
                     <span style={{ fontSize: 12, color: C.muted }}>{l.label}</span>
@@ -241,16 +500,10 @@ export default function Dashboard() {
               </div>
             </div>
             <ResponsiveContainer width="100%" height={230}>
-              <AreaChart data={monthlyPerformance}>
+              <AreaChart data={performance}>
                 <defs>
-                  <linearGradient id="vG" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={C.red} stopOpacity={0.25} />
-                    <stop offset="100%" stopColor={C.red} stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="lG" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={C.green} stopOpacity={0.25} />
-                    <stop offset="100%" stopColor={C.green} stopOpacity={0} />
-                  </linearGradient>
+                  <linearGradient id="vG" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={C.red} stopOpacity={0.25} /><stop offset="100%" stopColor={C.red} stopOpacity={0} /></linearGradient>
+                  <linearGradient id="lG" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={C.green} stopOpacity={0.25} /><stop offset="100%" stopColor={C.green} stopOpacity={0} /></linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
                 <XAxis dataKey="month" stroke={C.dimmed} fontSize={12} tickLine={false} axisLine={false} />
@@ -263,20 +516,21 @@ export default function Dashboard() {
             </ResponsiveContainer>
           </div>
 
-          {/* Platform Split */}
-          <div style={{
-            flex: 1, minWidth: 300, background: C.card, borderRadius: 16,
-            border: `1px solid ${C.border}`, padding: 24
-          }}>
+          <div style={{ flex: 1, minWidth: 280, background: C.card, borderRadius: 16, border: `1px solid ${C.border}`, padding: 24 }}>
             <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>Plattform-Vergleich</div>
             <div style={{ fontSize: 13, color: C.muted, marginBottom: 20 }}>Instagram vs. TikTok</div>
             <ResponsiveContainer width="100%" height={230}>
-              <BarChart data={[
-                { name: "Views", ig: 27500, tt: 85200 },
-                { name: "Likes", ig: 1920, tt: 5500 },
-                { name: "Komm.", ig: 269, tt: 830 },
-                { name: "Shares", ig: 124, tt: 1225 },
-              ]} barGap={4}>
+              <BarChart data={(() => {
+                const ig = posts.filter(p => p.platform === "instagram");
+                const tt = posts.filter(p => p.platform === "tiktok");
+                const sum = (arr, k) => arr.reduce((a, p) => a + p[k], 0);
+                return [
+                  { name: "Views", ig: sum(ig, "views"), tt: sum(tt, "views") },
+                  { name: "Likes", ig: sum(ig, "likes"), tt: sum(tt, "likes") },
+                  { name: "Komm.", ig: sum(ig, "comments"), tt: sum(tt, "comments") },
+                  { name: "Shares", ig: sum(ig, "shares"), tt: sum(tt, "shares") },
+                ];
+              })()} barGap={4}>
                 <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
                 <XAxis dataKey="name" stroke={C.dimmed} fontSize={11} tickLine={false} axisLine={false} />
                 <YAxis stroke={C.dimmed} fontSize={11} tickLine={false} axisLine={false} tickFormatter={fmt} />
@@ -289,18 +543,10 @@ export default function Dashboard() {
         </div>
 
         {/* ── Progress Bar ────────────────────────────────── */}
-        <div style={{
-          background: C.card, borderRadius: 14, border: `1px solid ${C.border}`,
-          padding: "14px 24px", marginBottom: 20,
-          display: "flex", alignItems: "center", gap: 20
-        }}>
+        <div style={{ background: C.card, borderRadius: 14, border: `1px solid ${C.border}`, padding: "14px 24px", marginBottom: 20, display: "flex", alignItems: "center", gap: 20 }}>
           <div style={{ fontSize: 14, fontWeight: 600, whiteSpace: "nowrap" }}>Monatsfortschritt</div>
           <div style={{ flex: 1, height: 8, borderRadius: 4, background: "#1E2A3A", overflow: "hidden" }}>
-            <div style={{
-              height: "100%", width: `${progress}%`, borderRadius: 4,
-              background: `linear-gradient(90deg, ${C.red}, ${C.redLight})`,
-              transition: "width 0.6s cubic-bezier(0.4,0,0.2,1)"
-            }} />
+            <div style={{ height: "100%", width: `${progress}%`, borderRadius: 4, background: `linear-gradient(90deg, ${C.red}, ${C.redLight})`, transition: "width 0.6s cubic-bezier(0.4,0,0.2,1)" }} />
           </div>
           <div style={{ fontSize: 15, fontWeight: 800, color: C.red, whiteSpace: "nowrap" }}>{progress}%</div>
           <div style={{ fontSize: 13, color: C.muted, whiteSpace: "nowrap" }}>{doneCount} von {posts.length} erledigt</div>
@@ -316,86 +562,60 @@ export default function Dashboard() {
             { key: "erledigt", label: "Erledigt", count: posts.filter(p => p.done).length },
           ].map((f) => (
             <button key={f.key} onClick={() => setFilter(f.key)} style={{
-              display: "flex", alignItems: "center", gap: 6,
-              padding: "7px 16px", borderRadius: 8,
+              display: "flex", alignItems: "center", gap: 6, padding: "7px 16px", borderRadius: 8,
               border: `1px solid ${filter === f.key ? (f.color || C.red) : C.border}`,
               background: filter === f.key ? (f.color ? f.color + "15" : C.redGlow) : "transparent",
               color: filter === f.key ? (f.color || C.red) : C.muted,
-              fontSize: 13, fontWeight: 500, cursor: "pointer", transition: "all 0.2s",
-              fontFamily: "inherit",
+              fontSize: 13, fontWeight: 500, cursor: "pointer", transition: "all 0.2s", fontFamily: "inherit",
             }}>
-              {f.icon && <f.icon size={14} />}
-              {f.label}
-              <span style={{
-                background: filter === f.key ? (f.color || C.red) + "30" : C.border,
-                padding: "1px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700,
-                color: filter === f.key ? (f.color || C.red) : C.dimmed
-              }}>{f.count}</span>
+              {f.icon && <f.icon size={14} />} {f.label}
+              <span style={{ background: filter === f.key ? (f.color || C.red) + "30" : C.border, padding: "1px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700, color: filter === f.key ? (f.color || C.red) : C.dimmed }}>{f.count}</span>
             </button>
           ))}
         </div>
 
         {/* ── Table Header ────────────────────────────────── */}
-        <div style={{
-          display: "flex", alignItems: "center", gap: 16, padding: "10px 20px",
-          fontSize: 11, fontWeight: 600, color: C.dimmed, textTransform: "uppercase",
-          letterSpacing: "0.08em",
-        }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "10px 20px", fontSize: 11, fontWeight: 600, color: C.dimmed, textTransform: "uppercase", letterSpacing: "0.08em" }}>
           <div style={{ width: 28 }} />
           <div style={{ width: 36 }} />
           <div style={{ flex: 1 }}>Beitrag</div>
-          <div style={{ width: 80, textAlign: "right" }}>Views</div>
-          <div style={{ width: 70, textAlign: "right" }}>Likes</div>
-          <div style={{ width: 70, textAlign: "right" }}>Komm.</div>
-          <div style={{ width: 70, textAlign: "right" }}>Shares</div>
-          <div style={{ width: 80 }} />
+          <div style={{ width: 80 }}>Status</div>
+          <div style={{ width: 70, textAlign: "right" }}>Views</div>
+          <div style={{ width: 60, textAlign: "right" }}>Likes</div>
+          <div style={{ width: 60, textAlign: "right" }}>Komm.</div>
+          <div style={{ width: 60, textAlign: "right" }}>Shares</div>
         </div>
 
         {/* ── Posting List ────────────────────────────────── */}
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {filtered.map((post) => {
-            const isPublished = post.views > 0;
             const platformColor = post.platform === "instagram" ? C.instagram : C.tiktok;
             const PlatformIcon = post.platform === "instagram" ? Instagram : Music;
             return (
               <div key={post.id} onClick={() => toggle(post.id)} style={{
                 display: "flex", alignItems: "center", gap: 16, padding: "12px 20px",
                 borderRadius: 12, background: C.card, border: `1px solid ${C.border}`,
-                cursor: "pointer", transition: "all 0.2s",
-                opacity: post.done ? 0.6 : 1,
+                cursor: "pointer", transition: "all 0.2s", opacity: post.done ? 0.6 : 1,
               }}
               onMouseOver={(e) => { e.currentTarget.style.background = C.cardHover; e.currentTarget.style.borderColor = platformColor + "40"; }}
               onMouseOut={(e) => { e.currentTarget.style.background = C.card; e.currentTarget.style.borderColor = C.border; }}
               >
-                {/* Checkbox */}
                 <div style={{
                   width: 26, height: 26, borderRadius: 8, flexShrink: 0,
                   border: post.done ? "none" : `2px solid ${C.border}`,
                   background: post.done ? `linear-gradient(135deg, ${C.red}, #991B1B)` : "transparent",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  transition: "all 0.2s",
+                  display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s",
                   boxShadow: post.done ? `0 2px 8px ${C.redGlow}` : "none",
                 }}>
                   {post.done && <Check size={14} color="#fff" strokeWidth={3} />}
                 </div>
 
-                {/* Platform Badge */}
-                <div style={{
-                  width: 36, height: 36, borderRadius: 10, flexShrink: 0,
-                  background: platformColor + "15",
-                  display: "flex", alignItems: "center", justifyContent: "center"
-                }}>
+                <div style={{ width: 36, height: 36, borderRadius: 10, flexShrink: 0, background: platformColor + "15", display: "flex", alignItems: "center", justifyContent: "center" }}>
                   <PlatformIcon size={17} color={platformColor} />
                 </div>
 
-                {/* Content */}
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{
-                    fontSize: 14, fontWeight: 600, color: C.white,
-                    textDecoration: post.done ? "line-through" : "none",
-                    textDecorationColor: C.dimmed,
-                    whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"
-                  }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: C.white, textDecoration: post.done ? "line-through" : "none", textDecorationColor: C.dimmed, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                     {post.title}
                   </div>
                   <div style={{ fontSize: 12, color: C.muted, marginTop: 2, display: "flex", gap: 8, alignItems: "center" }}>
@@ -405,66 +625,49 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                {/* Metrics */}
-                {isPublished ? (
-                  <>
-                    <div style={{ width: 80, textAlign: "right", fontSize: 13, fontWeight: 700, color: C.white }}>{fmt(post.views)}</div>
-                    <div style={{ width: 70, textAlign: "right", fontSize: 13, fontWeight: 600, color: C.redLight }}>{fmt(post.likes)}</div>
-                    <div style={{ width: 70, textAlign: "right", fontSize: 13, fontWeight: 600, color: C.muted }}>{fmt(post.comments)}</div>
-                    <div style={{ width: 70, textAlign: "right", fontSize: 13, fontWeight: 600, color: C.muted }}>{fmt(post.shares)}</div>
-                    <div style={{ width: 80 }} />
-                  </>
-                ) : (
-                  <>
-                    <div style={{ width: 290, display: "flex", justifyContent: "flex-end" }}>
-                      <div style={{
-                        fontSize: 11, color: C.dimmed, fontWeight: 600, fontStyle: "italic",
-                        background: C.bg, padding: "4px 14px", borderRadius: 6,
-                        textTransform: "uppercase", letterSpacing: "0.06em"
-                      }}>
-                        Geplant
-                      </div>
-                    </div>
-                    <div style={{ width: 80 }} />
-                  </>
-                )}
+                <div style={{ width: 80 }}><StatusBadge status={post.status} /></div>
+                <div style={{ width: 70, textAlign: "right", fontSize: 13, fontWeight: 700, color: post.views > 0 ? C.white : C.dimmed }}>{post.views > 0 ? fmt(post.views) : "–"}</div>
+                <div style={{ width: 60, textAlign: "right", fontSize: 13, fontWeight: 600, color: post.likes > 0 ? C.redLight : C.dimmed }}>{post.likes > 0 ? fmt(post.likes) : "–"}</div>
+                <div style={{ width: 60, textAlign: "right", fontSize: 13, fontWeight: 600, color: post.comments > 0 ? C.muted : C.dimmed }}>{post.comments > 0 ? fmt(post.comments) : "–"}</div>
+                <div style={{ width: 60, textAlign: "right", fontSize: 13, fontWeight: 600, color: post.shares > 0 ? C.muted : C.dimmed }}>{post.shares > 0 ? fmt(post.shares) : "–"}</div>
               </div>
             );
           })}
         </div>
 
-        {/* ── API Hint Footer ─────────────────────────────── */}
-        <div style={{
-          marginTop: 32, padding: 24, background: C.card, borderRadius: 16,
-          border: `1px solid ${C.border}`, display: "flex", gap: 16, alignItems: "flex-start"
-        }}>
-          <div style={{
-            width: 44, height: 44, borderRadius: 12, background: C.redGlow,
-            display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0
-          }}>
-            <BarChart3 size={22} color={C.red} />
-          </div>
-          <div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: C.white, marginBottom: 4 }}>
-              Live-Metriken aktivieren
+        {/* ── Setup Guide (shown when not connected) ──────── */}
+        {!isConnected && (
+          <div style={{ marginTop: 32, padding: 24, background: C.card, borderRadius: 16, border: `1px solid ${C.border}`, display: "flex", gap: 16, alignItems: "flex-start" }}>
+            <div style={{ width: 44, height: 44, borderRadius: 12, background: C.redGlow, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <BarChart3 size={22} color={C.red} />
             </div>
-            <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.7 }}>
-              Dieses Dashboard zeigt Beispieldaten. Verbinde die Instagram Graph API und die TikTok Business API,
-              um echte Performance-Daten zu sehen. Die Integrationsanleitung findest du in der mitgelieferten Datei
-              <span style={{ color: C.red, fontWeight: 600 }}> api-integration-guide.md</span>.
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: C.white, marginBottom: 8 }}>Late API verbinden – 3 Schritte</div>
+              <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.8 }}>
+                <span style={{ color: C.red, fontWeight: 700 }}>1.</span> Erstelle einen Account auf <span style={{ color: C.blue, fontWeight: 600 }}>getlate.dev</span> und verbinde Instagram + TikTok<br />
+                <span style={{ color: C.red, fontWeight: 700 }}>2.</span> Kopiere deinen API-Key unter Settings → API<br />
+                <span style={{ color: C.red, fontWeight: 700 }}>3.</span> Füge ihn als <span style={{ color: C.green, fontWeight: 600 }}>LATE_API_KEY</span> in deinen Vercel Environment Variables ein und deploye erneut<br />
+                <span style={{ marginTop: 8, display: "block", color: C.dimmed, fontStyle: "italic" }}>Danach werden echte Daten geladen und du kannst direkt aus dem Dashboard posten.</span>
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* ── Footer ──────────────────────────────────────── */}
-        <div style={{
-          marginTop: 48, paddingTop: 20, borderTop: `1px solid ${C.border}`,
-          display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: 32
-        }}>
+        <div style={{ marginTop: 48, paddingTop: 20, borderTop: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: 32 }}>
           <div style={{ fontSize: 12, color: C.dimmed }}>© 2026 mitunsverkaufen.de GmbH</div>
-          <div style={{ fontSize: 12, color: C.dimmed }}>Erstellt mit Claude AI</div>
+          <div style={{ fontSize: 12, color: C.dimmed }}>Powered by Late API · Built with Claude AI</div>
         </div>
       </div>
+
+      {/* ── Create Post Modal ─────────────────────────────── */}
+      {showCreateModal && (
+        <CreatePostModal
+          onClose={() => setShowCreateModal(false)}
+          onSubmit={handleCreatePost}
+          isSubmitting={isSubmitting}
+        />
+      )}
     </div>
   );
 }
