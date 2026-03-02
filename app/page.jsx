@@ -1639,11 +1639,10 @@ export default function Dashboard() {
                         <div style={{ display: "flex", gap: 8, marginTop: 4, flexWrap: "wrap" }}>
                           {postPlats.map((plat) => {
                             const ic = plat === "instagram" ? C.instagram : C.tiktok;
-                            const url = post.postUrls?.[plat];
-                            const hasUrl = !!url;
+                            const url = post.postUrls?.[plat] || (plat === "instagram" ? "https://www.instagram.com/mitunsverkaufen/" : "https://www.tiktok.com/@mitunsverkaufen");
                             return (
-                              <button key={plat} onClick={(e) => { e.stopPropagation(); if (hasUrl) window.open(url, "_blank"); }} title={hasUrl ? url : "Kein direkter Link – Beitrag über die Plattform öffnen"} style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 8, background: ic + "15", border: `1px solid ${ic}30`, color: ic, fontSize: 12, fontWeight: 600, cursor: hasUrl ? "pointer" : "default", fontFamily: "inherit", transition: "all 0.2s", opacity: hasUrl ? 1 : 0.5 }}
-                                onMouseOver={(e) => { if (hasUrl) { e.currentTarget.style.background = ic + "25"; e.currentTarget.style.borderColor = ic; } }}
+                              <button key={plat} onClick={(e) => { e.stopPropagation(); window.open(url, "_blank"); }} title={url} style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 8, background: ic + "15", border: `1px solid ${ic}30`, color: ic, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", transition: "all 0.2s" }}
+                                onMouseOver={(e) => { e.currentTarget.style.background = ic + "25"; e.currentTarget.style.borderColor = ic; }}
                                 onMouseOut={(e) => { e.currentTarget.style.background = ic + "15"; e.currentTarget.style.borderColor = ic + "30"; }}>
                                 <ExternalLink size={12} /> {plat === "instagram" ? "Instagram öffnen" : "TikTok öffnen"}
                               </button>
