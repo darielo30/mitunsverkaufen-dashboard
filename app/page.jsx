@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
-  Check, Eye, Heart, MessageCircle, Share2, Instagram, Music,
+  Check, Eye, Heart, MessageCircle, Share2, Instagram,
   TrendingUp, TrendingDown, Calendar, ChevronDown, Plus, BarChart3,
   Users, Search, X, Clock, Send, Loader2,
   RefreshCw, Wifi, WifiOff, Upload, FileVideo, Trash2, ChevronLeft, ChevronRight,
@@ -24,6 +24,15 @@ const C = {
   yellowGlow: "rgba(234,179,8,0.12)", white: "#F9FAFB", muted: "#9CA3AF",
   dimmed: "#6B7280", instagram: "#E1306C", tiktok: "#00F2EA",
 };
+
+// ── TikTok Icon (original logo style, outline) ─────────────────
+function TikTokIcon({ size = 24, color = "#00F2EA" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5" />
+    </svg>
+  );
+}
 
 const fmt = (n) => {
   if (n >= 1000000) return (n / 1000000).toFixed(1) + "M";
@@ -109,7 +118,8 @@ function StatusBadge({ status }) {
     failed: { label: "Fehler", color: C.redLight, bg: C.redGlow },
   };
   const c = config[status] || config.draft;
-  return (<div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 700, color: c.color, background: c.bg, padding: "3px 10px", borderRadius: 6, textTransform: "uppercase", letterSpacing: "0.06em" }}><div style={{ width: 6, height: 6, borderRadius: "50%", background: c.color }} />{c.label}</div>);
+  const isLive = status === "published";
+  return (<div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 700, color: c.color, background: c.bg, padding: "3px 10px", borderRadius: 6, textTransform: "uppercase", letterSpacing: "0.06em" }}><div style={{ width: 6, height: 6, borderRadius: "50%", background: c.color, ...(isLive ? { animation: "livePulse 2s ease-in-out infinite" } : {}) }} />{c.label}</div>);
 }
 
 // ── Month Picker Dropdown ───────────────────────────────────────
@@ -505,7 +515,7 @@ function CreatePostModal({ onClose, onSubmit, isSubmitting, accounts }) {
           <div>
             <div style={{ fontSize: 13, fontWeight: 600, color: C.muted, marginBottom: 8 }}>Plattformen</div>
             <div style={{ display: "flex", gap: 10 }}>
-              {[{ key: "instagram", label: "Instagram", icon: Instagram, color: C.instagram }, { key: "tiktok", label: "TikTok", icon: Music, color: C.tiktok }].map((p) => {
+              {[{ key: "instagram", label: "Instagram", icon: Instagram, color: C.instagram }, { key: "tiktok", label: "TikTok", icon: TikTokIcon, color: C.tiktok }].map((p) => {
                 const account = accounts.find((a) => a.platform === p.key);
                 return (
                   <div key={p.key} style={{ position: "relative" }}>
@@ -912,7 +922,7 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected }) {
         {[
           { key: "all", label: "Alle", icon: null, color: C.red },
           { key: "instagram", label: "Instagram", icon: Instagram, color: C.instagram },
-          { key: "tiktok", label: "TikTok", icon: Music, color: C.tiktok },
+          { key: "tiktok", label: "TikTok", icon: TikTokIcon, color: C.tiktok },
         ].map((f) => {
           const active = platformFilter === f.key;
           return (
@@ -1230,8 +1240,11 @@ export default function Dashboard() {
       const mapPost = (p, i) => {
         const plats = p.platforms?.map((pl) => pl.platform || pl).filter(Boolean) || ["instagram"];
         const urls = {};
-        (p.platforms || []).forEach((pl) => { if (pl.postUrl) urls[pl.platform || pl] = pl.postUrl; });
-        if (p.postUrl) urls[plats[0]] = p.postUrl;
+        (p.platforms || []).forEach((pl) => {
+          const u = pl.postUrl || pl.permalink || pl.url || pl.link;
+          if (u) urls[pl.platform || pl] = u;
+        });
+        if (p.postUrl || p.permalink || p.url) urls[plats[0]] = p.postUrl || p.permalink || p.url;
         return {
           id: p.id || i + 1,
           platforms: plats,
@@ -1327,7 +1340,7 @@ export default function Dashboard() {
 
   return (
     <div style={{ minHeight: "100vh", background: C.bg, color: C.white, display: "flex" }}>
-      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } } @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }`}</style>
+      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } } @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } } @keyframes livePulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(1.3); } }`}</style>
 
       {/* Sidebar */}
       <Sidebar activeTab={activeTab} onTabChange={setActiveTab} unreadCount={unreadCount} />
@@ -1385,7 +1398,7 @@ export default function Dashboard() {
                 {accounts.map((a, i) => (
                   <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 8, background: C.bg, border: `1px solid ${C.border}`, marginBottom: 6 }}>
                     <div style={{ width: 28, height: 28, borderRadius: 8, background: a.platform === "instagram" ? C.instagram + "20" : C.tiktok + "20", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      {a.platform === "instagram" ? <Instagram size={14} color={C.instagram} /> : <Music size={14} color={C.tiktok} />}
+                      {a.platform === "instagram" ? <Instagram size={14} color={C.instagram} /> : <TikTokIcon size={14} color={C.tiktok} />}
                     </div>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 13, fontWeight: 600, color: C.white }}>{a.name}</div>
@@ -1495,7 +1508,7 @@ export default function Dashboard() {
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
-          {[{ key: "all", label: "Alle", count: filtered.length }, { key: "instagram", label: "Instagram", icon: Instagram, color: C.instagram, count: filtered.filter(p => p.platform === "instagram").length }, { key: "tiktok", label: "TikTok", icon: Music, color: C.tiktok, count: filtered.filter(p => p.platform === "tiktok").length }, { key: "offen", label: "Offen", count: filtered.filter(p => !p.done && p.status !== "failed").length }, { key: "erledigt", label: "Erledigt", count: filtered.filter(p => p.done).length }, { key: "failed", label: "Fehler", icon: AlertCircle, color: C.redLight, count: filtered.filter(p => p.status === "failed").length }].filter(f => f.key !== "failed" || f.count > 0).map((f) => (
+          {[{ key: "all", label: "Alle", count: filtered.length }, { key: "instagram", label: "Instagram", icon: Instagram, color: C.instagram, count: filtered.filter(p => p.platform === "instagram").length }, { key: "tiktok", label: "TikTok", icon: TikTokIcon, color: C.tiktok, count: filtered.filter(p => p.platform === "tiktok").length }, { key: "offen", label: "Offen", count: filtered.filter(p => !p.done && p.status !== "failed").length }, { key: "erledigt", label: "Erledigt", count: filtered.filter(p => p.done).length }, { key: "failed", label: "Fehler", icon: AlertCircle, color: C.redLight, count: filtered.filter(p => p.status === "failed").length }].filter(f => f.key !== "failed" || f.count > 0).map((f) => (
             <button key={f.key} onClick={() => setFilter(f.key)} style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 16px", borderRadius: 8, border: `1px solid ${filter === f.key ? (f.color || C.red) : C.border}`, background: filter === f.key ? (f.color ? f.color + "15" : C.redGlow) : "transparent", color: filter === f.key ? (f.color || C.red) : C.muted, fontSize: 13, fontWeight: 500, cursor: "pointer", transition: "all 0.2s", fontFamily: "inherit" }}>
               {f.icon && <f.icon size={14} />} {f.label} <span style={{ background: filter === f.key ? (f.color || C.red) + "30" : C.border, padding: "1px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700, color: filter === f.key ? (f.color || C.red) : C.dimmed }}>{f.count}</span>
             </button>
@@ -1529,7 +1542,7 @@ export default function Dashboard() {
                 <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
                   {postPlats.map((plat) => {
                     const ic = plat === "instagram" ? C.instagram : C.tiktok;
-                    const Icon = plat === "instagram" ? Instagram : Music;
+                    const Icon = plat === "instagram" ? Instagram : TikTokIcon;
                     return <div key={plat} style={{ width: 32, height: 32, borderRadius: 8, background: ic + "15", display: "flex", alignItems: "center", justifyContent: "center" }}><Icon size={15} color={ic} /></div>;
                   })}
                 </div>
@@ -1546,10 +1559,10 @@ export default function Dashboard() {
                   )}
                 </div>
                 <div style={{ width: 80 }}><StatusBadge status={post.status} /></div>
-                {/* Yellow link button – visible for published posts */}
+                {/* Yellow link button – visible for published posts with URLs */}
                 <div style={{ width: 32, display: "flex", justifyContent: "center", flexShrink: 0 }}>
-                  {post.status === "published" ? (
-                    <button onClick={(e) => { e.stopPropagation(); const urls = post.postUrls ? Object.values(post.postUrls) : postPlats.map((pl) => pl === "instagram" ? "https://www.instagram.com/mitunsverkaufen/" : "https://www.tiktok.com/@mitunsverkaufen"); urls.forEach((u) => window.open(u, "_blank")); }} title="Beitrag öffnen" style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${C.yellow}30`, background: C.yellowGlow, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", transition: "all 0.2s" }}
+                  {post.status === "published" && post.postUrls && Object.keys(post.postUrls).length > 0 ? (
+                    <button onClick={(e) => { e.stopPropagation(); Object.values(post.postUrls).forEach((u) => window.open(u, "_blank")); }} title="Beitrag öffnen" style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${C.yellow}30`, background: C.yellowGlow, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", transition: "all 0.2s" }}
                       onMouseOver={(e) => { e.currentTarget.style.background = C.yellow + "30"; e.currentTarget.style.borderColor = C.yellow; }}
                       onMouseOut={(e) => { e.currentTarget.style.background = C.yellowGlow; e.currentTarget.style.borderColor = C.yellow + "30"; }}>
                       <ExternalLink size={14} color={C.yellow} />
@@ -1574,42 +1587,42 @@ export default function Dashboard() {
                       </div>
                     </div>
                     {/* Right: Info grid */}
-                    <div style={{ flex: "0 0 280px", display: "flex", flexDirection: "column", gap: 12 }}>
+                    <div style={{ flex: "0 0 320px", display: "flex", flexDirection: "column", gap: 12 }}>
                       {/* Status */}
-                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: C.dimmed, textTransform: "uppercase", letterSpacing: "0.08em", width: 90 }}>Status</div>
-                        <StatusBadge status={post.status} />
+                      <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: C.dimmed, textTransform: "uppercase", letterSpacing: "0.08em", width: 110, flexShrink: 0, paddingTop: 2 }}>Status</div>
+                        <div style={{ flex: 1 }}><StatusBadge status={post.status} /></div>
                       </div>
                       {/* Content Type */}
-                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: C.dimmed, textTransform: "uppercase", letterSpacing: "0.08em", width: 90 }}>Typ</div>
-                        <div style={{ fontSize: 13, color: C.white, fontWeight: 600 }}>{post.type}</div>
+                      <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: C.dimmed, textTransform: "uppercase", letterSpacing: "0.08em", width: 110, flexShrink: 0, paddingTop: 2 }}>Typ</div>
+                        <div style={{ fontSize: 13, color: C.white, fontWeight: 600, flex: 1 }}>{post.type}</div>
                       </div>
                       {/* Platforms */}
-                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: C.dimmed, textTransform: "uppercase", letterSpacing: "0.08em", width: 90 }}>Plattformen</div>
-                        <div style={{ display: "flex", gap: 6 }}>
+                      <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: C.dimmed, textTransform: "uppercase", letterSpacing: "0.08em", width: 110, flexShrink: 0, paddingTop: 4 }}>Plattformen</div>
+                        <div style={{ display: "flex", gap: 6, flex: 1, flexWrap: "wrap" }}>
                           {postPlats.map((plat) => {
                             const ic = plat === "instagram" ? C.instagram : C.tiktok;
-                            const Icon = plat === "instagram" ? Instagram : Music;
+                            const Icon = plat === "instagram" ? Instagram : TikTokIcon;
                             return <div key={plat} style={{ display: "flex", alignItems: "center", gap: 5, background: ic + "15", borderRadius: 6, padding: "4px 10px" }}><Icon size={13} color={ic} /><span style={{ fontSize: 12, color: ic, fontWeight: 600 }}>{plat === "instagram" ? "Instagram" : "TikTok"}</span></div>;
                           })}
                         </div>
                       </div>
-                      {/* Scheduled date */}
+                      {/* Scheduled / Published date */}
                       {(post.status === "scheduled" || post.status === "published") && (
-                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                          <div style={{ fontSize: 11, fontWeight: 700, color: C.dimmed, textTransform: "uppercase", letterSpacing: "0.08em", width: 90 }}>{post.status === "scheduled" ? "Geplant" : "Veröffentlicht"}</div>
-                          <div style={{ fontSize: 13, color: post.status === "scheduled" ? C.yellow : C.green, fontWeight: 600 }}>
-                            {new Date(post.date).toLocaleDateString("de-DE", { day: "numeric", month: "long", year: "numeric" })}{post.status === "scheduled" && <>, {new Date(post.date).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })} {post.timezone || "CET"}</>}
+                        <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: C.dimmed, textTransform: "uppercase", letterSpacing: "0.08em", width: 110, flexShrink: 0, paddingTop: 2 }}>{post.status === "scheduled" ? "Geplant" : "Veröffentlicht"}</div>
+                          <div style={{ fontSize: 13, color: post.status === "scheduled" ? C.yellow : C.green, fontWeight: 600, flex: 1 }}>
+                            {new Date(post.date).toLocaleDateString("de-DE", { day: "numeric", month: "long", year: "numeric" })}{post.status === "scheduled" && <><br />{new Date(post.date).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })} {post.timezone || "CET"}</>}
                           </div>
                         </div>
                       )}
                       {/* Created date */}
                       {post.createdAt && (
-                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                          <div style={{ fontSize: 11, fontWeight: 700, color: C.dimmed, textTransform: "uppercase", letterSpacing: "0.08em", width: 90 }}>Erstellt</div>
-                          <div style={{ fontSize: 13, color: C.muted }}>{new Date(post.createdAt).toLocaleDateString("de-DE", { day: "numeric", month: "long", year: "numeric" })}{post.createdBy && <span style={{ color: C.white, fontWeight: 600 }}> von {post.createdBy}</span>}</div>
+                        <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: C.dimmed, textTransform: "uppercase", letterSpacing: "0.08em", width: 110, flexShrink: 0, paddingTop: 2 }}>Erstellt</div>
+                          <div style={{ fontSize: 13, color: C.muted, flex: 1 }}>{new Date(post.createdAt).toLocaleDateString("de-DE", { day: "numeric", month: "long", year: "numeric" })}{post.createdBy && <><br /><span style={{ color: C.white, fontWeight: 600 }}>von {post.createdBy}</span></>}</div>
                         </div>
                       )}
                       {/* Performance stats if published */}
@@ -1623,13 +1636,14 @@ export default function Dashboard() {
                       )}
                       {/* Link buttons for published */}
                       {post.status === "published" && (
-                        <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                        <div style={{ display: "flex", gap: 8, marginTop: 4, flexWrap: "wrap" }}>
                           {postPlats.map((plat) => {
                             const ic = plat === "instagram" ? C.instagram : C.tiktok;
-                            const url = post.postUrls?.[plat] || (plat === "instagram" ? "https://www.instagram.com/mitunsverkaufen/" : "https://www.tiktok.com/@mitunsverkaufen");
+                            const url = post.postUrls?.[plat];
+                            const hasUrl = !!url;
                             return (
-                              <button key={plat} onClick={(e) => { e.stopPropagation(); window.open(url, "_blank"); }} style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 8, background: ic + "15", border: `1px solid ${ic}30`, color: ic, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", transition: "all 0.2s" }}
-                                onMouseOver={(e) => { e.currentTarget.style.background = ic + "25"; e.currentTarget.style.borderColor = ic; }}
+                              <button key={plat} onClick={(e) => { e.stopPropagation(); if (hasUrl) window.open(url, "_blank"); }} title={hasUrl ? url : "Kein direkter Link – Beitrag über die Plattform öffnen"} style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 8, background: ic + "15", border: `1px solid ${ic}30`, color: ic, fontSize: 12, fontWeight: 600, cursor: hasUrl ? "pointer" : "default", fontFamily: "inherit", transition: "all 0.2s", opacity: hasUrl ? 1 : 0.5 }}
+                                onMouseOver={(e) => { if (hasUrl) { e.currentTarget.style.background = ic + "25"; e.currentTarget.style.borderColor = ic; } }}
                                 onMouseOut={(e) => { e.currentTarget.style.background = ic + "15"; e.currentTarget.style.borderColor = ic + "30"; }}>
                                 <ExternalLink size={12} /> {plat === "instagram" ? "Instagram öffnen" : "TikTok öffnen"}
                               </button>
@@ -1637,6 +1651,15 @@ export default function Dashboard() {
                           })}
                         </div>
                       )}
+                      {/* Delete button */}
+                      <div style={{ marginTop: 8 }}>
+                        <button onClick={(e) => { e.stopPropagation(); if (window.confirm("Beitrag aus dem Dashboard entfernen? (Bleibt auf den Plattformen online)")) { setPosts((prev) => prev.filter((p) => p.id !== post.id)); setSelectedPost(null); showNotif("Beitrag vom Dashboard entfernt", "red"); } }} style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 8, background: C.redGlow, border: `1px solid ${C.red}25`, color: C.redLight, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", transition: "all 0.2s" }}
+                          onMouseOver={(e) => { e.currentTarget.style.background = C.red + "25"; e.currentTarget.style.borderColor = C.red; }}
+                          onMouseOut={(e) => { e.currentTarget.style.background = C.redGlow; e.currentTarget.style.borderColor = C.red + "25"; }}>
+                          <Trash2 size={12} /> Vom Dashboard entfernen
+                        </button>
+                        <div style={{ fontSize: 10, color: C.dimmed, marginTop: 4 }}>Der Beitrag bleibt auf Instagram & TikTok online.</div>
+                      </div>
                     </div>
                   </div>
                 </div>
