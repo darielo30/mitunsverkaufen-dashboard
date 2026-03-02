@@ -1241,12 +1241,15 @@ export default function Dashboard() {
         const plats = p.platforms?.map((pl) => pl.platform || pl).filter(Boolean) || ["instagram"];
         const urls = {};
         (p.platforms || []).forEach((pl) => {
-          const u = pl.postUrl || pl.permalink || pl.url || pl.link;
+          // Late API uses "platformPostUrl" for the actual post permalink
+          const u = pl.platformPostUrl || pl.postUrl || pl.permalink || pl.url || pl.link;
           if (u) urls[pl.platform || pl] = u;
         });
-        if (p.postUrl || p.permalink || p.url) urls[plats[0]] = p.postUrl || p.permalink || p.url;
+        // Also check top-level fields
+        if (p.platformPostUrl) urls[plats[0]] = p.platformPostUrl;
+        else if (p.postUrl || p.permalink || p.url) urls[plats[0]] = p.postUrl || p.permalink || p.url;
         return {
-          id: p.id || i + 1,
+          id: p._id || p.id || i + 1,
           platforms: plats,
           type: p.mediaItems?.some((m) => m.type === "video") ? "Video" : "Post",
           title: p.content?.substring(0, 60) + (p.content?.length > 60 ? "..." : "") || "Unbenannt",
@@ -1264,10 +1267,11 @@ export default function Dashboard() {
           timezone: p.timezone || undefined,
         };
       };
-      if (data.posts && Array.isArray(data.posts)) {
-        setPosts(data.posts.map(mapPost));
-      } else if (Array.isArray(data)) {
-        setPosts(data.map(mapPost));
+      // Extract posts array from various possible response shapes
+      const rawPosts = data._raw;
+      const postsList = data.posts || (Array.isArray(rawPosts) ? rawPosts : rawPosts?.posts) || (Array.isArray(data) ? data : null);
+      if (postsList && Array.isArray(postsList)) {
+        setPosts(postsList.map(mapPost));
       }
     } catch {
       setIsConnected(false);

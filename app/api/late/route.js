@@ -43,13 +43,19 @@ export async function GET(request) {
       });
     }
 
-    // Fetch all posts
+    // Fetch all posts (include full platform data with platformPostUrl)
     if (action === "posts") {
       const res = await fetch(`${BASE}/posts`, {
         headers: authHeaders(),
       });
-      const data = await res.json();
-      return Response.json(data);
+      const rawText = await res.text();
+      let data;
+      try {
+        data = JSON.parse(rawText);
+      } catch {
+        return Response.json({ error: `Posts API non-JSON: ${rawText.substring(0, 300)}` }, { status: 500 });
+      }
+      return Response.json({ _raw: data, _status: res.status, _ok: res.ok, ...(typeof data === "object" && !Array.isArray(data) ? data : { posts: data }) });
     }
 
     // Fetch analytics overview
