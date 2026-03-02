@@ -1166,7 +1166,20 @@ function TeamPanel() {
 
 // ── Main Dashboard ──────────────────────────────────────────────
 export default function Dashboard() {
-  const [posts, setPosts] = useState(demoPosts);
+  // Hidden/deleted post IDs persisted in localStorage
+  const [hiddenPostIds, setHiddenPostIds] = useState(() => {
+    if (typeof window === "undefined") return [];
+    try { return JSON.parse(localStorage.getItem("hiddenPostIds") || "[]"); } catch { return []; }
+  });
+  const hidePost = (id) => {
+    setHiddenPostIds((prev) => {
+      const next = [...prev, id];
+      try { localStorage.setItem("hiddenPostIds", JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
+
+  const [posts, setPosts] = useState(() => demoPosts.filter((p) => !hiddenPostIds.includes(p.id)));
   const [performance] = useState(demoPerformance);
   const [filter, setFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -1271,14 +1284,14 @@ export default function Dashboard() {
           createdAt: p.createdAt || undefined,
           createdBy: p.createdBy || undefined,
           timezone: p.timezone || undefined,
-          _rawPlatforms: p.platforms, // keep raw data for debugging
         };
       };
       // Extract posts array from various possible response shapes
       const rawPosts = data._raw;
       const postsList = data.posts || (Array.isArray(rawPosts) ? rawPosts : rawPosts?.posts) || (Array.isArray(data) ? data : null);
       if (postsList && Array.isArray(postsList)) {
-        setPosts(postsList.map(mapPost));
+        const hidden = JSON.parse(localStorage.getItem("hiddenPostIds") || "[]");
+        setPosts(postsList.map(mapPost).filter((p) => !hidden.includes(p.id)));
       }
     } catch {
       setIsConnected(false);
@@ -1527,7 +1540,7 @@ export default function Dashboard() {
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "10px 20px", fontSize: 11, fontWeight: 600, color: C.dimmed, textTransform: "uppercase", letterSpacing: "0.08em" }}>
-          <div style={{ width: 28 }} /><div style={{ width: 68 }} /><div style={{ flex: 1 }}>Beitrag</div><div style={{ width: 80 }}>Status</div><div style={{ width: 32 }} /><div style={{ width: 70, textAlign: "right" }}>Views</div><div style={{ width: 60, textAlign: "right" }}>Likes</div><div style={{ width: 60, textAlign: "right" }}>Komm.</div><div style={{ width: 60, textAlign: "right" }}>Shares</div>
+          <div style={{ width: 28 }} /><div style={{ width: 68 }} /><div style={{ flex: 1 }}>Beitrag</div><div style={{ width: 80 }}>Status</div><div style={{ width: 70, textAlign: "right" }}>Views</div><div style={{ width: 60, textAlign: "right" }}>Likes</div><div style={{ width: 60, textAlign: "right" }}>Komm.</div><div style={{ width: 60, textAlign: "right" }}>Shares</div>
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -1570,16 +1583,6 @@ export default function Dashboard() {
                   )}
                 </div>
                 <div style={{ width: 80 }}><StatusBadge status={post.status} /></div>
-                {/* Yellow link button – visible for published posts with URLs */}
-                <div style={{ width: 32, display: "flex", justifyContent: "center", flexShrink: 0 }}>
-                  {post.status === "published" && post.postUrls && Object.keys(post.postUrls).length > 0 ? (
-                    <button onClick={(e) => { e.stopPropagation(); Object.values(post.postUrls).forEach((u) => window.open(u, "_blank")); }} title="Beitrag öffnen" style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${C.yellow}30`, background: C.yellowGlow, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", transition: "all 0.2s" }}
-                      onMouseOver={(e) => { e.currentTarget.style.background = C.yellow + "30"; e.currentTarget.style.borderColor = C.yellow; }}
-                      onMouseOut={(e) => { e.currentTarget.style.background = C.yellowGlow; e.currentTarget.style.borderColor = C.yellow + "30"; }}>
-                      <ExternalLink size={14} color={C.yellow} />
-                    </button>
-                  ) : <div style={{ width: 30 }} />}
-                </div>
                 <div style={{ width: 70, textAlign: "right", fontSize: 13, fontWeight: 700, color: post.views > 0 ? C.white : C.dimmed }}>{post.views > 0 ? fmt(post.views) : "–"}</div>
                 <div style={{ width: 60, textAlign: "right", fontSize: 13, fontWeight: 600, color: post.likes > 0 ? C.redLight : C.dimmed }}>{post.likes > 0 ? fmt(post.likes) : "–"}</div>
                 <div style={{ width: 60, textAlign: "right", fontSize: 13, fontWeight: 600, color: post.comments > 0 ? C.muted : C.dimmed }}>{post.comments > 0 ? fmt(post.comments) : "–"}</div>
@@ -1645,37 +1648,25 @@ export default function Dashboard() {
                           <div style={{ textAlign: "center" }}><div style={{ fontSize: 15, fontWeight: 700, color: C.white }}>{fmt(post.shares)}</div><div style={{ fontSize: 10, color: C.muted, fontWeight: 600 }}>Shares</div></div>
                         </div>
                       )}
-                      {/* Link buttons for published – show URL below each button */}
+                      {/* Link buttons for published */}
                       {post.status === "published" && (
-                        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 4 }}>
+                        <div style={{ display: "flex", gap: 8, marginTop: 4, flexWrap: "wrap" }}>
                           {postPlats.map((plat) => {
                             const ic = plat === "instagram" ? C.instagram : C.tiktok;
-                            const url = post.postUrls?.[plat];
-                            const fallback = plat === "instagram" ? "https://www.instagram.com/mitunsverkaufen/" : "https://www.tiktok.com/@mitunsverkaufen";
-                            const finalUrl = url || fallback;
+                            const url = post.postUrls?.[plat] || (plat === "instagram" ? "https://www.instagram.com/mitunsverkaufen/" : "https://www.tiktok.com/@mitunsverkaufen");
                             return (
-                              <div key={plat}>
-                                <button onClick={(e) => { e.stopPropagation(); window.open(finalUrl, "_blank"); }} title={finalUrl} style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 8, background: ic + "15", border: `1px solid ${ic}30`, color: ic, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", transition: "all 0.2s" }}
-                                  onMouseOver={(e) => { e.currentTarget.style.background = ic + "25"; e.currentTarget.style.borderColor = ic; }}
-                                  onMouseOut={(e) => { e.currentTarget.style.background = ic + "15"; e.currentTarget.style.borderColor = ic + "30"; }}>
-                                  <ExternalLink size={12} /> {plat === "instagram" ? "Instagram öffnen" : "TikTok öffnen"}
-                                </button>
-                                <div style={{ fontSize: 9, color: C.dimmed, marginTop: 2, wordBreak: "break-all", maxWidth: 280 }}>{url || "⚠ Kein direkter Link – Fallback auf Profil"}</div>
-                              </div>
+                              <button key={plat} onClick={(e) => { e.stopPropagation(); window.open(url, "_blank"); }} style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 8, background: ic + "15", border: `1px solid ${ic}30`, color: ic, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", transition: "all 0.2s" }}
+                                onMouseOver={(e) => { e.currentTarget.style.background = ic + "25"; e.currentTarget.style.borderColor = ic; }}
+                                onMouseOut={(e) => { e.currentTarget.style.background = ic + "15"; e.currentTarget.style.borderColor = ic + "30"; }}>
+                                <ExternalLink size={12} /> {plat === "instagram" ? "Instagram öffnen" : "TikTok öffnen"}
+                              </button>
                             );
                           })}
                         </div>
                       )}
-                      {/* Debug: raw platform data from API */}
-                      {post._rawPlatforms && (
-                        <details style={{ marginTop: 6 }}>
-                          <summary style={{ fontSize: 10, color: C.dimmed, cursor: "pointer" }}>API Debug: Plattform-Rohdaten</summary>
-                          <pre style={{ fontSize: 9, color: C.dimmed, background: C.bg, borderRadius: 6, padding: 8, border: `1px solid ${C.border}`, maxHeight: 120, overflowY: "auto", whiteSpace: "pre-wrap", wordBreak: "break-all", marginTop: 4 }}>{JSON.stringify(post._rawPlatforms, null, 2)}</pre>
-                        </details>
-                      )}
                       {/* Delete button */}
                       <div style={{ marginTop: 8 }}>
-                        <button onClick={(e) => { e.stopPropagation(); if (window.confirm("Beitrag aus dem Dashboard entfernen? (Bleibt auf den Plattformen online)")) { setPosts((prev) => prev.filter((p) => p.id !== post.id)); setSelectedPost(null); showNotif("Beitrag vom Dashboard entfernt", "red"); } }} style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 8, background: C.redGlow, border: `1px solid ${C.red}25`, color: C.redLight, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", transition: "all 0.2s" }}
+                        <button onClick={(e) => { e.stopPropagation(); if (window.confirm("Beitrag aus dem Dashboard entfernen? (Bleibt auf den Plattformen online)")) { hidePost(post.id); setPosts((prev) => prev.filter((p) => p.id !== post.id)); setSelectedPost(null); showNotif("Beitrag vom Dashboard entfernt", "red"); } }} style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 8, background: C.redGlow, border: `1px solid ${C.red}25`, color: C.redLight, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", transition: "all 0.2s" }}
                           onMouseOver={(e) => { e.currentTarget.style.background = C.red + "25"; e.currentTarget.style.borderColor = C.red; }}
                           onMouseOut={(e) => { e.currentTarget.style.background = C.redGlow; e.currentTarget.style.borderColor = C.red + "25"; }}>
                           <Trash2 size={12} /> Vom Dashboard entfernen
