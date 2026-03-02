@@ -1241,9 +1241,15 @@ export default function Dashboard() {
         const plats = p.platforms?.map((pl) => pl.platform || pl).filter(Boolean) || ["instagram"];
         const urls = {};
         (p.platforms || []).forEach((pl) => {
+          const platName = pl.platform || pl;
           // Late API uses "platformPostUrl" for the actual post permalink
-          const u = pl.platformPostUrl || pl.postUrl || pl.permalink || pl.url || pl.link;
-          if (u) urls[pl.platform || pl] = u;
+          let u = pl.platformPostUrl || pl.postUrl || pl.permalink || pl.url || pl.link;
+          // Fallback: construct URL from platformPostId if no direct URL
+          if (!u && pl.platformPostId) {
+            if (platName === "instagram") u = `https://www.instagram.com/reel/${pl.platformPostId}/`;
+            else if (platName === "tiktok") u = `https://www.tiktok.com/@mitunsverkaufen/video/${pl.platformPostId}`;
+          }
+          if (u) urls[platName] = u;
         });
         // Also check top-level fields
         if (p.platformPostUrl) urls[plats[0]] = p.platformPostUrl;
@@ -1265,6 +1271,7 @@ export default function Dashboard() {
           createdAt: p.createdAt || undefined,
           createdBy: p.createdBy || undefined,
           timezone: p.timezone || undefined,
+          _rawPlatforms: p.platforms, // keep raw data for debugging
         };
       };
       // Extract posts array from various possible response shapes
@@ -1638,21 +1645,33 @@ export default function Dashboard() {
                           <div style={{ textAlign: "center" }}><div style={{ fontSize: 15, fontWeight: 700, color: C.white }}>{fmt(post.shares)}</div><div style={{ fontSize: 10, color: C.muted, fontWeight: 600 }}>Shares</div></div>
                         </div>
                       )}
-                      {/* Link buttons for published */}
+                      {/* Link buttons for published – show URL below each button */}
                       {post.status === "published" && (
-                        <div style={{ display: "flex", gap: 8, marginTop: 4, flexWrap: "wrap" }}>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 4 }}>
                           {postPlats.map((plat) => {
                             const ic = plat === "instagram" ? C.instagram : C.tiktok;
-                            const url = post.postUrls?.[plat] || (plat === "instagram" ? "https://www.instagram.com/mitunsverkaufen/" : "https://www.tiktok.com/@mitunsverkaufen");
+                            const url = post.postUrls?.[plat];
+                            const fallback = plat === "instagram" ? "https://www.instagram.com/mitunsverkaufen/" : "https://www.tiktok.com/@mitunsverkaufen";
+                            const finalUrl = url || fallback;
                             return (
-                              <button key={plat} onClick={(e) => { e.stopPropagation(); window.open(url, "_blank"); }} title={url} style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 8, background: ic + "15", border: `1px solid ${ic}30`, color: ic, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", transition: "all 0.2s" }}
-                                onMouseOver={(e) => { e.currentTarget.style.background = ic + "25"; e.currentTarget.style.borderColor = ic; }}
-                                onMouseOut={(e) => { e.currentTarget.style.background = ic + "15"; e.currentTarget.style.borderColor = ic + "30"; }}>
-                                <ExternalLink size={12} /> {plat === "instagram" ? "Instagram öffnen" : "TikTok öffnen"}
-                              </button>
+                              <div key={plat}>
+                                <button onClick={(e) => { e.stopPropagation(); window.open(finalUrl, "_blank"); }} title={finalUrl} style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 8, background: ic + "15", border: `1px solid ${ic}30`, color: ic, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", transition: "all 0.2s" }}
+                                  onMouseOver={(e) => { e.currentTarget.style.background = ic + "25"; e.currentTarget.style.borderColor = ic; }}
+                                  onMouseOut={(e) => { e.currentTarget.style.background = ic + "15"; e.currentTarget.style.borderColor = ic + "30"; }}>
+                                  <ExternalLink size={12} /> {plat === "instagram" ? "Instagram öffnen" : "TikTok öffnen"}
+                                </button>
+                                <div style={{ fontSize: 9, color: C.dimmed, marginTop: 2, wordBreak: "break-all", maxWidth: 280 }}>{url || "⚠ Kein direkter Link – Fallback auf Profil"}</div>
+                              </div>
                             );
                           })}
                         </div>
+                      )}
+                      {/* Debug: raw platform data from API */}
+                      {post._rawPlatforms && (
+                        <details style={{ marginTop: 6 }}>
+                          <summary style={{ fontSize: 10, color: C.dimmed, cursor: "pointer" }}>API Debug: Plattform-Rohdaten</summary>
+                          <pre style={{ fontSize: 9, color: C.dimmed, background: C.bg, borderRadius: 6, padding: 8, border: `1px solid ${C.border}`, maxHeight: 120, overflowY: "auto", whiteSpace: "pre-wrap", wordBreak: "break-all", marginTop: 4 }}>{JSON.stringify(post._rawPlatforms, null, 2)}</pre>
+                        </details>
                       )}
                       {/* Delete button */}
                       <div style={{ marginTop: 8 }}>

@@ -58,6 +58,17 @@ export async function GET(request) {
       return Response.json({ _raw: data, _status: res.status, _ok: res.ok, ...(typeof data === "object" && !Array.isArray(data) ? data : { posts: data }) });
     }
 
+    // Fetch single post by ID (debug: shows all platform fields incl. platformPostUrl)
+    if (action === "post-detail") {
+      const postId = searchParams.get("postId");
+      if (!postId) return Response.json({ error: "postId required" }, { status: 400 });
+      const res = await fetch(`${BASE}/posts/${postId}`, { headers: authHeaders() });
+      const rawText = await res.text();
+      let data;
+      try { data = JSON.parse(rawText); } catch { return Response.json({ error: rawText.substring(0, 300) }, { status: 500 }); }
+      return Response.json({ _raw: data, _status: res.status });
+    }
+
     // Fetch analytics overview
     if (action === "analytics") {
       const res = await fetch(`${BASE}/analytics`, {
