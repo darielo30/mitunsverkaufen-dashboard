@@ -787,9 +787,9 @@ const demoNotifications = [
 function Sidebar({ activeTab, onTabChange, unreadCount }) {
   const tabs = [
     { key: "dashboard", icon: LayoutDashboard, label: "Dashboard" },
+    { key: "calendar", icon: Calendar, label: "Kalender" },
     { key: "notifications", icon: Bell, label: "Benachrichtigungen", badge: unreadCount },
     { key: "analytics", icon: BarChart3, label: "Analytics" },
-    { key: "team", icon: UsersRound, label: "Team" },
     { key: "settings", icon: Settings, label: "Einstellungen" },
   ];
 
@@ -1013,8 +1013,164 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected }) {
   );
 }
 
-// ── Team Panel ──────────────────────────────────────────────────
-function TeamPanel() {
+// ── Calendar Panel ──────────────────────────────────────────────
+function CalendarPanel({ posts, onSelectPost, onNewPost }) {
+  const [calMonth, setCalMonth] = useState(new Date().getMonth());
+  const [calYear, setCalYear] = useState(new Date().getFullYear());
+  const [hoveredDay, setHoveredDay] = useState(null);
+
+  const WEEKDAYS = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
+
+  // Get days in month & first weekday (Monday-based)
+  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+  const firstDay = (new Date(calYear, calMonth, 1).getDay() + 6) % 7; // Monday = 0
+  const today = new Date();
+  const isToday = (d) => today.getDate() === d && today.getMonth() === calMonth && today.getFullYear() === calYear;
+
+  // Map posts to days
+  const postsByDay = {};
+  posts.forEach((p) => {
+    const d = new Date(p.date);
+    if (d.getMonth() === calMonth && d.getFullYear() === calYear) {
+      const day = d.getDate();
+      if (!postsByDay[day]) postsByDay[day] = [];
+      postsByDay[day].push(p);
+    }
+  });
+
+  const statusColor = (s) => s === "published" ? C.green : s === "scheduled" ? C.yellow : s === "failed" ? C.redLight : C.dimmed;
+
+  return (
+    <div style={{ padding: "28px 32px", maxWidth: 1000, margin: "0 auto" }}>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+        <div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: C.white }}>Content-Kalender</div>
+          <div style={{ fontSize: 13, color: C.muted, marginTop: 4 }}>Alle Beiträge auf einen Blick</div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <button onClick={() => { if (calMonth === 0) { setCalMonth(11); setCalYear(calYear - 1); } else setCalMonth(calMonth - 1); }}
+            style={{ width: 36, height: 36, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", background: C.card, border: `1px solid ${C.border}`, cursor: "pointer", color: C.muted, fontSize: 18 }}>
+            <ChevronLeft size={18} />
+          </button>
+          <div style={{ fontSize: 16, fontWeight: 700, color: C.white, minWidth: 160, textAlign: "center" }}>
+            {MONTHS_DE[calMonth]} {calYear}
+          </div>
+          <button onClick={() => { if (calMonth === 11) { setCalMonth(0); setCalYear(calYear + 1); } else setCalMonth(calMonth + 1); }}
+            style={{ width: 36, height: 36, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", background: C.card, border: `1px solid ${C.border}`, cursor: "pointer", color: C.muted, fontSize: 18 }}>
+            <ChevronRight size={18} />
+          </button>
+        </div>
+      </div>
+
+      {/* Legend */}
+      <div style={{ display: "flex", gap: 16, marginBottom: 16 }}>
+        {[{ label: "Live", color: C.green }, { label: "Geplant", color: C.yellow }, { label: "Entwurf", color: C.dimmed }, { label: "Fehler", color: C.redLight }].map((l) => (
+          <div key={l.label} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: C.muted }}>
+            <div style={{ width: 8, height: 8, borderRadius: "50%", background: l.color }} />{l.label}
+          </div>
+        ))}
+      </div>
+
+      {/* Weekday headers */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 1, marginBottom: 1 }}>
+        {WEEKDAYS.map((wd) => (
+          <div key={wd} style={{ padding: "8px 0", textAlign: "center", fontSize: 11, fontWeight: 700, color: C.dimmed, textTransform: "uppercase", letterSpacing: "0.08em" }}>{wd}</div>
+        ))}
+      </div>
+
+      {/* Calendar grid */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 1 }}>
+        {/* Empty cells before first day */}
+        {Array.from({ length: firstDay }, (_, i) => (
+          <div key={`e${i}`} style={{ minHeight: 100, background: C.bg, borderRadius: 8 }} />
+        ))}
+
+        {/* Day cells */}
+        {Array.from({ length: daysInMonth }, (_, i) => {
+          const day = i + 1;
+          const dayPosts = postsByDay[day] || [];
+          const isHovered = hoveredDay === day;
+          const isTodayCell = isToday(day);
+          return (
+            <div key={day}
+              onMouseOver={() => setHoveredDay(day)}
+              onMouseOut={() => setHoveredDay(null)}
+              style={{
+                minHeight: 100, padding: 6, background: isHovered ? C.cardHover : C.card,
+                borderRadius: 8, border: `1px solid ${isTodayCell ? C.red + "60" : C.border}`,
+                transition: "all 0.15s", cursor: "default", position: "relative",
+                display: "flex", flexDirection: "column",
+              }}>
+              {/* Day number */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                <div style={{
+                  width: 24, height: 24, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 12, fontWeight: isTodayCell ? 800 : 600,
+                  color: isTodayCell ? "#fff" : dayPosts.length > 0 ? C.white : C.dimmed,
+                  background: isTodayCell ? C.red : "transparent",
+                }}>
+                  {day}
+                </div>
+                {/* Add button on hover */}
+                {isHovered && onNewPost && (
+                  <button onClick={() => onNewPost(new Date(calYear, calMonth, day))}
+                    style={{ width: 20, height: 20, borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", background: C.red + "20", border: "none", cursor: "pointer", color: C.red, fontSize: 14 }}>
+                    <Plus size={12} />
+                  </button>
+                )}
+              </div>
+
+              {/* Posts for this day */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 3, flex: 1 }}>
+                {dayPosts.slice(0, 3).map((p) => {
+                  const plats = p.platforms || [p.platform || "instagram"];
+                  return (
+                    <div key={p.id} onClick={() => onSelectPost && onSelectPost(p)}
+                      style={{
+                        padding: "3px 6px", borderRadius: 5, fontSize: 10, fontWeight: 600,
+                        background: statusColor(p.status) + "15", color: statusColor(p.status),
+                        cursor: "pointer", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                        borderLeft: `3px solid ${statusColor(p.status)}`,
+                        transition: "all 0.15s",
+                      }}
+                      onMouseOver={(e) => { e.currentTarget.style.background = statusColor(p.status) + "30"; }}
+                      onMouseOut={(e) => { e.currentTarget.style.background = statusColor(p.status) + "15"; }}>
+                      <span style={{ display: "inline-flex", gap: 3, alignItems: "center" }}>
+                        {plats.map((pl) => pl === "instagram" ? <Instagram key={pl} size={9} /> : <TikTokIcon key={pl} size={9} color={statusColor(p.status)} />)}
+                      </span>{" "}
+                      {p.title?.substring(0, 20) || "Post"}
+                    </div>
+                  );
+                })}
+                {dayPosts.length > 3 && (
+                  <div style={{ fontSize: 9, color: C.dimmed, fontWeight: 600, paddingLeft: 6 }}>+{dayPosts.length - 3} mehr</div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Monthly stats summary */}
+      <div style={{ display: "flex", gap: 12, marginTop: 20 }}>
+        {[
+          { label: "Gesamt", count: Object.values(postsByDay).flat().length, color: C.white },
+          { label: "Live", count: Object.values(postsByDay).flat().filter((p) => p.status === "published").length, color: C.green },
+          { label: "Geplant", count: Object.values(postsByDay).flat().filter((p) => p.status === "scheduled").length, color: C.yellow },
+          { label: "Entwurf", count: Object.values(postsByDay).flat().filter((p) => p.status === "draft").length, color: C.dimmed },
+        ].map((s) => (
+          <div key={s.label} style={{ flex: 1, padding: "14px 16px", background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, textAlign: "center" }}>
+            <div style={{ fontSize: 22, fontWeight: 800, color: s.color }}>{s.count}</div>
+            <div style={{ fontSize: 11, color: C.muted, fontWeight: 600, marginTop: 2 }}>{s.label}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function _TeamPanelRemoved() { /* removed – demo only */
   const [members, setMembers] = useState([
     { id: 1, name: "Dariel", email: "darielo30@live.de", role: "owner", avatar: "D", joined: "2026-01-15", lastActive: "Gerade aktiv" },
   ]);
@@ -1380,6 +1536,20 @@ export default function Dashboard() {
         </div>
       )}
 
+      {/* Calendar Tab */}
+      {activeTab === "calendar" && (
+        <CalendarPanel
+          posts={posts}
+          onSelectPost={(post) => {
+            setActiveTab("dashboard");
+            setTimeout(() => setSelectedPost(post), 100);
+          }}
+          onNewPost={(dateStr) => {
+            setShowCreateModal(true);
+          }}
+        />
+      )}
+
       {/* Notifications Tab */}
       {activeTab === "notifications" && (
         <NotificationPanel notifications={notifications} onMarkAllRead={markAllRead} isConnected={isConnected} />
@@ -1391,11 +1561,6 @@ export default function Dashboard() {
           <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.02em", marginBottom: 8 }}>Analytics</div>
           <div style={{ fontSize: 13, color: C.muted }}>Detaillierte Statistiken kommen bald – hier werden Reichweite, Engagement-Rate und Follower-Wachstum angezeigt.</div>
         </div>
-      )}
-
-      {/* Team Tab */}
-      {activeTab === "team" && (
-        <TeamPanel />
       )}
 
       {/* Settings Tab */}
@@ -1571,7 +1736,7 @@ export default function Dashboard() {
                   })}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: C.white, textDecoration: post.done ? "line-through" : "none", textDecorationColor: C.dimmed, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{post.title}</div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: C.white, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{post.title}</div>
                   {post.status === "scheduled" ? (
                     <div style={{ fontSize: 11, color: C.yellow, marginTop: 3, lineHeight: 1.5, fontWeight: 500 }}>
                       Geplant: {new Date(post.date).toLocaleDateString("de-DE", { day: "numeric", month: "long", year: "numeric" })}, {new Date(post.date).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })} {post.timezone || "CET"}
