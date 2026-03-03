@@ -8,7 +8,7 @@ import {
   RefreshCw, Wifi, WifiOff, Upload, FileVideo, Trash2, ChevronLeft, ChevronRight,
   Globe, SkipForward, SkipBack, Scissors,
   LayoutDashboard, Bell, Settings, UserPlus, AlertCircle, XCircle, UsersRound, Shield, ExternalLink,
-  Sun, Moon
+  Sun, Moon, FileText, CheckSquare, Square, Download
 } from "lucide-react";
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip,
@@ -799,6 +799,7 @@ function Sidebar({ activeTab, onTabChange, unreadCount, isDarkMode, onToggleThem
   const tabs = [
     { key: "dashboard", icon: LayoutDashboard, label: "Dashboard" },
     { key: "calendar", icon: Calendar, label: "Kalender" },
+    { key: "skripte", icon: FileText, label: "Skripte" },
     { key: "notifications", icon: Bell, label: "Benachrichtigungen", badge: unreadCount },
     { key: "analytics", icon: BarChart3, label: "Analytics" },
     { key: "settings", icon: Settings, label: "Einstellungen" },
@@ -1399,6 +1400,346 @@ function _TeamPanelRemoved() { /* removed – demo only */
   );
 }
 
+// ── Skripte Panel ───────────────────────────────────────────────
+function SkriptePanel({ scripts, onRefresh, loading }) {
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [searchQuery, setSearchQuery] = useState("");
+  const [expandedId, setExpandedId] = useState(null);
+  const [exporting, setExporting] = useState(false);
+
+  const filtered = scripts.filter((s) => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    return (s.title || "").toLowerCase().includes(q) || (s.script || "").toLowerCase().includes(q) || (s.competitor || "").toLowerCase().includes(q);
+  });
+
+  const toggleSelect = (id) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAll = () => {
+    if (selectedIds.size === filtered.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filtered.map((s) => s.id)));
+    }
+  };
+
+  const exportPDF = async () => {
+    const selected = scripts.filter((s) => selectedIds.has(s.id));
+    if (selected.length === 0) return;
+    setExporting(true);
+
+    try {
+      // Dynamic import jsPDF
+      const { jsPDF } = await import("jspdf");
+      const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+      const pageW = doc.internal.pageSize.getWidth();
+      const pageH = doc.internal.pageSize.getHeight();
+      const margin = 20;
+      const contentW = pageW - margin * 2;
+      const today = new Date().toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
+
+      // ── Cover Page ──
+      // Red accent bar top
+      doc.setFillColor(220, 38, 38);
+      doc.rect(0, 0, pageW, 4, "F");
+
+      // Title
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(28);
+      doc.setTextColor(30, 30, 30);
+      doc.text("Content-Skripte", margin, 50);
+
+      // Subtitle
+      doc.setFontSize(14);
+      doc.setTextColor(120, 120, 120);
+      doc.text("mitunsverkaufen.de", margin, 62);
+
+      // Date + count
+      doc.setFontSize(11);
+      doc.text(`Erstellt am ${today} · ${selected.length} Skript${selected.length !== 1 ? "e" : ""}`, margin, 74);
+
+      // Divider line
+      doc.setDrawColor(220, 38, 38);
+      doc.setLineWidth(0.5);
+      doc.line(margin, 82, pageW - margin, 82);
+
+      // Table of contents
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(30, 30, 30);
+      doc.text("Inhaltsverzeichnis", margin, 96);
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.setTextColor(80, 80, 80);
+      selected.forEach((s, i) => {
+        const y = 106 + i * 7;
+        if (y < pageH - 30) {
+          doc.text(`${i + 1}. ${s.title || "Skript " + (i + 1)}`, margin + 4, y);
+        }
+      });
+
+      // Footer on cover
+      doc.setFontSize(8);
+      doc.setTextColor(160, 160, 160);
+      doc.text("mitunsverkaufen.de", margin, pageH - 12);
+      doc.text("Seite 1", pageW - margin, pageH - 12, { align: "right" });
+
+      // ── Script Pages ──
+      selected.forEach((s, i) => {
+        doc.addPage();
+        const pageNum = i + 2;
+
+        // Red accent bar
+        doc.setFillColor(220, 38, 38);
+        doc.rect(0, 0, pageW, 3, "F");
+
+        // Script number badge
+        doc.setFillColor(220, 38, 38);
+        doc.roundedRect(margin, 14, 28, 10, 2, 2, "F");
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(9);
+        doc.setTextColor(255, 255, 255);
+        doc.text(`Skript ${i + 1}`, margin + 14, 20.5, { align: "center" });
+
+        // Title
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(16);
+        doc.setTextColor(30, 30, 30);
+        const titleLines = doc.splitTextToSize(s.title || "Skript " + (i + 1), contentW);
+        doc.text(titleLines, margin, 36);
+        let yPos = 36 + titleLines.length * 7;
+
+        // Meta info line
+        if (s.competitor || s.date) {
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(9);
+          doc.setTextColor(140, 140, 140);
+          const meta = [s.competitor ? `Quelle: ${s.competitor}` : null, s.date ? `Datum: ${s.date}` : null].filter(Boolean).join("  ·  ");
+          doc.text(meta, margin, yPos + 4);
+          yPos += 10;
+        }
+
+        // Divider
+        doc.setDrawColor(230, 230, 230);
+        doc.setLineWidth(0.3);
+        doc.line(margin, yPos + 2, pageW - margin, yPos + 2);
+        yPos += 10;
+
+        // Script body
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10.5);
+        doc.setTextColor(50, 50, 50);
+        const bodyLines = doc.splitTextToSize(s.script || "", contentW);
+        const lineH = 5;
+
+        for (const line of bodyLines) {
+          if (yPos + lineH > pageH - 20) {
+            // Footer before new page
+            doc.setFontSize(8);
+            doc.setTextColor(160, 160, 160);
+            doc.text("mitunsverkaufen.de", margin, pageH - 12);
+            doc.text(`Seite ${pageNum}`, pageW - margin, pageH - 12, { align: "right" });
+            doc.addPage();
+            // Red accent on continuation
+            doc.setFillColor(220, 38, 38);
+            doc.rect(0, 0, pageW, 3, "F");
+            yPos = 16;
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(10.5);
+            doc.setTextColor(50, 50, 50);
+          }
+          doc.text(line, margin, yPos);
+          yPos += lineH;
+        }
+
+        // Footer
+        doc.setFontSize(8);
+        doc.setTextColor(160, 160, 160);
+        doc.text("mitunsverkaufen.de", margin, pageH - 12);
+        doc.text(`Seite ${pageNum}`, pageW - margin, pageH - 12, { align: "right" });
+      });
+
+      doc.save(`content-skripte-${today.replace(/\./g, "-")}.pdf`);
+    } catch (err) {
+      console.error("PDF export error:", err);
+      alert("PDF-Export fehlgeschlagen: " + err.message);
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  return (
+    <div style={{ padding: "28px 32px", maxWidth: 1000, margin: "0 auto" }}>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+        <div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: C.white, letterSpacing: "-0.02em" }}>Content-Skripte</div>
+          <div style={{ fontSize: 13, color: C.muted, marginTop: 4 }}>
+            {scripts.length} Skript{scripts.length !== 1 ? "e" : ""}{selectedIds.size > 0 ? ` · ${selectedIds.size} ausgewählt` : ""}
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={onRefresh} disabled={loading}
+            style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 10, background: C.card, border: `1px solid ${C.border}`, color: C.muted, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+            <RefreshCw size={14} className={loading ? "spin" : ""} style={loading ? { animation: "spin 1s linear infinite" } : {}} /> Aktualisieren
+          </button>
+          <button onClick={exportPDF} disabled={selectedIds.size === 0 || exporting}
+            style={{
+              display: "flex", alignItems: "center", gap: 6, padding: "8px 18px", borderRadius: 10,
+              background: selectedIds.size > 0 ? C.red : C.card,
+              border: selectedIds.size > 0 ? "none" : `1px solid ${C.border}`,
+              color: selectedIds.size > 0 ? "#fff" : C.dimmed,
+              fontSize: 13, fontWeight: 700, cursor: selectedIds.size > 0 ? "pointer" : "default",
+              fontFamily: "inherit", opacity: exporting ? 0.7 : 1,
+              boxShadow: selectedIds.size > 0 ? `0 4px 16px ${C.redGlow}` : "none",
+            }}>
+            {exporting ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <Download size={14} />}
+            {exporting ? "Exportiere..." : "PDF exportieren"}
+          </button>
+        </div>
+      </div>
+
+      {/* Search + Select All bar */}
+      <div style={{ display: "flex", gap: 10, marginBottom: 16, alignItems: "center" }}>
+        <div style={{ flex: 1, position: "relative" }}>
+          <Search size={15} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: C.dimmed }} />
+          <input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Skripte durchsuchen..."
+            style={{ width: "100%", padding: "10px 12px 10px 36px", borderRadius: 10, border: `1px solid ${C.border}`, background: C.card, color: C.white, fontSize: 13, fontFamily: "inherit", outline: "none" }}
+          />
+        </div>
+        <button onClick={selectAll}
+          style={{ display: "flex", alignItems: "center", gap: 6, padding: "10px 16px", borderRadius: 10, background: C.card, border: `1px solid ${C.border}`, color: C.muted, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>
+          {selectedIds.size === filtered.length && filtered.length > 0 ? <CheckSquare size={14} color={C.red} /> : <Square size={14} />}
+          {selectedIds.size === filtered.length && filtered.length > 0 ? "Auswahl aufheben" : "Alle auswählen"}
+        </button>
+      </div>
+
+      {/* Empty state */}
+      {scripts.length === 0 && !loading && (
+        <div style={{ textAlign: "center", padding: "60px 20px", background: C.card, borderRadius: 14, border: `1px solid ${C.border}` }}>
+          <FileText size={40} color={C.dimmed} style={{ marginBottom: 16 }} />
+          <div style={{ fontSize: 16, fontWeight: 700, color: C.white, marginBottom: 8 }}>Noch keine Skripte</div>
+          <div style={{ fontSize: 13, color: C.muted, maxWidth: 400, margin: "0 auto", lineHeight: 1.6 }}>
+            Skripte werden automatisch über den Make.com Webhook importiert. Konfiguriere dein Szenario mit der Webhook-URL deines Dashboards.
+          </div>
+          <div style={{ marginTop: 20, padding: "10px 16px", background: C.bg, borderRadius: 8, display: "inline-block", fontSize: 12, fontFamily: "monospace", color: C.muted }}>
+            POST /api/scripts
+          </div>
+        </div>
+      )}
+
+      {/* Loading */}
+      {loading && scripts.length === 0 && (
+        <div style={{ textAlign: "center", padding: 40 }}>
+          <Loader2 size={24} color={C.red} style={{ animation: "spin 1s linear infinite" }} />
+        </div>
+      )}
+
+      {/* Scripts list */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {filtered.map((s) => {
+          const isSelected = selectedIds.has(s.id);
+          const isExpanded = expandedId === s.id;
+          return (
+            <div key={s.id}>
+              <div
+                onClick={() => setExpandedId(isExpanded ? null : s.id)}
+                style={{
+                  display: "flex", alignItems: "flex-start", gap: 14, padding: "16px 20px",
+                  background: isExpanded ? C.cardHover : C.card,
+                  border: `1px solid ${isExpanded ? C.red + "50" : isSelected ? C.red + "30" : C.border}`,
+                  borderRadius: isExpanded ? "12px 12px 0 0" : 12,
+                  borderBottom: isExpanded ? `1px solid ${C.border}` : undefined,
+                  cursor: "pointer", transition: "all 0.2s",
+                }}
+              >
+                {/* Checkbox */}
+                <div onClick={(e) => { e.stopPropagation(); toggleSelect(s.id); }}
+                  style={{ width: 22, height: 22, borderRadius: 6, border: `2px solid ${isSelected ? C.red : C.border}`, background: isSelected ? C.red : "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", marginTop: 2, flexShrink: 0, transition: "all 0.15s" }}>
+                  {isSelected && <Check size={13} color="#fff" strokeWidth={3} />}
+                </div>
+
+                {/* Content */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: C.white, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {s.title || "Skript"}
+                    </div>
+                    {s.competitor && (
+                      <div style={{ fontSize: 10, fontWeight: 600, color: C.muted, background: C.bg, padding: "2px 8px", borderRadius: 5, whiteSpace: "nowrap" }}>
+                        {s.competitor}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 12, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {s.script?.substring(0, 120) || "Kein Inhalt"}...
+                  </div>
+                </div>
+
+                {/* Date */}
+                <div style={{ fontSize: 11, color: C.dimmed, fontWeight: 600, whiteSpace: "nowrap", marginTop: 2 }}>
+                  {s.date ? new Date(s.date).toLocaleDateString("de-DE", { day: "2-digit", month: "short", year: "numeric" }) : "–"}
+                </div>
+
+                {/* Expand indicator */}
+                <ChevronDown size={16} color={C.dimmed} style={{ marginTop: 3, transform: isExpanded ? "rotate(180deg)" : "rotate(0)", transition: "transform 0.2s" }} />
+              </div>
+
+              {/* Expanded detail */}
+              {isExpanded && (
+                <div style={{
+                  background: C.card, border: `1px solid ${C.red}50`, borderTop: "none",
+                  borderRadius: "0 0 12px 12px", padding: "20px 24px",
+                  animation: "fadeIn 0.2s ease",
+                }}>
+                  {/* Script text */}
+                  <div style={{
+                    fontSize: 13, color: C.white, lineHeight: 1.8,
+                    whiteSpace: "pre-wrap", wordBreak: "break-word",
+                    background: C.bg, borderRadius: 10, padding: "16px 20px",
+                    border: `1px solid ${C.border}`, maxHeight: 400, overflowY: "auto",
+                  }}>
+                    {s.script || "Kein Inhalt"}
+                  </div>
+
+                  {/* Meta info */}
+                  <div style={{ display: "flex", gap: 20, marginTop: 14, fontSize: 11, color: C.dimmed }}>
+                    {s.competitor && <span><strong style={{ color: C.muted }}>Quelle:</strong> {s.competitor}</span>}
+                    {s.date && <span><strong style={{ color: C.muted }}>Datum:</strong> {s.date}</span>}
+                    {s.receivedAt && <span><strong style={{ color: C.muted }}>Empfangen:</strong> {new Date(s.receivedAt).toLocaleString("de-DE")}</span>}
+                  </div>
+
+                  {/* Actions */}
+                  <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+                    {s.originalUrl && (
+                      <a href={s.originalUrl} target="_blank" rel="noopener noreferrer"
+                        style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 14px", borderRadius: 8, background: C.bg, border: `1px solid ${C.border}`, color: C.muted, fontSize: 11, fontWeight: 600, textDecoration: "none", cursor: "pointer" }}>
+                        <ExternalLink size={12} /> Original ansehen
+                      </a>
+                    )}
+                    <button onClick={() => { navigator.clipboard.writeText(s.script || ""); }}
+                      style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 14px", borderRadius: 8, background: C.bg, border: `1px solid ${C.border}`, color: C.muted, fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+                      Skript kopieren
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ── Main Dashboard ──────────────────────────────────────────────
 export default function Dashboard() {
   // Theme state persisted in localStorage
@@ -1450,6 +1791,34 @@ export default function Dashboard() {
   const [notifications, setNotifications] = useState(demoNotifications);
   const [debugInfo, setDebugInfo] = useState(null);
   const [selectedPost, setSelectedPost] = useState(null);
+  const [scripts, setScripts] = useState(() => {
+    if (typeof window === "undefined") return [];
+    try { return JSON.parse(localStorage.getItem("scripts") || "[]"); } catch { return []; }
+  });
+  const [scriptsLoading, setScriptsLoading] = useState(false);
+
+  const fetchScripts = useCallback(async () => {
+    setScriptsLoading(true);
+    try {
+      const res = await fetch("/api/scripts");
+      if (res.ok) {
+        const data = await res.json();
+        const apiScripts = data.scripts || [];
+        // Merge: keep localStorage scripts + add any new ones from API
+        setScripts((prev) => {
+          const existingIds = new Set(prev.map((s) => s.id));
+          const newOnes = apiScripts.filter((s) => !existingIds.has(s.id));
+          const merged = [...prev, ...newOnes];
+          try { localStorage.setItem("scripts", JSON.stringify(merged)); } catch {}
+          return merged;
+        });
+      }
+    } catch (err) {
+      console.error("Failed to fetch scripts:", err);
+    } finally {
+      setScriptsLoading(false);
+    }
+  }, []);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
   const markAllRead = () => setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
@@ -1555,7 +1924,7 @@ export default function Dashboard() {
     }
   }, []);
 
-  useEffect(() => { fetchAccounts(); fetchPosts(); }, [fetchAccounts, fetchPosts]);
+  useEffect(() => { fetchAccounts(); fetchPosts(); fetchScripts(); }, [fetchAccounts, fetchPosts, fetchScripts]);
 
   const handleCreatePost = async ({ content, platforms, scheduledFor, publishNow, mediaItems, timezone, tiktokSettings }) => {
     setIsSubmitting(true);
@@ -1651,6 +2020,11 @@ export default function Dashboard() {
             setShowCreateModal(true);
           }}
         />
+      )}
+
+      {/* Skripte Tab */}
+      {activeTab === "skripte" && (
+        <SkriptePanel scripts={scripts} onRefresh={fetchScripts} loading={scriptsLoading} />
       )}
 
       {/* Notifications Tab */}
