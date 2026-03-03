@@ -371,10 +371,10 @@ const CONTENT_TYPES = [
 ];
 
 // ── Create Post Modal with Media Upload + Thumbnail + Timezone ──
-function CreatePostModal({ onClose, onSubmit, isSubmitting, accounts }) {
+function CreatePostModal({ onClose, onSubmit, isSubmitting, accounts, initialDate }) {
   const [content, setContent] = useState("");
   const [platforms, setPlatforms] = useState({ instagram: true, tiktok: true });
-  const [scheduleDate, setScheduleDate] = useState("");
+  const [scheduleDate, setScheduleDate] = useState(initialDate || "");
   const [scheduleTime, setScheduleTime] = useState("");
   const [postNow, setPostNow] = useState(false);
   const [mediaFiles, setMediaFiles] = useState([]);
@@ -1340,6 +1340,7 @@ export default function Dashboard() {
   const [filter, setFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createModalInitialDate, setCreateModalInitialDate] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -1544,7 +1545,11 @@ export default function Dashboard() {
             setActiveTab("dashboard");
             setTimeout(() => setSelectedPost(post), 100);
           }}
-          onNewPost={(dateStr) => {
+          onNewPost={(date) => {
+            const y = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, "0");
+            const d = String(date.getDate()).padStart(2, "0");
+            setCreateModalInitialDate(`${y}-${m}-${d}`);
             setShowCreateModal(true);
           }}
         />
@@ -1639,7 +1644,7 @@ export default function Dashboard() {
             <RefreshCw size={16} color={C.muted} style={isLoading ? { animation: "spin 1s linear infinite" } : {}} />
           </button>
           <MonthPicker selectedMonth={selectedMonth} selectedYear={selectedYear} onSelect={(m, y) => { setSelectedMonth(m); setSelectedYear(y); }} />
-          <button onClick={() => setShowCreateModal(true)} style={{ display: "flex", alignItems: "center", gap: 6, background: C.red, border: "none", borderRadius: 10, padding: "8px 18px", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer", boxShadow: `0 4px 16px ${C.redGlow}` }}>
+          <button onClick={() => { setCreateModalInitialDate(""); setShowCreateModal(true); }} style={{ display: "flex", alignItems: "center", gap: 6, background: C.red, border: "none", borderRadius: 10, padding: "8px 18px", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer", boxShadow: `0 4px 16px ${C.redGlow}` }}>
             <Plus size={15} /> Neuer Beitrag
           </button>
         </div>
@@ -1873,7 +1878,7 @@ export default function Dashboard() {
       </div>
       {/* End of main content wrapper */}
 
-      {showCreateModal && <CreatePostModal onClose={() => setShowCreateModal(false)} onSubmit={handleCreatePost} isSubmitting={isSubmitting} accounts={accounts} />}
+      {showCreateModal && <CreatePostModal onClose={() => setShowCreateModal(false)} onSubmit={handleCreatePost} isSubmitting={isSubmitting} accounts={accounts} initialDate={createModalInitialDate} />}
     </div>
   );
 }
