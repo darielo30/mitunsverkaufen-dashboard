@@ -1018,6 +1018,7 @@ function CalendarPanel({ posts, onSelectPost, onNewPost }) {
   const [calMonth, setCalMonth] = useState(new Date().getMonth());
   const [calYear, setCalYear] = useState(new Date().getFullYear());
   const [hoveredDay, setHoveredDay] = useState(null);
+  const [tooltip, setTooltip] = useState(null); // { post, x, y }
 
   const WEEKDAYS = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
 
@@ -1039,6 +1040,13 @@ function CalendarPanel({ posts, onSelectPost, onNewPost }) {
   });
 
   const statusColor = (s) => s === "published" ? C.green : s === "scheduled" ? C.yellow : s === "failed" ? C.redLight : C.dimmed;
+  const statusLabel = (s) => s === "published" ? "Live" : s === "scheduled" ? "Geplant" : s === "failed" ? "Fehler" : "Entwurf";
+
+  const showTooltip = (e, post) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    setTooltip({ post, x: rect.right + 8, y: rect.top });
+  };
+  const hideTooltip = () => setTooltip(null);
 
   return (
     <div style={{ padding: "28px 32px", maxWidth: 1000, margin: "0 auto" }}>
@@ -1134,8 +1142,8 @@ function CalendarPanel({ posts, onSelectPost, onNewPost }) {
                         borderLeft: `3px solid ${statusColor(p.status)}`,
                         transition: "all 0.15s",
                       }}
-                      onMouseOver={(e) => { e.currentTarget.style.background = statusColor(p.status) + "30"; }}
-                      onMouseOut={(e) => { e.currentTarget.style.background = statusColor(p.status) + "15"; }}>
+                      onMouseOver={(e) => { e.currentTarget.style.background = statusColor(p.status) + "30"; showTooltip(e, p); }}
+                      onMouseOut={(e) => { e.currentTarget.style.background = statusColor(p.status) + "15"; hideTooltip(); }}>
                       <span style={{ display: "inline-flex", gap: 3, alignItems: "center" }}>
                         {plats.map((pl) => pl === "instagram" ? <Instagram key={pl} size={9} /> : <TikTokIcon key={pl} size={9} color={statusColor(p.status)} />)}
                       </span>{" "}
@@ -1166,6 +1174,50 @@ function CalendarPanel({ posts, onSelectPost, onNewPost }) {
           </div>
         ))}
       </div>
+
+      {/* Tooltip */}
+      {tooltip && (() => {
+        const tp = tooltip.post;
+        const tPlats = tp.platforms || [tp.platform || "instagram"];
+        const sColor = statusColor(tp.status);
+        const rows = [
+          { label: "Status", value: statusLabel(tp.status), color: sColor },
+          tp.type ? { label: "Typ", value: tp.type } : null,
+          { label: "Plattformen", value: tPlats.map((pl) => pl === "instagram" ? "Instagram" : "TikTok").join(", ") },
+          tp.createdAt ? { label: "Erstellt", value: new Date(tp.createdAt).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" }) } : null,
+          tp.status === "published" && tp.date ? { label: "Veröffentlicht", value: new Date(tp.date).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" }) } : null,
+          tp.status === "scheduled" && tp.date ? { label: "Geplant für", value: new Date(tp.date).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" }) } : null,
+        ].filter(Boolean);
+        return (
+          <div style={{
+            position: "fixed", left: tooltip.x, top: tooltip.y,
+            background: C.card, border: `1px solid ${C.border}`, borderRadius: 10,
+            padding: "12px 16px", minWidth: 200, zIndex: 9999,
+            boxShadow: "0 8px 32px rgba(0,0,0,0.5)", pointerEvents: "none",
+            animation: "fadeIn 0.15s ease",
+          }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: C.white, marginBottom: 8, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 220 }}>
+              {tp.title || "Post"}
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+              {rows.map((r, i) => (
+                <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: 16, fontSize: 11 }}>
+                  <span style={{ color: C.dimmed, fontWeight: 600 }}>{r.label}</span>
+                  <span style={{ color: r.color || C.muted, fontWeight: 600, textAlign: "right" }}>{r.value}</span>
+                </div>
+              ))}
+            </div>
+            {tPlats.length > 0 && (
+              <div style={{ display: "flex", gap: 6, marginTop: 8, paddingTop: 8, borderTop: `1px solid ${C.border}` }}>
+                {tPlats.map((pl) => pl === "instagram"
+                  ? <Instagram key={pl} size={13} color={C.instagram} />
+                  : <TikTokIcon key={pl} size={13} color={C.tiktok} />
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 }
