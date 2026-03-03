@@ -1723,7 +1723,7 @@ export default function Dashboard() {
       <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 32px", borderBottom: `1px solid ${C.border}`, background: "rgba(11,15,25,0.85)", backdropFilter: "blur(12px)", position: "sticky", top: 0, zIndex: 30 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
           <div>
-            <div style={{ fontSize: 17, fontWeight: 700, letterSpacing: "-0.02em" }}>mitunsverkaufen.de</div>
+            <div style={{ fontSize: 17, fontWeight: 700, letterSpacing: "-0.02em", color: "#FFFFFF" }}>mitunsverkaufen.de</div>
             <div style={{ fontSize: 12, color: C.muted, fontWeight: 500, display: "flex", alignItems: "center", gap: 6 }}>
               Social Media Dashboard
               <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: isConnected ? C.green : C.yellow, fontWeight: 600 }}>
