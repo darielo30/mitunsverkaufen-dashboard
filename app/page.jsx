@@ -7,7 +7,8 @@ import {
   Users, Search, X, Clock, Send, Loader2,
   RefreshCw, Wifi, WifiOff, Upload, FileVideo, Trash2, ChevronLeft, ChevronRight,
   Globe, SkipForward, SkipBack, Scissors,
-  LayoutDashboard, Bell, Settings, UserPlus, AlertCircle, XCircle, UsersRound, Shield, ExternalLink
+  LayoutDashboard, Bell, Settings, UserPlus, AlertCircle, XCircle, UsersRound, Shield, ExternalLink,
+  Sun, Moon
 } from "lucide-react";
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip,
@@ -15,7 +16,7 @@ import {
 } from "recharts";
 
 // ── Brand Colors ────────────────────────────────────────────────
-const C = {
+const darkTheme = {
   bg: "#0B0F19", bgSoft: "#0F1320", card: "#131825", cardHover: "#1A2035",
   border: "#1E2A3A", red: "#DC2626", redGlow: "rgba(220,38,38,0.12)",
   redLight: "#EF4444", green: "#22C55E", greenGlow: "rgba(34,197,94,0.12)",
@@ -24,6 +25,16 @@ const C = {
   yellowGlow: "rgba(234,179,8,0.12)", white: "#F9FAFB", muted: "#9CA3AF",
   dimmed: "#6B7280", instagram: "#E1306C", tiktok: "#00F2EA",
 };
+const lightTheme = {
+  bg: "#F3F4F6", bgSoft: "#E5E7EB", card: "#FFFFFF", cardHover: "#F9FAFB",
+  border: "#D1D5DB", red: "#DC2626", redGlow: "rgba(220,38,38,0.08)",
+  redLight: "#EF4444", green: "#16A34A", greenGlow: "rgba(22,163,74,0.08)",
+  blue: "#2563EB", blueGlow: "rgba(37,99,235,0.08)", purple: "#7C3AED",
+  purpleGlow: "rgba(124,58,237,0.08)", yellow: "#CA8A04",
+  yellowGlow: "rgba(202,138,4,0.08)", white: "#111827", muted: "#6B7280",
+  dimmed: "#9CA3AF", instagram: "#E1306C", tiktok: "#00B8A9",
+};
+let C = darkTheme;
 
 // ── TikTok Icon (original logo style, outline) ─────────────────
 function TikTokIcon({ size = 24, color = "#00F2EA" }) {
@@ -784,7 +795,7 @@ const demoNotifications = [
 ];
 
 // ── Sidebar ─────────────────────────────────────────────────────
-function Sidebar({ activeTab, onTabChange, unreadCount }) {
+function Sidebar({ activeTab, onTabChange, unreadCount, isDarkMode, onToggleTheme }) {
   const tabs = [
     { key: "dashboard", icon: LayoutDashboard, label: "Dashboard" },
     { key: "calendar", icon: Calendar, label: "Kalender" },
@@ -824,6 +835,22 @@ function Sidebar({ activeTab, onTabChange, unreadCount }) {
           </button>
         );
       })}
+
+      {/* Spacer */}
+      <div style={{ flex: 1 }} />
+
+      {/* Theme Toggle */}
+      <button onClick={onToggleTheme} title={isDarkMode ? "Light Mode" : "Dark Mode"}
+        style={{
+          width: 40, height: 40, borderRadius: 12, border: `1px solid ${C.border}`,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          background: isDarkMode ? C.bg : C.cardHover, cursor: "pointer",
+          transition: "all 0.3s", marginBottom: 16,
+        }}
+        onMouseOver={(e) => { e.currentTarget.style.background = isDarkMode ? C.cardHover : C.border; }}
+        onMouseOut={(e) => { e.currentTarget.style.background = isDarkMode ? C.bg : C.cardHover; }}>
+        {isDarkMode ? <Sun size={18} color={C.yellow} /> : <Moon size={18} color="#6366F1" />}
+      </button>
     </div>
   );
 }
@@ -1374,6 +1401,25 @@ function _TeamPanelRemoved() { /* removed – demo only */
 
 // ── Main Dashboard ──────────────────────────────────────────────
 export default function Dashboard() {
+  // Theme state persisted in localStorage
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    if (typeof window === "undefined") return true;
+    try { return localStorage.getItem("theme") !== "light"; } catch { return true; }
+  });
+  C = isDarkMode ? darkTheme : lightTheme;
+  const toggleTheme = () => {
+    setIsDarkMode((prev) => {
+      const next = !prev;
+      try { localStorage.setItem("theme", next ? "dark" : "light"); } catch {}
+      return next;
+    });
+  };
+
+  // Sync body background with theme
+  useEffect(() => {
+    document.body.style.background = C.bg;
+  }, [isDarkMode]);
+
   // Hidden/deleted post IDs persisted in localStorage
   const [hiddenPostIds, setHiddenPostIds] = useState(() => {
     if (typeof window === "undefined") return [];
@@ -1576,7 +1622,7 @@ export default function Dashboard() {
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } } @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } } @keyframes livePulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(1.3); } }`}</style>
 
       {/* Sidebar */}
-      <Sidebar activeTab={activeTab} onTabChange={setActiveTab} unreadCount={unreadCount} />
+      <Sidebar activeTab={activeTab} onTabChange={setActiveTab} unreadCount={unreadCount} isDarkMode={isDarkMode} onToggleTheme={toggleTheme} />
 
       {/* Main Content */}
       <div style={{ flex: 1, marginLeft: 64 }}>
@@ -1748,7 +1794,7 @@ export default function Dashboard() {
 
         <div style={{ background: C.card, borderRadius: 14, border: `1px solid ${C.border}`, padding: "14px 24px", marginBottom: 20, display: "flex", alignItems: "center", gap: 20 }}>
           <div style={{ fontSize: 14, fontWeight: 600, whiteSpace: "nowrap" }}>Monatsziel</div>
-          <div style={{ flex: 1, height: 8, borderRadius: 4, background: "#1E2A3A", overflow: "hidden" }}><div style={{ height: "100%", width: `${progress}%`, borderRadius: 4, background: `linear-gradient(90deg, ${C.red}, ${C.redLight})`, transition: "width 0.6s cubic-bezier(0.4,0,0.2,1)" }} /></div>
+          <div style={{ flex: 1, height: 8, borderRadius: 4, background: C.border, overflow: "hidden" }}><div style={{ height: "100%", width: `${progress}%`, borderRadius: 4, background: `linear-gradient(90deg, ${C.red}, ${C.redLight})`, transition: "width 0.6s cubic-bezier(0.4,0,0.2,1)" }} /></div>
           <div style={{ fontSize: 15, fontWeight: 800, color: C.red, whiteSpace: "nowrap" }}>{filtered.length}/{MONTHLY_GOAL}</div>
           <div style={{ fontSize: 13, color: C.muted, whiteSpace: "nowrap" }}>{doneCount} erledigt · {MONTHLY_GOAL - filtered.length > 0 ? `${MONTHLY_GOAL - filtered.length} fehlen` : "Ziel erreicht!"}</div>
         </div>
