@@ -1800,7 +1800,16 @@ export default function Dashboard() {
   const fetchScripts = useCallback(async () => {
     setScriptsLoading(true);
     try {
-      const res = await fetch("/api/scripts");
+      // Send localStorage scripts to server for sync
+      let syncParam = "";
+      try {
+        const local = localStorage.getItem("scripts");
+        if (local && JSON.parse(local).length > 0) {
+          syncParam = `?sync=${encodeURIComponent(local)}`;
+        }
+      } catch {}
+
+      const res = await fetch(`/api/scripts${syncParam}`);
       if (res.ok) {
         const data = await res.json();
         const apiScripts = data.scripts || [];

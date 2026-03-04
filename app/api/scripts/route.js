@@ -1,18 +1,65 @@
 // ── Scripts Webhook API ─────────────────────────────────────────
 // POST: Receive scripts from Make.com webhook (supports full Discord message parsing)
-// GET:  Return all stored scripts
+// GET:  Return all stored scripts (+ accept client sync)
 // DELETE: Remove a script by id
 
-const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET;
+import { readFileSync, writeFileSync, existsSync, readdirSync, unlinkSync, mkdirSync } from "fs";
 
-// In-memory store (persists across warm invocations on Vercel)
-// Client-side localStorage serves as the persistent backup
-if (!globalThis.__scripts) {
-  globalThis.__scripts = [];
+const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET;
+const STORAGE_DIR = "/tmp/scripts";
+
+// ── Persistent storage: one file per script (no race conditions) ──
+function ensureDir() {
+  try { if (!existsSync(STORAGE_DIR)) mkdirSync(STORAGE_DIR, { recursive: true }); } catch {}
+}
+
+function loadScripts() {
+  ensureDir();
+  const scripts = [];
+  try {
+    const files = readdirSync(STORAGE_DIR).filter((f) => f.endsWith(".json"));
+    for (const file of files) {
+      try {
+        const data = JSON.parse(readFileSync(`${STORAGE_DIR}/${file}`, "utf-8"));
+        scripts.push(data);
+      } catch {}
+    }
+  } catch {}
+  return scripts.sort((a, b) => new Date(b.receivedAt) - new Date(a.receivedAt));
+}
+
+function saveScript(script) {
+  ensureDir();
+  try {
+    writeFileSync(`${STORAGE_DIR}/${script.id}.json`, JSON.stringify(script), "utf-8");
+  } catch (err) {
+    console.error("[Scripts] Failed to write:", err.message);
+  }
+}
+
+function deleteScriptFile(id) {
+  try {
+    const path = `${STORAGE_DIR}/${id}.json`;
+    if (existsSync(path)) unlinkSync(path);
+  } catch {}
+}
+
+function getScripts() {
+  if (!globalThis.__scripts || globalThis.__scripts.length === 0) {
+    globalThis.__scripts = loadScripts();
+  }
+  return globalThis.__scripts;
+}
+
+function addScript(script) {
+  saveScript(script); // Write individual file first (no race condition)
+  // Then update in-memory cache
+  if (!globalThis.__scripts) globalThis.__scripts = [];
+  globalThis.__scripts.push(script);
 }
 
 function verifyAuth(request) {
-  if (!WEBHOOK_SECRET) return true; // No secret configured = open (dev mode)
+  if (!WEBHOOK_SECRET) return true;
   const auth = request.headers.get("authorization");
   if (!auth) return false;
   const token = auth.replace("Bearer ", "").trim();
@@ -20,114 +67,96 @@ function verifyAuth(request) {
 }
 
 // ── Parser: Extract structured data from the full Discord message ──
-// Handles the format from the Make.com OpenAI → Discord flow:
-//   Account: ...
-//   Likes: ... Comments: ...
-//   URL: ...
-//   ═══ TEIL 1: ANALYSE ═══
-//   Hook, Format, Watch-Time-Treiber, Winning Pattern
-//   ═══ TEIL 2: ADAPTIERTES SKRIPT ═══
-//   Hook:, Mittelteil:, CTA:
 function parseFullMessage(text) {
   const result = {
-    competitor: null,
-    originalUrl: null,
-    likes: null,
-    comments: null,
-    analysis: null,
-    script: null,
-    hook: null,
-    format: null,
+    competitor: null, originalUrl: null, likes: null, comments: null,
+    analysis: null, script: null, hook: null, format: null,
   };
 
   if (!text || typeof text !== "string") return result;
 
-  // Extract competitor/account name
   const accountMatch = text.match(/Account:\s*(.+?)(?:\n|$)/i);
   if (accountMatch) result.competitor = accountMatch[1].trim();
 
-  // Extract likes & comments
   const statsMatch = text.match(/Likes:\s*([\d.,]+).*?Comments:\s*([\d.,]+)/i);
   if (statsMatch) {
     result.likes = statsMatch[1].trim();
     result.comments = statsMatch[2].trim();
   }
 
-  // Extract original URL
   const urlMatch = text.match(/https?:\/\/(?:www\.)?instagram\.com\/(?:p|reel)\/[^\s)>\]]+/i);
   if (urlMatch) result.originalUrl = urlMatch[0].trim();
 
-  // Extract ANALYSE section (Teil 1)
   const analyseMatch = text.match(/TEIL\s*1[:\s]*.*?ANALYSE.*?\n([\s\S]*?)(?=TEIL\s*2|═══.*TEIL\s*2|$)/i);
   if (analyseMatch) result.analysis = analyseMatch[1].trim();
 
-  // Extract HOOK from analysis
-  const hookMatch = text.match(/HOOK:\s*[""]?(.*?)[""]?(?:\n|$)/i);
-  if (hookMatch) result.hook = hookMatch[1].trim().replace(/^[""]|[""]$/g, "");
+  const hookMatch = text.match(/HOOK:\s*[""\u201C\u201D]?(.*?)[""\u201C\u201D]?(?:\n|$)/i);
+  if (hookMatch) result.hook = hookMatch[1].trim().replace(/^[""\u201C\u201D]|[""\u201C\u201D]$/g, "");
 
-  // Extract FORMAT
   const formatMatch = text.match(/FORMAT:\s*(.+?)(?:\n|$)/i);
   if (formatMatch) result.format = formatMatch[1].trim();
 
-  // Extract ADAPTIERTES SKRIPT section (Teil 2) — this is the main content we want
-  const skriptMatch = text.match(/TEIL\s*2[:\s]*.*?(?:ADAPTIERTES?\s*SKRIPT|SKRIPT).*?\n([\s\S]*?)(?=Account:|Likes:|───|$)/i);
-  if (skriptMatch) {
-    result.script = skriptMatch[1].trim();
-  }
+  // Extract ADAPTIERTES SKRIPT section (Teil 2)
+  const skriptMatch = text.match(/TEIL\s*2[:\s]*.*?(?:ADAPTIERTES?\s*SKRIPT|SKRIPT).*?\n([\s\S]*?)(?=Account:|Likes:\s*\d|───|$)/i);
+  if (skriptMatch) result.script = skriptMatch[1].trim();
 
-  // Fallback: if no TEIL 2 found, try to extract Hook:/Mittelteil:/CTA: pattern
+  // Fallback: Hook:/Mittelteil:/CTA: pattern
   if (!result.script) {
-    const hookCtaMatch = text.match(/(Hook:[\s\S]*?CTA:[\s\S]*?)(?=Account:|Likes:|───|═══|$)/i);
+    const hookCtaMatch = text.match(/(Hook:[\s\S]*?CTA:[\s\S]*?)(?=Account:|Likes:\s*\d|───|═══|$)/i);
     if (hookCtaMatch) result.script = hookCtaMatch[1].trim();
   }
 
   return result;
 }
 
-// Build a title from parsed data
 function buildTitle(parsed, item) {
   if (item.title) return item.title;
-  // Use the hook as title if available
   if (parsed.hook) {
-    const short = parsed.hook.length > 60 ? parsed.hook.substring(0, 60) + "..." : parsed.hook;
-    return short;
+    return parsed.hook.length > 60 ? parsed.hook.substring(0, 60) + "..." : parsed.hook;
   }
-  // Use format + competitor
-  if (parsed.format && parsed.competitor) {
-    return `${parsed.format} – ${parsed.competitor}`;
-  }
+  if (parsed.format && parsed.competitor) return `${parsed.format} – ${parsed.competitor}`;
   if (parsed.competitor) return `Skript von ${parsed.competitor}`;
   return "Adaptiertes Skript";
 }
 
+// ── GET: Return scripts + accept client sync ────────────────────
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
-  const since = searchParams.get("since");
 
-  let scripts = globalThis.__scripts || [];
-
-  if (since) {
-    const sinceDate = new Date(since);
-    scripts = scripts.filter((s) => new Date(s.receivedAt) > sinceDate);
+  // Client can sync its localStorage scripts back to server
+  const clientSync = searchParams.get("sync");
+  if (clientSync) {
+    try {
+      const clientScripts = JSON.parse(decodeURIComponent(clientSync));
+      if (Array.isArray(clientScripts) && clientScripts.length > 0) {
+        const current = getScripts();
+        const existingIds = new Set(current.map((s) => s.id));
+        const newFromClient = clientScripts.filter((s) => s.id && !existingIds.has(s.id));
+        if (newFromClient.length > 0) {
+          for (const s of newFromClient) saveScript(s);
+          globalThis.__scripts = [...current, ...newFromClient];
+        }
+      }
+    } catch {}
   }
 
+  const scripts = getScripts();
   return Response.json({ scripts, count: scripts.length });
 }
 
+// ── POST: Receive scripts from webhook ──────────────────────────
 export async function POST(request) {
   if (!verifyAuth(request)) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
-    // Read raw body first, then try to parse as JSON — always fall back to plain text
     const rawText = await request.text();
     let body;
 
     try {
       body = JSON.parse(rawText);
     } catch {
-      // Not valid JSON — treat the entire text as the script message
       body = { message: rawText };
     }
 
@@ -135,14 +164,12 @@ export async function POST(request) {
     const added = [];
 
     for (const item of incoming) {
-      // Check if this is a full Discord-style message or pre-structured data
-      const rawText = item.message || item.text || item.content || item.script || "";
+      const msgText = item.message || item.text || item.content || item.script || "";
       const hasStructuredScript = item.script && !item.message;
 
       let scriptData;
 
       if (hasStructuredScript) {
-        // Pre-structured: { title, script, competitor, ... }
         scriptData = {
           title: item.title || "Adaptiertes Skript",
           script: item.script,
@@ -154,11 +181,10 @@ export async function POST(request) {
           format: item.format || null,
         };
       } else {
-        // Full message from Make.com — parse it
-        const parsed = parseFullMessage(rawText);
+        const parsed = parseFullMessage(msgText);
         scriptData = {
           title: buildTitle(parsed, item),
-          script: parsed.script || rawText, // fallback to full text if parsing fails
+          script: parsed.script || msgText,
           analysis: parsed.analysis || null,
           competitor: item.competitor || parsed.competitor || null,
           originalUrl: item.originalUrl || parsed.originalUrl || null,
@@ -177,14 +203,14 @@ export async function POST(request) {
         receivedAt: new Date().toISOString(),
       };
 
-      globalThis.__scripts.push(script);
+      addScript(script);
       added.push(script);
     }
 
     return Response.json({
       success: true,
       added: added.length,
-      total: globalThis.__scripts.length,
+      total: getScripts().length,
       scripts: added,
     });
   } catch (err) {
@@ -193,16 +219,19 @@ export async function POST(request) {
   }
 }
 
+// ── DELETE: Remove a script ─────────────────────────────────────
 export async function DELETE(request) {
   try {
     const { id } = await request.json();
     if (!id) return Response.json({ error: "id required" }, { status: 400 });
 
-    const before = globalThis.__scripts.length;
-    globalThis.__scripts = globalThis.__scripts.filter((s) => s.id !== id);
-    const removed = before - globalThis.__scripts.length;
+    const scripts = getScripts();
+    const filtered = scripts.filter((s) => s.id !== id);
+    const removed = scripts.length - filtered.length;
+    globalThis.__scripts = filtered;
+    deleteScriptFile(id);
 
-    return Response.json({ success: true, removed, total: globalThis.__scripts.length });
+    return Response.json({ success: true, removed, total: filtered.length });
   } catch (err) {
     return Response.json({ error: err.message }, { status: 400 });
   }
