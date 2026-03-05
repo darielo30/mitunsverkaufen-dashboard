@@ -2315,14 +2315,47 @@ export default function Dashboard() {
                           })}
                         </div>
                       )}
-                      {/* Delete button */}
-                      <div style={{ marginTop: 8 }}>
-                        <button onClick={(e) => { e.stopPropagation(); if (window.confirm("Beitrag aus dem Dashboard entfernen? (Bleibt auf den Plattformen online)")) { hidePost(post.id); setPosts((prev) => prev.filter((p) => p.id !== post.id)); setSelectedPost(null); showNotif("Beitrag vom Dashboard entfernt", "red"); } }} style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 8, background: C.redGlow, border: `1px solid ${C.red}25`, color: C.redLight, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", transition: "all 0.2s" }}
-                          onMouseOver={(e) => { e.currentTarget.style.background = C.red + "25"; e.currentTarget.style.borderColor = C.red; }}
-                          onMouseOut={(e) => { e.currentTarget.style.background = C.redGlow; e.currentTarget.style.borderColor = C.red + "25"; }}>
-                          <Trash2 size={12} /> Vom Dashboard entfernen
-                        </button>
-                        <div style={{ fontSize: 10, color: C.dimmed, marginTop: 4 }}>Der Beitrag bleibt auf Instagram & TikTok online.</div>
+                      {/* Delete buttons */}
+                      <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-start" }}>
+                        <div>
+                          <button onClick={(e) => { e.stopPropagation(); if (window.confirm("Beitrag aus dem Dashboard entfernen?\n(Bleibt auf den Plattformen online)")) { hidePost(post.id); setPosts((prev) => prev.filter((p) => p.id !== post.id)); setSelectedPost(null); showNotif("Beitrag vom Dashboard entfernt", "red"); } }} style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 8, background: C.redGlow, border: `1px solid ${C.red}25`, color: C.redLight, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", transition: "all 0.2s" }}
+                            onMouseOver={(e) => { e.currentTarget.style.background = C.red + "25"; e.currentTarget.style.borderColor = C.red; }}
+                            onMouseOut={(e) => { e.currentTarget.style.background = C.redGlow; e.currentTarget.style.borderColor = C.red + "25"; }}>
+                            <X size={12} /> Nur vom Dashboard ausblenden
+                          </button>
+                          <div style={{ fontSize: 10, color: C.dimmed, marginTop: 4 }}>Bleibt auf den Plattformen online.</div>
+                        </div>
+                        {isConnected && (post.status === "scheduled" || post.status === "draft") && (
+                          <div>
+                            <button onClick={async (e) => {
+                              e.stopPropagation();
+                              if (!window.confirm("Beitrag unwiderruflich bei Late löschen?\nDer Beitrag wird NICHT veröffentlicht.")) return;
+                              try {
+                                const res = await fetch("/api/late", {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ action: "delete-post", postId: post.id }),
+                                });
+                                const data = await res.json();
+                                if (res.ok) {
+                                  hidePost(post.id);
+                                  setPosts((prev) => prev.filter((p) => p.id !== post.id));
+                                  setSelectedPost(null);
+                                  showNotif("Beitrag bei Late gelöscht", "green");
+                                } else {
+                                  showNotif(data.error || "Fehler beim Löschen", "red");
+                                }
+                              } catch (err) {
+                                showNotif("Verbindungsfehler: " + err.message, "red");
+                              }
+                            }} style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 8, background: C.red + "15", border: `1px solid ${C.red}50`, color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", transition: "all 0.2s" }}
+                              onMouseOver={(e) => { e.currentTarget.style.background = C.red; }}
+                              onMouseOut={(e) => { e.currentTarget.style.background = C.red + "15"; }}>
+                              <Trash2 size={12} /> Bei Late löschen
+                            </button>
+                            <div style={{ fontSize: 10, color: C.dimmed, marginTop: 4 }}>Beitrag wird nicht veröffentlicht.</div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
