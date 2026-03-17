@@ -2,7 +2,7 @@
 // Keeps your API key secure on the server side
 // Set LATE_API_KEY in your Vercel Environment Variables
 
-const BASE = "https://getlate.dev/api/v1";
+const BASE = "https://zernio.com/api/v1";
 const API_KEY = process.env.LATE_API_KEY;
 
 function authHeaders() {
