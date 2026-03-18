@@ -2190,174 +2190,180 @@ export default function Dashboard() {
           ))}
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "10px 20px", fontSize: 11, fontWeight: 600, color: C.dimmed, textTransform: "uppercase", letterSpacing: "0.08em" }}>
-          <div style={{ width: 28 }} /><div style={{ width: 68 }} /><div style={{ flex: 1 }}>Beitrag</div><div style={{ width: 80 }}>Status</div><div style={{ width: 70, textAlign: "right" }}>Views</div><div style={{ width: 60, textAlign: "right" }}>Likes</div><div style={{ width: 60, textAlign: "right" }}>Komm.</div><div style={{ width: 60, textAlign: "right" }}>Shares</div>
-        </div>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {/* Card Grid */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16 }}>
           {filtered.length === 0 && (
-            <div style={{ padding: 40, textAlign: "center", color: C.dimmed, fontSize: 14 }}>Keine Beiträge für {MONTHS_DE[selectedMonth]} {selectedYear} gefunden.</div>
+            <div style={{ gridColumn: "1 / -1", padding: 40, textAlign: "center", color: C.dimmed, fontSize: 14 }}>Keine Beiträge für {MONTHS_DE[selectedMonth]} {selectedYear} gefunden.</div>
           )}
           {filtered.map((post) => {
             const postPlats = post.platforms || [post.platform || "instagram"];
             const primaryColor = postPlats.includes("instagram") ? C.instagram : C.tiktok;
             const isSelected = selectedPost?.id === post.id;
+            const statusConf = { published: { label: "Published", color: C.green }, scheduled: { label: "Scheduled", color: C.yellow }, draft: { label: "Draft", color: C.dimmed }, failed: { label: "Failed", color: C.redLight } };
+            const sc = statusConf[post.status] || statusConf.draft;
             return (
               <div key={post.id}>
-              <div onClick={() => setSelectedPost(isSelected ? null : post)} style={{ display: "flex", alignItems: "center", gap: 16, padding: "12px 20px", borderRadius: isSelected ? "12px 12px 0 0" : 12, background: isSelected ? C.cardHover : C.card, border: `1px solid ${isSelected ? primaryColor + "60" : C.border}`, borderBottom: isSelected ? `1px solid ${C.border}` : undefined, cursor: "pointer", transition: "all 0.2s", opacity: post.done ? 0.6 : 1 }}
-                onMouseOver={(e) => { if (!isSelected) { e.currentTarget.style.background = C.cardHover; e.currentTarget.style.borderColor = primaryColor + "40"; } }}
-                onMouseOut={(e) => { if (!isSelected) { e.currentTarget.style.background = C.card; e.currentTarget.style.borderColor = C.border; } }}>
-                {/* Checkbox – only toggles done, does NOT open detail */}
-                <div onClick={(e) => { e.stopPropagation(); toggle(post.id); }} style={{ width: 26, height: 26, borderRadius: 8, flexShrink: 0, border: post.done ? "none" : `2px solid ${C.border}`, background: post.done ? `linear-gradient(135deg, ${C.red}, #991B1B)` : "transparent", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s", boxShadow: post.done ? `0 2px 8px ${C.redGlow}` : "none", cursor: "pointer" }}
-                  onMouseOver={(e) => { if (!post.done) e.currentTarget.style.borderColor = C.red; }}
-                  onMouseOut={(e) => { if (!post.done) e.currentTarget.style.borderColor = C.border; }}>
-                  {post.done && <Check size={14} color="#fff" strokeWidth={3} />}
-                </div>
-                {/* Platform icons – show all platforms */}
-                <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
-                  {postPlats.map((plat) => {
-                    const ic = plat === "instagram" ? C.instagram : C.tiktok;
-                    const Icon = plat === "instagram" ? Instagram : TikTokIcon;
-                    return <div key={plat} style={{ width: 32, height: 32, borderRadius: 8, background: ic + "15", display: "flex", alignItems: "center", justifyContent: "center" }}><Icon size={15} color={ic} /></div>;
-                  })}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: C.white, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{post.title}</div>
-                  {post.status === "scheduled" ? (
-                    <div style={{ fontSize: 11, color: C.yellow, marginTop: 3, lineHeight: 1.5, fontWeight: 500 }}>
-                      Geplant: {new Date(post.date).toLocaleDateString("de-DE", { day: "numeric", month: "long", year: "numeric" })}, {new Date(post.date).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })} {post.timezone || "CET"}
-                      {post.createdAt && <> – erstellt: {new Date(post.createdAt).toLocaleDateString("de-DE", { day: "numeric", month: "short", year: "numeric" })}</>}
-                      {post.createdBy && <> – von: {post.createdBy}</>}
-                    </div>
+              {/* ── Card ── */}
+              <div onClick={() => setSelectedPost(isSelected ? null : post)}
+                style={{
+                  background: C.card, borderRadius: 14, border: `1px solid ${isSelected ? primaryColor + "60" : C.border}`,
+                  cursor: "pointer", transition: "all 0.2s", overflow: "hidden",
+                  borderBottom: isSelected ? "none" : undefined,
+                  borderBottomLeftRadius: isSelected ? 0 : 14, borderBottomRightRadius: isSelected ? 0 : 14,
+                }}
+                onMouseOver={(e) => { if (!isSelected) { e.currentTarget.style.borderColor = primaryColor + "40"; e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = `0 8px 24px rgba(0,0,0,0.3)`; } }}
+                onMouseOut={(e) => { if (!isSelected) { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "none"; } }}>
+
+                {/* Thumbnail area */}
+                <div style={{ position: "relative", height: 160, background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+                  {post.thumbnail ? (
+                    <img src={post.thumbnail} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                   ) : (
-                    <div style={{ fontSize: 12, color: C.muted, marginTop: 2, display: "flex", gap: 8, alignItems: "center" }}><span style={{ color: primaryColor, fontWeight: 600 }}>{post.type}</span><span style={{ color: C.border }}>·</span><span>{new Date(post.date).toLocaleDateString("de-DE", { day: "numeric", month: "short" })}</span></div>
+                    <div style={{ width: "100%", height: "100%", background: `linear-gradient(135deg, ${C.card} 0%, ${C.bg} 100%)`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <FileVideo size={32} color={C.dimmed} />
+                    </div>
                   )}
+                  {/* Play button overlay */}
+                  <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.15)" }}>
+                    <div style={{ width: 40, height: 40, borderRadius: "50%", background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <div style={{ width: 0, height: 0, borderTop: "8px solid transparent", borderBottom: "8px solid transparent", borderLeft: "14px solid #fff", marginLeft: 3 }} />
+                    </div>
+                  </div>
+                  {/* Checkbox top-left */}
+                  <div onClick={(e) => { e.stopPropagation(); toggle(post.id); }}
+                    style={{ position: "absolute", top: 10, left: 10, width: 24, height: 24, borderRadius: 6, border: post.done ? "none" : `2px solid rgba(255,255,255,0.5)`, background: post.done ? C.red : "rgba(0,0,0,0.4)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", transition: "all 0.2s" }}>
+                    {post.done && <Check size={13} color="#fff" strokeWidth={3} />}
+                  </div>
                 </div>
-                <div style={{ width: 80 }}><StatusBadge status={post.status} /></div>
-                <div style={{ width: 70, textAlign: "right", fontSize: 13, fontWeight: 700, color: post.views > 0 ? C.white : C.dimmed }}>{post.views > 0 ? fmt(post.views) : "–"}</div>
-                <div style={{ width: 60, textAlign: "right", fontSize: 13, fontWeight: 600, color: post.likes > 0 ? C.redLight : C.dimmed }}>{post.likes > 0 ? fmt(post.likes) : "–"}</div>
-                <div style={{ width: 60, textAlign: "right", fontSize: 13, fontWeight: 600, color: post.comments > 0 ? C.muted : C.dimmed }}>{post.comments > 0 ? fmt(post.comments) : "–"}</div>
-                <div style={{ width: 60, textAlign: "right", fontSize: 13, fontWeight: 600, color: post.shares > 0 ? C.muted : C.dimmed }}>{post.shares > 0 ? fmt(post.shares) : "–"}</div>
+
+                {/* Card body */}
+                <div style={{ padding: "14px 16px" }}>
+                  {/* Title */}
+                  <div style={{ fontSize: 13, fontWeight: 700, color: C.white, lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", minHeight: 36, marginBottom: 8 }}>
+                    {post.title}
+                  </div>
+
+                  {/* Platform icons */}
+                  <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+                    {postPlats.map((plat) => {
+                      const Icon = plat === "instagram" ? Instagram : TikTokIcon;
+                      const ic = plat === "instagram" ? C.instagram : C.tiktok;
+                      return <Icon key={plat} size={16} color={ic} />;
+                    })}
+                  </div>
+
+                  {/* Date + meta */}
+                  <div style={{ fontSize: 11, color: C.muted, marginBottom: 6, lineHeight: 1.5 }}>
+                    {new Date(post.date).toLocaleDateString("de-DE", { month: "short", day: "numeric", year: "numeric" })}{", "}{new Date(post.date).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })} {post.timezone || "GMT+1"}
+                  </div>
+                  <div style={{ fontSize: 10, color: C.dimmed, marginBottom: 12, display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                    {post.createdBy && <span>{post.createdBy}</span>}
+                    {post.type && <><span style={{ color: C.border }}>·</span><span style={{ color: primaryColor }}>{post.type}</span></>}
+                    <span style={{ color: C.border }}>·</span>
+                    <span style={{ fontFamily: "monospace", fontSize: 9 }}>{String(post.id).substring(0, 7)}...</span>
+                  </div>
+
+                  {/* Status badge + menu */}
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 700, color: sc.color, background: sc.color + "15", padding: "4px 12px", borderRadius: 6, border: `1px solid ${sc.color}30` }}>
+                      <div style={{ width: 6, height: 6, borderRadius: "50%", background: sc.color, ...(post.status === "published" ? { animation: "livePulse 2s ease-in-out infinite" } : {}) }} />
+                      {sc.label}
+                    </div>
+                    <div style={{ width: 28, height: 28, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: C.dimmed, fontSize: 18, letterSpacing: 1 }}
+                      onClick={(e) => { e.stopPropagation(); setSelectedPost(isSelected ? null : post); }}>
+                      ⋮
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {/* ── Post Detail Panel ── */}
               {isSelected && (
-                <div style={{ background: C.card, border: `1px solid ${primaryColor}60`, borderTop: "none", borderRadius: "0 0 12px 12px", padding: "20px 24px", animation: "fadeIn 0.2s ease" }}>
-                  <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
-                    {/* Left: Caption */}
-                    <div style={{ flex: "1 1 340px", minWidth: 0 }}>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: C.dimmed, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Caption</div>
-                      <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.7, whiteSpace: "pre-wrap", wordBreak: "break-word", background: C.bg, borderRadius: 10, padding: "14px 16px", border: `1px solid ${C.border}`, maxHeight: 180, overflowY: "auto" }}>
-                        {post.caption || post.title || "–"}
+                <div style={{ background: C.card, border: `1px solid ${primaryColor}60`, borderTop: `1px solid ${C.border}`, borderRadius: "0 0 14px 14px", padding: "20px 20px", animation: "fadeIn 0.2s ease" }}>
+                  {/* Caption */}
+                  <div style={{ fontSize: 11, fontWeight: 700, color: C.dimmed, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Caption</div>
+                  <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.7, whiteSpace: "pre-wrap", wordBreak: "break-word", background: C.bg, borderRadius: 10, padding: "12px 14px", border: `1px solid ${C.border}`, maxHeight: 140, overflowY: "auto", marginBottom: 14 }}>
+                    {post.caption || post.title || "–"}
+                  </div>
+
+                  {/* Info rows */}
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 14 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
+                      <span style={{ color: C.dimmed, fontWeight: 600 }}>Status</span>
+                      <StatusBadge status={post.status} />
+                    </div>
+                    {post.type && (
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
+                        <span style={{ color: C.dimmed, fontWeight: 600 }}>Typ</span>
+                        <span style={{ color: C.white, fontWeight: 600 }}>{post.type}</span>
+                      </div>
+                    )}
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
+                      <span style={{ color: C.dimmed, fontWeight: 600 }}>Plattformen</span>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        {postPlats.map((plat) => {
+                          const ic = plat === "instagram" ? C.instagram : C.tiktok;
+                          const Icon = plat === "instagram" ? Instagram : TikTokIcon;
+                          return <div key={plat} style={{ display: "flex", alignItems: "center", gap: 4, background: ic + "15", borderRadius: 5, padding: "2px 8px" }}><Icon size={11} color={ic} /><span style={{ fontSize: 11, color: ic, fontWeight: 600 }}>{plat === "instagram" ? "IG" : "TT"}</span></div>;
+                        })}
                       </div>
                     </div>
-                    {/* Right: Info grid */}
-                    <div style={{ flex: "0 0 320px", display: "flex", flexDirection: "column", gap: 12 }}>
-                      {/* Status */}
-                      <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: C.dimmed, textTransform: "uppercase", letterSpacing: "0.08em", width: 110, flexShrink: 0, paddingTop: 2 }}>Status</div>
-                        <div style={{ flex: 1 }}><StatusBadge status={post.status} /></div>
+                    {(post.status === "scheduled" || post.status === "published") && (
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
+                        <span style={{ color: C.dimmed, fontWeight: 600 }}>{post.status === "scheduled" ? "Geplant" : "Veröffentlicht"}</span>
+                        <span style={{ color: post.status === "scheduled" ? C.yellow : C.green, fontWeight: 600 }}>{new Date(post.date).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" })}</span>
                       </div>
-                      {/* Content Type */}
-                      <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: C.dimmed, textTransform: "uppercase", letterSpacing: "0.08em", width: 110, flexShrink: 0, paddingTop: 2 }}>Typ</div>
-                        <div style={{ fontSize: 13, color: C.white, fontWeight: 600, flex: 1 }}>{post.type}</div>
+                    )}
+                    {post.createdAt && (
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
+                        <span style={{ color: C.dimmed, fontWeight: 600 }}>Erstellt</span>
+                        <span style={{ color: C.muted }}>{new Date(post.createdAt).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" })}{post.createdBy ? ` · ${post.createdBy}` : ""}</span>
                       </div>
-                      {/* Platforms */}
-                      <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: C.dimmed, textTransform: "uppercase", letterSpacing: "0.08em", width: 110, flexShrink: 0, paddingTop: 4 }}>Plattformen</div>
-                        <div style={{ display: "flex", gap: 6, flex: 1, flexWrap: "wrap" }}>
-                          {postPlats.map((plat) => {
-                            const ic = plat === "instagram" ? C.instagram : C.tiktok;
-                            const Icon = plat === "instagram" ? Instagram : TikTokIcon;
-                            return <div key={plat} style={{ display: "flex", alignItems: "center", gap: 5, background: ic + "15", borderRadius: 6, padding: "4px 10px" }}><Icon size={13} color={ic} /><span style={{ fontSize: 12, color: ic, fontWeight: 600 }}>{plat === "instagram" ? "Instagram" : "TikTok"}</span></div>;
-                          })}
-                        </div>
-                      </div>
-                      {/* Scheduled / Published date */}
-                      {(post.status === "scheduled" || post.status === "published") && (
-                        <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-                          <div style={{ fontSize: 11, fontWeight: 700, color: C.dimmed, textTransform: "uppercase", letterSpacing: "0.08em", width: 110, flexShrink: 0, paddingTop: 2 }}>{post.status === "scheduled" ? "Geplant" : "Veröffentlicht"}</div>
-                          <div style={{ fontSize: 13, color: post.status === "scheduled" ? C.yellow : C.green, fontWeight: 600, flex: 1 }}>
-                            {new Date(post.date).toLocaleDateString("de-DE", { day: "numeric", month: "long", year: "numeric" })}{post.status === "scheduled" && <><br />{new Date(post.date).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })} {post.timezone || "CET"}</>}
-                          </div>
-                        </div>
-                      )}
-                      {/* Created date */}
-                      {post.createdAt && (
-                        <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-                          <div style={{ fontSize: 11, fontWeight: 700, color: C.dimmed, textTransform: "uppercase", letterSpacing: "0.08em", width: 110, flexShrink: 0, paddingTop: 2 }}>Erstellt</div>
-                          <div style={{ fontSize: 13, color: C.muted, flex: 1 }}>{new Date(post.createdAt).toLocaleDateString("de-DE", { day: "numeric", month: "long", year: "numeric" })}{post.createdBy && <><br /><span style={{ color: C.white, fontWeight: 600 }}>von {post.createdBy}</span></>}</div>
-                        </div>
-                      )}
-                      {/* Performance stats if published */}
-                      {post.status === "published" && post.views > 0 && (
-                        <div style={{ display: "flex", gap: 16, marginTop: 4, padding: "10px 14px", background: C.bg, borderRadius: 8, border: `1px solid ${C.border}` }}>
-                          <div style={{ textAlign: "center" }}><div style={{ fontSize: 15, fontWeight: 700, color: C.white }}>{fmt(post.views)}</div><div style={{ fontSize: 10, color: C.yellow, fontWeight: 600 }}>Views</div></div>
-                          <div style={{ textAlign: "center" }}><div style={{ fontSize: 15, fontWeight: 700, color: C.redLight }}>{fmt(post.likes)}</div><div style={{ fontSize: 10, color: C.muted, fontWeight: 600 }}>Likes</div></div>
-                          <div style={{ textAlign: "center" }}><div style={{ fontSize: 15, fontWeight: 700, color: C.white }}>{fmt(post.comments)}</div><div style={{ fontSize: 10, color: C.muted, fontWeight: 600 }}>Komm.</div></div>
-                          <div style={{ textAlign: "center" }}><div style={{ fontSize: 15, fontWeight: 700, color: C.white }}>{fmt(post.shares)}</div><div style={{ fontSize: 10, color: C.muted, fontWeight: 600 }}>Shares</div></div>
-                        </div>
-                      )}
-                      {/* Link buttons for published */}
-                      {post.status === "published" && (
-                        <div style={{ display: "flex", gap: 8, marginTop: 4, flexWrap: "wrap" }}>
-                          {postPlats.map((plat) => {
-                            const ic = plat === "instagram" ? C.instagram : C.tiktok;
-                            const url = post.postUrls?.[plat] || (plat === "instagram" ? "https://www.instagram.com/mitunsverkaufen/" : "https://www.tiktok.com/@mitunsverkaufen");
-                            return (
-                              <button key={plat} onClick={(e) => { e.stopPropagation(); window.open(url, "_blank"); }} style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 8, background: ic + "15", border: `1px solid ${ic}30`, color: ic, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", transition: "all 0.2s" }}
-                                onMouseOver={(e) => { e.currentTarget.style.background = ic + "25"; e.currentTarget.style.borderColor = ic; }}
-                                onMouseOut={(e) => { e.currentTarget.style.background = ic + "15"; e.currentTarget.style.borderColor = ic + "30"; }}>
-                                <ExternalLink size={12} /> {plat === "instagram" ? "Instagram öffnen" : "TikTok öffnen"}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
-                      {/* Delete buttons */}
-                      <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-start" }}>
-                        <div>
-                          <button onClick={(e) => { e.stopPropagation(); if (window.confirm("Beitrag aus dem Dashboard entfernen?\n(Bleibt auf den Plattformen online)")) { hidePost(post.id); setPosts((prev) => prev.filter((p) => p.id !== post.id)); setSelectedPost(null); showNotif("Beitrag vom Dashboard entfernt", "red"); } }} style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 8, background: C.redGlow, border: `1px solid ${C.red}25`, color: C.redLight, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", transition: "all 0.2s" }}
-                            onMouseOver={(e) => { e.currentTarget.style.background = C.red + "25"; e.currentTarget.style.borderColor = C.red; }}
-                            onMouseOut={(e) => { e.currentTarget.style.background = C.redGlow; e.currentTarget.style.borderColor = C.red + "25"; }}>
-                            <X size={12} /> Nur vom Dashboard ausblenden
-                          </button>
-                          <div style={{ fontSize: 10, color: C.dimmed, marginTop: 4 }}>Bleibt auf den Plattformen online.</div>
-                        </div>
-                        {isConnected && (post.status === "scheduled" || post.status === "draft") && (
-                          <div>
-                            <button onClick={async (e) => {
-                              e.stopPropagation();
-                              if (!window.confirm("Beitrag unwiderruflich bei Late löschen?\nDer Beitrag wird NICHT veröffentlicht.")) return;
-                              try {
-                                const res = await fetch("/api/late", {
-                                  method: "POST",
-                                  headers: { "Content-Type": "application/json" },
-                                  body: JSON.stringify({ action: "delete-post", postId: post.id }),
-                                });
-                                const data = await res.json();
-                                if (res.ok) {
-                                  hidePost(post.id);
-                                  setPosts((prev) => prev.filter((p) => p.id !== post.id));
-                                  setSelectedPost(null);
-                                  showNotif("Beitrag bei Late gelöscht", "green");
-                                } else {
-                                  showNotif(data.error || "Fehler beim Löschen", "red");
-                                }
-                              } catch (err) {
-                                showNotif("Verbindungsfehler: " + err.message, "red");
-                              }
-                            }} style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 8, background: C.red + "15", border: `1px solid ${C.red}50`, color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", transition: "all 0.2s" }}
-                              onMouseOver={(e) => { e.currentTarget.style.background = C.red; }}
-                              onMouseOut={(e) => { e.currentTarget.style.background = C.red + "15"; }}>
-                              <Trash2 size={12} /> Bei Late löschen
-                            </button>
-                            <div style={{ fontSize: 10, color: C.dimmed, marginTop: 4 }}>Beitrag wird nicht veröffentlicht.</div>
-                          </div>
-                        )}
-                      </div>
+                    )}
+                  </div>
+
+                  {/* Performance stats */}
+                  {post.status === "published" && post.views > 0 && (
+                    <div style={{ display: "flex", gap: 10, marginBottom: 14, padding: "10px 12px", background: C.bg, borderRadius: 8, border: `1px solid ${C.border}` }}>
+                      <div style={{ flex: 1, textAlign: "center" }}><div style={{ fontSize: 14, fontWeight: 700, color: C.white }}>{fmt(post.views)}</div><div style={{ fontSize: 9, color: C.yellow, fontWeight: 600 }}>Views</div></div>
+                      <div style={{ flex: 1, textAlign: "center" }}><div style={{ fontSize: 14, fontWeight: 700, color: C.redLight }}>{fmt(post.likes)}</div><div style={{ fontSize: 9, color: C.muted, fontWeight: 600 }}>Likes</div></div>
+                      <div style={{ flex: 1, textAlign: "center" }}><div style={{ fontSize: 14, fontWeight: 700, color: C.white }}>{fmt(post.comments)}</div><div style={{ fontSize: 9, color: C.muted, fontWeight: 600 }}>Komm.</div></div>
+                      <div style={{ flex: 1, textAlign: "center" }}><div style={{ fontSize: 14, fontWeight: 700, color: C.white }}>{fmt(post.shares)}</div><div style={{ fontSize: 9, color: C.muted, fontWeight: 600 }}>Shares</div></div>
                     </div>
+                  )}
+
+                  {/* Action buttons */}
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
+                    {post.status === "published" && postPlats.map((plat) => {
+                      const ic = plat === "instagram" ? C.instagram : C.tiktok;
+                      const url = post.postUrls?.[plat] || (plat === "instagram" ? "https://www.instagram.com/mitunsverkaufen/" : "https://www.tiktok.com/@mitunsverkaufen");
+                      return (
+                        <button key={plat} onClick={(e) => { e.stopPropagation(); window.open(url, "_blank"); }} style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 12px", borderRadius: 7, background: ic + "15", border: `1px solid ${ic}30`, color: ic, fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+                          <ExternalLink size={11} /> {plat === "instagram" ? "Instagram" : "TikTok"}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Delete buttons */}
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", paddingTop: 10, borderTop: `1px solid ${C.border}` }}>
+                    <button onClick={(e) => { e.stopPropagation(); if (window.confirm("Beitrag aus dem Dashboard entfernen?\n(Bleibt auf den Plattformen online)")) { hidePost(post.id); setPosts((prev) => prev.filter((p) => p.id !== post.id)); setSelectedPost(null); showNotif("Beitrag vom Dashboard entfernt", "red"); } }} style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 12px", borderRadius: 7, background: C.redGlow, border: `1px solid ${C.red}25`, color: C.redLight, fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+                      <X size={11} /> Ausblenden
+                    </button>
+                    {isConnected && (post.status === "scheduled" || post.status === "draft") && (
+                      <button onClick={async (e) => {
+                        e.stopPropagation();
+                        if (!window.confirm("Beitrag unwiderruflich bei Zernio löschen?\nDer Beitrag wird NICHT veröffentlicht.")) return;
+                        try {
+                          const res = await fetch("/api/late", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "delete-post", postId: post.id }) });
+                          const data = await res.json();
+                          if (res.ok) { hidePost(post.id); setPosts((prev) => prev.filter((p) => p.id !== post.id)); setSelectedPost(null); showNotif("Beitrag bei Zernio gelöscht", "green"); }
+                          else { showNotif(data.error || "Fehler beim Löschen", "red"); }
+                        } catch (err) { showNotif("Verbindungsfehler: " + err.message, "red"); }
+                      }} style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 12px", borderRadius: 7, background: C.red + "15", border: `1px solid ${C.red}50`, color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+                        <Trash2 size={11} /> Bei Zernio löschen
+                      </button>
+                    )}
                   </div>
                 </div>
               )}
