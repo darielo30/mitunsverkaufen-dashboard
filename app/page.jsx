@@ -1796,6 +1796,22 @@ export default function Dashboard() {
     try { return JSON.parse(localStorage.getItem("scripts") || "[]"); } catch { return []; }
   });
   const [scriptsLoading, setScriptsLoading] = useState(false);
+  const [errorLog, setErrorLog] = useState(() => {
+    if (typeof window === "undefined") return [];
+    try { return JSON.parse(localStorage.getItem("errorLog") || "[]"); } catch { return []; }
+  });
+  const [expandedError, setExpandedError] = useState(null);
+
+  const addErrorLog = useCallback((entry) => {
+    const logEntry = { id: `err_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, timestamp: new Date().toISOString(), ...entry };
+    setErrorLog((prev) => {
+      const updated = [logEntry, ...prev].slice(0, 50); // keep last 50
+      try { localStorage.setItem("errorLog", JSON.stringify(updated)); } catch {}
+      return updated;
+    });
+  }, []);
+
+  const clearErrorLog = () => { setErrorLog([]); try { localStorage.removeItem("errorLog"); } catch {} };
 
   const fetchScripts = useCallback(async () => {
     setScriptsLoading(true);
@@ -1953,6 +1969,7 @@ export default function Dashboard() {
           done: false, status: "failed", timezone: tzShort, createdAt: new Date().toISOString(), createdBy: "Dariel" };
         setPosts((prev) => [np, ...prev]);
         showNotif(`Fehler: ${errMsg}`, "red");
+        addErrorLog({ action: "Beitrag erstellen", error: errMsg, platforms: plats, content: content.substring(0, 120), scheduledFor: scheduledFor || "Sofort", response: data, mediaCount: mediaItems?.length || 0 });
       } else {
         const tzShort = TIMEZONES.find((t) => t.value === timezone)?.short || "CET";
         const plats = platforms.map((p) => p.platform || p).filter(Boolean);
@@ -1972,6 +1989,7 @@ export default function Dashboard() {
         done: false, status: "failed", createdAt: new Date().toISOString(), createdBy: "Dariel" };
       setPosts((prev) => [np, ...prev]);
       showNotif("Netzwerkfehler – Upload fehlgeschlagen", "red");
+      addErrorLog({ action: "Beitrag erstellen", error: `Netzwerkfehler: ${err.message}`, platforms: plats, content: content.substring(0, 120), scheduledFor: scheduledFor || "Sofort", mediaCount: mediaItems?.length || 0 });
     } finally { setIsSubmitting(false); setShowCreateModal(false); }
   };
 
