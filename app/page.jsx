@@ -795,14 +795,14 @@ const demoNotifications = [
 ];
 
 // ── Sidebar ─────────────────────────────────────────────────────
-function Sidebar({ activeTab, onTabChange, unreadCount, isDarkMode, onToggleTheme }) {
+function Sidebar({ activeTab, onTabChange, unreadCount, errorCount, isDarkMode, onToggleTheme }) {
   const tabs = [
     { key: "dashboard", icon: LayoutDashboard, label: "Dashboard" },
     { key: "calendar", icon: Calendar, label: "Kalender" },
     { key: "skripte", icon: FileText, label: "Skripte" },
     { key: "notifications", icon: Bell, label: "Benachrichtigungen", badge: unreadCount },
     { key: "analytics", icon: BarChart3, label: "Analytics" },
-    { key: "settings", icon: Settings, label: "Einstellungen" },
+    { key: "settings", icon: Settings, label: "Einstellungen", badge: errorCount, badgeColor: "#DC2626" },
   ];
 
   return (
@@ -2018,7 +2018,7 @@ export default function Dashboard() {
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } } @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } } @keyframes livePulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(1.3); } }`}</style>
 
       {/* Sidebar */}
-      <Sidebar activeTab={activeTab} onTabChange={setActiveTab} unreadCount={unreadCount} isDarkMode={isDarkMode} onToggleTheme={toggleTheme} />
+      <Sidebar activeTab={activeTab} onTabChange={setActiveTab} unreadCount={unreadCount} errorCount={errorLog.length} isDarkMode={isDarkMode} onToggleTheme={toggleTheme} />
 
       {/* Main Content */}
       <div style={{ flex: 1, marginLeft: 64 }}>
@@ -2114,6 +2114,93 @@ export default function Dashboard() {
             <pre style={{ background: C.bg, borderRadius: 10, border: `1px solid ${C.border}`, padding: 14, fontSize: 11, color: C.muted, overflow: "auto", maxHeight: 300, whiteSpace: "pre-wrap", wordBreak: "break-all", lineHeight: 1.6, margin: 0 }}>
               {debugInfo ? JSON.stringify(debugInfo, null, 2) : "Wird geladen..."}
             </pre>
+          </div>
+
+          {/* ── Error Log Panel ──────────────────────────────── */}
+          <div style={{ background: C.card, borderRadius: 14, border: `1px solid ${C.border}`, padding: 20, marginTop: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <AlertCircle size={16} color={C.redLight} />
+                <div style={{ fontSize: 14, fontWeight: 700 }}>Fehler-Protokoll</div>
+                {errorLog.length > 0 && (
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "#fff", background: C.red, padding: "2px 8px", borderRadius: 10 }}>{errorLog.length}</div>
+                )}
+              </div>
+              {errorLog.length > 0 && (
+                <button onClick={clearErrorLog} style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 12px", borderRadius: 7, background: C.bg, border: `1px solid ${C.border}`, color: C.muted, fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>
+                  <Trash2 size={11} /> Alle löschen
+                </button>
+              )}
+            </div>
+            <div style={{ fontSize: 12, color: C.muted, marginBottom: 12 }}>Alle API-Fehler werden hier protokolliert und bleiben gespeichert.</div>
+
+            {errorLog.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "24px 0", color: C.dimmed, fontSize: 13 }}>
+                <Check size={20} style={{ marginBottom: 6, opacity: 0.5 }} /><br />
+                Keine Fehler vorhanden
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 400, overflowY: "auto" }}>
+                {errorLog.map((entry) => {
+                  const isExpanded = expandedError === entry.id;
+                  const ts = new Date(entry.timestamp);
+                  const timeStr = `${ts.toLocaleDateString("de-DE")} · ${ts.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}`;
+                  return (
+                    <div key={entry.id} style={{ background: C.bg, borderRadius: 10, border: `1px solid ${isExpanded ? C.red + "40" : C.border}`, overflow: "hidden", transition: "border-color 0.2s" }}>
+                      <div onClick={() => setExpandedError(isExpanded ? null : entry.id)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", cursor: "pointer" }}>
+                        <div style={{ width: 6, height: 6, borderRadius: 3, background: C.redLight, flexShrink: 0 }} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: C.white, marginBottom: 2 }}>{entry.action}</div>
+                          <div style={{ fontSize: 11, color: C.redLight, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{entry.error}</div>
+                        </div>
+                        <div style={{ fontSize: 10, color: C.dimmed, whiteSpace: "nowrap", flexShrink: 0 }}>{timeStr}</div>
+                        <ChevronDown size={14} color={C.dimmed} style={{ transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s", flexShrink: 0 }} />
+                      </div>
+                      {isExpanded && (
+                        <div style={{ padding: "0 14px 12px", borderTop: `1px solid ${C.border}` }}>
+                          <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "4px 12px", padding: "10px 0", fontSize: 11 }}>
+                            <span style={{ color: C.dimmed, fontWeight: 600 }}>Aktion:</span>
+                            <span style={{ color: C.white }}>{entry.action}</span>
+                            <span style={{ color: C.dimmed, fontWeight: 600 }}>Fehler:</span>
+                            <span style={{ color: C.redLight }}>{entry.error}</span>
+                            {entry.platforms && <>
+                              <span style={{ color: C.dimmed, fontWeight: 600 }}>Plattformen:</span>
+                              <span style={{ color: C.white }}>{entry.platforms.join(", ")}</span>
+                            </>}
+                            {entry.content && <>
+                              <span style={{ color: C.dimmed, fontWeight: 600 }}>Inhalt:</span>
+                              <span style={{ color: C.muted }}>{entry.content}...</span>
+                            </>}
+                            {entry.scheduledFor && <>
+                              <span style={{ color: C.dimmed, fontWeight: 600 }}>Geplant für:</span>
+                              <span style={{ color: C.white }}>{entry.scheduledFor}</span>
+                            </>}
+                            {entry.postTitle && <>
+                              <span style={{ color: C.dimmed, fontWeight: 600 }}>Beitrag:</span>
+                              <span style={{ color: C.white }}>{entry.postTitle}</span>
+                            </>}
+                            {entry.mediaCount > 0 && <>
+                              <span style={{ color: C.dimmed, fontWeight: 600 }}>Medien:</span>
+                              <span style={{ color: C.white }}>{entry.mediaCount} Datei(en)</span>
+                            </>}
+                            <span style={{ color: C.dimmed, fontWeight: 600 }}>Zeitpunkt:</span>
+                            <span style={{ color: C.white }}>{ts.toLocaleString("de-DE")}</span>
+                          </div>
+                          {entry.response && (
+                            <div>
+                              <div style={{ fontSize: 11, color: C.dimmed, fontWeight: 600, marginBottom: 4 }}>API-Antwort:</div>
+                              <pre style={{ background: C.card, borderRadius: 8, border: `1px solid ${C.border}`, padding: 10, fontSize: 10, color: C.muted, overflow: "auto", maxHeight: 180, whiteSpace: "pre-wrap", wordBreak: "break-all", lineHeight: 1.5, margin: 0 }}>
+                                {JSON.stringify(entry.response, null, 2)}
+                              </pre>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -2376,8 +2463,8 @@ export default function Dashboard() {
                           const res = await fetch("/api/late", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "delete-post", postId: post.id }) });
                           const data = await res.json();
                           if (res.ok) { hidePost(post.id); setPosts((prev) => prev.filter((p) => p.id !== post.id)); setSelectedPost(null); showNotif("Beitrag bei Zernio gelöscht", "green"); }
-                          else { showNotif(data.error || "Fehler beim Löschen", "red"); }
-                        } catch (err) { showNotif("Verbindungsfehler: " + err.message, "red"); }
+                          else { showNotif(data.error || "Fehler beim Löschen", "red"); addErrorLog({ action: "Beitrag löschen", error: data.error || "Unbekannter Fehler", postId: post.id, postTitle: post.title, response: data }); }
+                        } catch (err) { showNotif("Verbindungsfehler: " + err.message, "red"); addErrorLog({ action: "Beitrag löschen", error: `Netzwerkfehler: ${err.message}`, postId: post.id, postTitle: post.title }); }
                       }} style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 12px", borderRadius: 7, background: C.red + "15", border: `1px solid ${C.red}50`, color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
                         <Trash2 size={11} /> Bei Zernio löschen
                       </button>
