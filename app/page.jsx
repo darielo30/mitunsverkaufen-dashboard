@@ -17,8 +17,8 @@ import {
 
 // ── Brand Colors ────────────────────────────────────────────────
 const darkTheme = {
-  bg: "#0B0F1A", bgSoft: "#0E1225", card: "#111631", cardHover: "#161B3D",
-  border: "#1A2040", red: "#DC2626", redGlow: "rgba(220,38,38,0.12)",
+  bg: "#121212", bgSoft: "#151515", card: "#171717", cardHover: "#1E1E1E",
+  border: "#2A2A2A", red: "#DC2626", redGlow: "rgba(220,38,38,0.12)",
   redLight: "#EF4444", green: "#22C55E", greenGlow: "rgba(34,197,94,0.12)",
   blue: "#3B82F6", blueGlow: "rgba(59,130,246,0.12)", purple: "#8B5CF6",
   purpleGlow: "rgba(139,92,246,0.12)", yellow: "#EAB308",
@@ -798,15 +798,15 @@ const demoNotifications = [
 function Sidebar({ activeTab, onTabChange, unreadCount, errorCount, isDarkMode, onToggleTheme }) {
   const [expandedMenu, setExpandedMenu] = useState(null);
 
-  // Zernio-style sidebar colors
+  // Sidebar colors matching neutral dark theme
   const SB = {
-    bg: isDarkMode ? "#111631" : "#F8F9FB",
-    activeBg: isDarkMode ? "#1C2248" : "#E8EAFF",
-    hoverBg: isDarkMode ? "#171D3D" : "#EEEEFF",
+    bg: isDarkMode ? "#171717" : "#F8F9FB",
+    activeBg: isDarkMode ? "#1E1E1E" : "#E8EAFF",
+    hoverBg: isDarkMode ? "#1C1C1C" : "#EEEEFF",
     text: isDarkMode ? "#8B8FA3" : "#6B7280",
     activeText: isDarkMode ? "#FFFFFF" : "#111827",
-    border: isDarkMode ? "#1A2040" : "#E5E7EB",
-    userBg: isDarkMode ? "#0D1025" : "#F3F4F6",
+    border: isDarkMode ? "#2A2A2A" : "#E5E7EB",
+    userBg: isDarkMode ? "#121212" : "#F3F4F6",
   };
 
   const navItems = [
