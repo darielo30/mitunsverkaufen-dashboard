@@ -88,6 +88,63 @@ export async function GET(request) {
       return Response.json(data);
     }
 
+    // ── Advanced Analytics Endpoints ─────────────────────────
+    if (action === "analytics-daily") {
+      const platform = searchParams.get("platform") || "";
+      const profileId = searchParams.get("profileId") || "";
+      const fromDate = searchParams.get("fromDate") || "";
+      const toDate = searchParams.get("toDate") || "";
+      const params = new URLSearchParams();
+      if (platform) params.set("platform", platform);
+      if (profileId) params.set("profileId", profileId);
+      if (fromDate) params.set("fromDate", fromDate);
+      if (toDate) params.set("toDate", toDate);
+      const res = await fetch(`${BASE}/analytics/daily-metrics?${params}`, { headers: authHeaders() });
+      const rawText = await res.text();
+      let data;
+      try { data = JSON.parse(rawText); } catch { return Response.json({ error: rawText.substring(0, 300) }, { status: 500 }); }
+      return Response.json({ _raw: data, _status: res.status, _ok: res.ok });
+    }
+
+    if (action === "analytics-best-time") {
+      const platform = searchParams.get("platform") || "";
+      const profileId = searchParams.get("profileId") || "";
+      const params = new URLSearchParams();
+      if (platform) params.set("platform", platform);
+      if (profileId) params.set("profileId", profileId);
+      const res = await fetch(`${BASE}/analytics/best-time?${params}`, { headers: authHeaders() });
+      const rawText = await res.text();
+      let data;
+      try { data = JSON.parse(rawText); } catch { return Response.json({ error: rawText.substring(0, 300) }, { status: 500 }); }
+      return Response.json({ _raw: data, _status: res.status, _ok: res.ok });
+    }
+
+    if (action === "analytics-content-decay") {
+      const platform = searchParams.get("platform") || "";
+      const profileId = searchParams.get("profileId") || "";
+      const params = new URLSearchParams();
+      if (platform) params.set("platform", platform);
+      if (profileId) params.set("profileId", profileId);
+      const res = await fetch(`${BASE}/analytics/content-decay?${params}`, { headers: authHeaders() });
+      const rawText = await res.text();
+      let data;
+      try { data = JSON.parse(rawText); } catch { return Response.json({ error: rawText.substring(0, 300) }, { status: 500 }); }
+      return Response.json({ _raw: data, _status: res.status, _ok: res.ok });
+    }
+
+    if (action === "analytics-frequency") {
+      const platform = searchParams.get("platform") || "";
+      const profileId = searchParams.get("profileId") || "";
+      const params = new URLSearchParams();
+      if (platform) params.set("platform", platform);
+      if (profileId) params.set("profileId", profileId);
+      const res = await fetch(`${BASE}/analytics/posting-frequency?${params}`, { headers: authHeaders() });
+      const rawText = await res.text();
+      let data;
+      try { data = JSON.parse(rawText); } catch { return Response.json({ error: rawText.substring(0, 300) }, { status: 500 }); }
+      return Response.json({ _raw: data, _status: res.status, _ok: res.ok });
+    }
+
     // Fetch publishing logs
     if (action === "logs") {
       const res = await fetch(`${BASE}/logs`, {
@@ -257,6 +314,38 @@ export async function POST(request) {
         headers: authHeaders(),
       });
       const data = await res.json();
+      return Response.json(data);
+    }
+
+    // ── Reply to inbox conversation (DM) ───────────────────
+    if (action === "inbox-reply") {
+      const { conversationId, message } = body;
+      if (!conversationId || !message) {
+        return Response.json({ error: "conversationId and message required" }, { status: 400 });
+      }
+      const res = await fetch(`${BASE}/inbox/conversations/${conversationId}/messages`, {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({ message }),
+      });
+      const rawText = await res.text();
+      let data;
+      try { data = JSON.parse(rawText); } catch { return Response.json({ error: rawText.substring(0, 300) }, { status: 500 }); }
+      if (!res.ok) return Response.json({ error: data.message || data.error || "Fehler beim Senden", details: data }, { status: res.status });
+      return Response.json(data);
+    }
+
+    // ── Hide/unhide comment ────────────────────────────────
+    if (action === "hide-comment") {
+      const { postId, commentId } = body;
+      if (!postId || !commentId) return Response.json({ error: "postId and commentId required" }, { status: 400 });
+      const res = await fetch(`${BASE}/inbox/comments/${postId}/${commentId}/hide`, {
+        method: "POST",
+        headers: authHeaders(),
+      });
+      const rawText = await res.text();
+      let data;
+      try { data = JSON.parse(rawText); } catch { return Response.json({ error: rawText.substring(0, 300) }, { status: 500 }); }
       return Response.json(data);
     }
 
