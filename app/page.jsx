@@ -8,7 +8,7 @@ import {
   RefreshCw, Wifi, WifiOff, Upload, FileVideo, Trash2, ChevronLeft, ChevronRight,
   Globe, SkipForward, SkipBack, Scissors,
   LayoutDashboard, Bell, Settings, UserPlus, AlertCircle, XCircle, UsersRound, Shield, ExternalLink,
-  Sun, Moon, FileText, CheckSquare, Square, Download
+  Sun, Moon, FileText, CheckSquare, Square, Download, EyeOff
 } from "lucide-react";
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip,
@@ -866,6 +866,7 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected }) {
   const [conversations, setConversations] = useState([]);
   const [loadingDMs, setLoadingDMs] = useState(false);
   const [selectedConvo, setSelectedConvo] = useState(null);
+  const [selectedComment, setSelectedComment] = useState(null);
   const [replyText, setReplyText] = useState("");
   const [sendingReply, setSendingReply] = useState(false);
 
@@ -887,14 +888,16 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected }) {
             id: c.id || `api-${i}`,
             type: "comment",
             user: c.author?.username || c.author?.name || c.username || "Unbekannt",
-            text: `hat kommentiert: "${(c.text || c.content || c.message || "").substring(0, 80)}"`,
-            fullText: c.text || c.content || c.message || "",
-            post: c.postTitle || c.post?.content?.substring(0, 40) || null,
+            avatar: c.author?.profilePicture || c.author?.avatar || null,
+            text: c.text || c.content || c.message || "",
+            post: c.postTitle || c.post?.content?.substring(0, 60) || "Beitrag",
             postId: c.postId || c.post?.id || null,
             commentId: c.id || c.commentId || null,
-            time: c.createdAt ? new Date(c.createdAt).toLocaleString("de-DE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "",
+            time: c.createdAt || c.timestamp || "",
+            timeFormatted: c.createdAt ? new Date(c.createdAt).toLocaleString("de-DE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "",
             read: c.read || false,
             platform: (c.platform || "instagram").toLowerCase(),
+            replies: c.replies || [],
             isApi: true,
           }));
           setApiComments(mapped);
@@ -942,259 +945,374 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected }) {
       });
       const data = await res.json();
       if (data.error) { setApiError(data.error); }
-      else { setReplyText(""); /* Refresh convos */ setSelectedConvo(null); }
+      else { setReplyText(""); }
     } catch (err) { setApiError(err.message); }
     finally { setSendingReply(false); }
   };
 
-  // Merge API comments with demo notifications (demo as fallback)
+  // Merge API comments with demo notifications
   const allNotifs = apiComments.length > 0 ? apiComments : notifications;
   const filtered = platformFilter === "all" ? allNotifs : allNotifs.filter((n) => n.platform === platformFilter);
-  const unread = filtered.filter((n) => !n.read);
   const isDemo = apiComments.length === 0;
 
-  const getIcon = (type) => {
-    if (type === "like") return { icon: Heart, color: C.redLight, bg: C.redGlow };
-    if (type === "comment") return { icon: MessageCircle, color: C.blue, bg: C.blueGlow };
-    if (type === "follow") return { icon: UserPlus, color: C.green, bg: C.greenGlow };
-    return { icon: Bell, color: C.muted, bg: C.border };
+  // Zernio-style split panel styles
+  const listPanelStyle = { width: 360, minWidth: 360, borderRight: `1px solid ${C.border}`, height: "calc(100vh - 140px)", overflowY: "auto", flexShrink: 0 };
+  const detailPanelStyle = { flex: 1, height: "calc(100vh - 140px)", overflowY: "auto", display: "flex", flexDirection: "column" };
+  const listItemStyle = (active) => ({
+    display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", cursor: "pointer", transition: "all 0.15s",
+    background: active ? C.card : "transparent", borderBottom: `1px solid ${C.border}08`,
+    borderLeft: active ? `3px solid ${C.red}` : "3px solid transparent",
+  });
+
+  const formatTime = (t) => {
+    if (!t) return "";
+    try {
+      const d = new Date(t);
+      const now = new Date();
+      const diff = (now - d) / 1000;
+      if (diff < 60) return "Gerade eben";
+      if (diff < 3600) return `vor ${Math.floor(diff / 60)} Min.`;
+      if (diff < 86400) return `vor ${Math.floor(diff / 3600)} Std.`;
+      if (diff < 604800) return `vor ${Math.floor(diff / 86400)} Tagen`;
+      return d.toLocaleDateString("de-DE", { day: "numeric", month: "short" });
+    } catch { return typeof t === "string" ? t : ""; }
+  };
+
+  const PlatformBadge = ({ platform }) => {
+    const p = (platform || "instagram").toLowerCase();
+    const col = p === "instagram" ? C.instagram : C.tiktok;
+    return (
+      <div style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 6, background: col + "15", fontSize: 10, fontWeight: 600, color: col }}>
+        {p === "instagram" ? <Instagram size={10} /> : <TikTokIcon size={10} />}
+        {p === "instagram" ? "IG" : "TT"}
+      </div>
+    );
   };
 
   return (
-    <div style={{ padding: "28px 32px", maxWidth: 800, margin: "0 auto" }}>
-      {/* Demo hint */}
-      {isDemo && (
-        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 16px", borderRadius: 10, background: C.yellowGlow, border: `1px solid ${C.yellow}30`, marginBottom: 20 }}>
-          <AlertCircle size={14} color={C.yellow} style={{ flexShrink: 0 }} />
-          <div style={{ fontSize: 12, color: C.yellow }}>Demo-Modus – Echte Benachrichtigungen werden angezeigt, sobald die Late API Interaktionsdaten liefert.</div>
+    <div style={{ padding: 0, height: "100%" }}>
+      {/* Top Bar */}
+      <div style={{ padding: "20px 24px 0", borderBottom: `1px solid ${C.border}` }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+          <div style={{ fontSize: 20, fontWeight: 800, letterSpacing: "-0.02em" }}>Inbox</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {loadingComments && <Loader2 size={14} color={C.dimmed} style={{ animation: "spin 1s linear infinite" }} />}
+            {/* Platform pills */}
+            {[
+              { key: "all", label: "Alle" },
+              { key: "instagram", label: "Instagram", icon: Instagram, color: C.instagram },
+              { key: "tiktok", label: "TikTok", icon: TikTokIcon, color: C.tiktok },
+            ].map((f) => {
+              const active = platformFilter === f.key;
+              return (
+                <button key={f.key} onClick={() => setPlatformFilter(f.key)} style={{
+                  display: "flex", alignItems: "center", gap: 5, padding: "5px 12px", borderRadius: 8,
+                  border: `1px solid ${active ? (f.color || C.red) : C.border}`,
+                  background: active ? (f.color || C.red) + "15" : "transparent",
+                  color: active ? (f.color || C.red) : C.dimmed, fontSize: 12, fontWeight: 600,
+                  cursor: "pointer", fontFamily: "inherit",
+                }}>
+                  {f.icon && <f.icon size={12} />}{f.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
-      )}
+        {/* View Toggle Tabs — Zernio style */}
+        <div style={{ display: "flex", gap: 0 }}>
+          {[
+            { key: "comments", label: "Kommentare", icon: MessageCircle, count: filtered.length },
+            { key: "dms", label: "Nachrichten", icon: Send, count: conversations.length },
+          ].map((v) => {
+            const active = inboxView === v.key;
+            return (
+              <button key={v.key} onClick={() => { setInboxView(v.key); setSelectedComment(null); setSelectedConvo(null); }} style={{
+                display: "flex", alignItems: "center", gap: 6, padding: "10px 20px", fontSize: 13, fontWeight: 600,
+                color: active ? C.white : C.dimmed, background: "transparent", border: "none",
+                borderBottom: active ? `2px solid ${C.red}` : "2px solid transparent",
+                cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s",
+              }}>
+                <v.icon size={14} /> {v.label}
+                {v.count > 0 && <span style={{ fontSize: 10, background: active ? C.red + "20" : C.border, color: active ? C.red : C.dimmed, padding: "1px 6px", borderRadius: 10, fontWeight: 700 }}>{v.count}</span>}
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
       {apiError && (
-        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 16px", borderRadius: 10, background: C.redGlow, border: `1px solid ${C.redLight}30`, marginBottom: 20 }}>
-          <XCircle size={14} color={C.redLight} style={{ flexShrink: 0 }} />
-          <div style={{ fontSize: 12, color: C.redLight }}>API-Fehler: {apiError}</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 24px", background: C.redGlow, borderBottom: `1px solid ${C.redLight}20` }}>
+          <XCircle size={13} color={C.redLight} />
+          <div style={{ fontSize: 12, color: C.redLight }}>{apiError}</div>
+          <button onClick={() => setApiError(null)} style={{ marginLeft: "auto", background: "none", border: "none", color: C.redLight, cursor: "pointer", padding: 2 }}><X size={12} /></button>
         </div>
       )}
 
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.02em" }}>Benachrichtigungen</div>
-          <div style={{ fontSize: 13, color: C.muted, marginTop: 4 }}>{unread.length} ungelesen{loadingComments ? " · Wird geladen..." : ""}</div>
+      {isDemo && (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 24px", background: C.yellowGlow, borderBottom: `1px solid ${C.yellow}20` }}>
+          <AlertCircle size={13} color={C.yellow} />
+          <div style={{ fontSize: 11, color: C.yellow }}>Demo-Daten – Echte Inbox-Daten erscheinen, sobald die Zernio API Interaktionen liefert.</div>
         </div>
-        {unread.length > 0 && (
-          <button onClick={onMarkAllRead} style={{
-            display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 8,
-            background: C.card, border: `1px solid ${C.border}`, color: C.muted, fontSize: 13,
-            fontWeight: 500, cursor: "pointer", fontFamily: "inherit",
-          }}>
-            <Check size={14} /> Alle gelesen
-          </button>
-        )}
-      </div>
+      )}
 
-      {/* View Toggle: Comments / DMs */}
-      <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
-        {[
-          { key: "comments", label: "Kommentare", icon: MessageCircle },
-          { key: "dms", label: "Direktnachrichten", icon: Send },
-        ].map((v) => {
-          const active = inboxView === v.key;
-          return (
-            <button key={v.key} onClick={() => setInboxView(v.key)} style={{
-              display: "flex", alignItems: "center", gap: 6, padding: "8px 18px", borderRadius: 10,
-              border: `1.5px solid ${active ? C.red : C.border}`,
-              background: active ? C.redGlow : "transparent",
-              color: active ? C.red : C.dimmed, fontSize: 13, fontWeight: 600,
-              cursor: "pointer", transition: "all 0.2s", fontFamily: "inherit",
-            }}>
-              <v.icon size={14} /> {v.label}
-            </button>
-          );
-        })}
-      </div>
+      {/* ── Split Panel Layout ──────────────────────────────── */}
+      <div style={{ display: "flex", height: "calc(100vh - 200px)" }}>
 
-      {/* Platform Filter Buttons */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
-        {[
-          { key: "all", label: "Alle", icon: null, color: C.red },
-          { key: "instagram", label: "Instagram", icon: Instagram, color: C.instagram },
-          { key: "tiktok", label: "TikTok", icon: TikTokIcon, color: C.tiktok },
-        ].map((f) => {
-          const active = platformFilter === f.key;
-          return (
-            <button key={f.key} onClick={() => setPlatformFilter(f.key)} style={{
-              display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 10,
-              border: `1.5px solid ${active ? f.color : C.border}`,
-              background: active ? f.color + "15" : "transparent",
-              color: active ? f.color : C.dimmed, fontSize: 13, fontWeight: 600,
-              cursor: "pointer", transition: "all 0.2s", fontFamily: "inherit",
-            }}>
-              {f.icon && <f.icon size={14} />}
-              {f.label}
-              {active && <Check size={13} />}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* ── DMs View ─────────────────────────────────────────── */}
-      {inboxView === "dms" && (
-        <div>
-          {loadingDMs && <div style={{ padding: 20, textAlign: "center", color: C.dimmed, fontSize: 13 }}><Loader2 size={16} style={{ animation: "spin 1s linear infinite", display: "inline-block", marginRight: 6 }} /> DMs werden geladen...</div>}
-
-          {!loadingDMs && conversations.length === 0 && (
-            <div style={{ padding: 40, textAlign: "center", color: C.dimmed, fontSize: 14 }}>
-              {isConnected ? "Keine Direktnachrichten gefunden." : "Verbinde die API, um DMs zu laden."}
-            </div>
-          )}
-
-          {!loadingDMs && conversations.length > 0 && !selectedConvo && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {conversations.map((convo, i) => {
-                const pc = (convo.platform || "instagram") === "instagram" ? C.instagram : C.tiktok;
-                const lastMsg = convo.lastMessage || convo.messages?.[convo.messages.length - 1] || {};
+        {/* ── COMMENTS VIEW ────────────────────────────────── */}
+        {inboxView === "comments" && (
+          <React.Fragment>
+            {/* Left: Comment List */}
+            <div style={listPanelStyle}>
+              {filtered.length === 0 && !loadingComments && (
+                <div style={{ padding: 40, textAlign: "center", color: C.dimmed, fontSize: 13 }}>
+                  <MessageCircle size={32} color={C.border} style={{ marginBottom: 12 }} />
+                  <div>Keine Kommentare vorhanden.</div>
+                </div>
+              )}
+              {filtered.map((n, idx) => {
+                const active = selectedComment?.id === n.id;
+                const pc = n.platform === "instagram" ? C.instagram : C.tiktok;
                 return (
-                  <div key={convo.id || i} onClick={() => setSelectedConvo(convo)}
-                    style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 16px", borderRadius: 12, background: C.card, border: `1px solid ${C.border}`, cursor: "pointer", transition: "all 0.2s" }}
-                    onMouseOver={(e) => e.currentTarget.style.background = C.cardHover}
-                    onMouseOut={(e) => e.currentTarget.style.background = C.card}>
-                    <div style={{ width: 40, height: 40, borderRadius: 12, background: pc + "20", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                      {(convo.platform || "instagram") === "instagram" ? <Instagram size={18} color={pc} /> : <TikTokIcon size={18} color={pc} />}
+                  <div key={n.id || idx} onClick={() => setSelectedComment(n)} style={listItemStyle(active)}
+                    onMouseOver={(e) => { if (!active) e.currentTarget.style.background = C.cardHover; }}
+                    onMouseOut={(e) => { if (!active) e.currentTarget.style.background = "transparent"; }}>
+                    {/* Avatar */}
+                    <div style={{ width: 38, height: 38, borderRadius: "50%", background: pc + "20", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, position: "relative" }}>
+                      {n.avatar
+                        ? <img src={n.avatar} alt="" style={{ width: 38, height: 38, borderRadius: "50%", objectFit: "cover" }} />
+                        : <span style={{ fontSize: 15, fontWeight: 700, color: pc }}>{(n.user || "?")[0].toUpperCase()}</span>
+                      }
+                      {!n.read && <div style={{ position: "absolute", top: -1, right: -1, width: 10, height: 10, borderRadius: "50%", background: C.red, border: `2px solid ${C.bg}` }} />}
                     </div>
+                    {/* Content */}
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: C.white }}>{convo.participant?.username || convo.participant?.name || convo.name || "Unbekannt"}</div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: C.white }}>{n.user}</span>
+                        <PlatformBadge platform={n.platform} />
+                      </div>
                       <div style={{ fontSize: 12, color: C.muted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                        {lastMsg.text || lastMsg.content || lastMsg.message || "Keine Nachricht"}
+                        {n.text || n.fullText || "Kommentar"}
+                      </div>
+                      <div style={{ fontSize: 10, color: C.dimmed, marginTop: 3 }}>
+                        {formatTime(n.time)} {n.post ? `· ${n.post}` : ""}
                       </div>
                     </div>
-                    <div style={{ fontSize: 10, color: C.dimmed, flexShrink: 0 }}>
-                      {lastMsg.createdAt ? new Date(lastMsg.createdAt).toLocaleString("de-DE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : ""}
-                    </div>
-                    <ChevronRight size={14} color={C.dimmed} />
                   </div>
                 );
               })}
             </div>
-          )}
 
-          {/* Selected conversation detail */}
-          {selectedConvo && (
-            <div>
-              <button onClick={() => { setSelectedConvo(null); setReplyText(""); }} style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 8, background: C.bg, border: `1px solid ${C.border}`, color: C.muted, fontSize: 12, cursor: "pointer", fontFamily: "inherit", marginBottom: 16 }}>
-                <ChevronLeft size={14} /> Zurück
-              </button>
-              <div style={{ background: C.card, borderRadius: 14, border: `1px solid ${C.border}`, padding: 20, marginBottom: 12 }}>
-                <div style={{ fontSize: 16, fontWeight: 700, color: C.white, marginBottom: 4 }}>{selectedConvo.participant?.username || selectedConvo.name || "Unbekannt"}</div>
-                <div style={{ fontSize: 11, color: C.dimmed, marginBottom: 16 }}>{selectedConvo.platform || "instagram"} · Konversation</div>
-                {/* Messages */}
-                <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 350, overflowY: "auto", marginBottom: 16 }}>
-                  {(selectedConvo.messages || []).map((msg, mi) => {
-                    const isOwn = msg.isOwn || msg.direction === "outgoing" || msg.from === "self";
-                    return (
-                      <div key={mi} style={{ display: "flex", justifyContent: isOwn ? "flex-end" : "flex-start" }}>
-                        <div style={{ maxWidth: "70%", padding: "10px 14px", borderRadius: 12, background: isOwn ? C.red + "20" : C.bg, border: `1px solid ${isOwn ? C.red + "30" : C.border}` }}>
-                          <div style={{ fontSize: 13, color: C.white, lineHeight: 1.5 }}>{msg.text || msg.content || msg.message}</div>
-                          <div style={{ fontSize: 10, color: C.dimmed, marginTop: 4, textAlign: isOwn ? "right" : "left" }}>
-                            {msg.createdAt ? new Date(msg.createdAt).toLocaleString("de-DE", { hour: "2-digit", minute: "2-digit" }) : ""}
+            {/* Right: Comment Detail */}
+            <div style={detailPanelStyle}>
+              {!selectedComment ? (
+                <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: C.dimmed, gap: 12 }}>
+                  <MessageCircle size={40} color={C.border} />
+                  <div style={{ fontSize: 14, fontWeight: 600 }}>Kommentar auswählen</div>
+                  <div style={{ fontSize: 12 }}>Wähle einen Kommentar aus der Liste, um Details zu sehen.</div>
+                </div>
+              ) : (
+                <div style={{ padding: 24, flex: 1, display: "flex", flexDirection: "column" }}>
+                  {/* Comment header */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 20, paddingBottom: 16, borderBottom: `1px solid ${C.border}` }}>
+                    <div style={{ width: 44, height: 44, borderRadius: "50%", background: (selectedComment.platform === "instagram" ? C.instagram : C.tiktok) + "20", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      {selectedComment.avatar
+                        ? <img src={selectedComment.avatar} alt="" style={{ width: 44, height: 44, borderRadius: "50%", objectFit: "cover" }} />
+                        : <span style={{ fontSize: 18, fontWeight: 700, color: selectedComment.platform === "instagram" ? C.instagram : C.tiktok }}>{(selectedComment.user || "?")[0].toUpperCase()}</span>
+                      }
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontSize: 16, fontWeight: 700, color: C.white }}>{selectedComment.user}</span>
+                        <PlatformBadge platform={selectedComment.platform} />
+                      </div>
+                      <div style={{ fontSize: 12, color: C.dimmed, marginTop: 2 }}>{formatTime(selectedComment.time)}</div>
+                    </div>
+                    {selectedComment.postId && selectedComment.commentId && (
+                      <button onClick={async () => {
+                        try {
+                          await fetch("/api/late", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "hide-comment", postId: selectedComment.postId, commentId: selectedComment.commentId }) });
+                        } catch {}
+                      }} style={{ padding: "6px 12px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, color: C.dimmed, fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 4 }}>
+                        <EyeOff size={12} /> Ausblenden
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Post reference */}
+                  {selectedComment.post && (
+                    <div style={{ padding: "12px 16px", borderRadius: 10, background: C.card, border: `1px solid ${C.border}`, marginBottom: 16, fontSize: 12, color: C.muted }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: C.dimmed, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Beitrag</div>
+                      {selectedComment.post}
+                    </div>
+                  )}
+
+                  {/* Comment text */}
+                  <div style={{ padding: "16px 20px", borderRadius: 14, background: C.card, border: `1px solid ${C.border}`, marginBottom: 16 }}>
+                    <div style={{ fontSize: 14, color: C.white, lineHeight: 1.7 }}>
+                      {selectedComment.text || selectedComment.fullText || "Kein Text"}
+                    </div>
+                  </div>
+
+                  {/* Replies thread */}
+                  {selectedComment.replies && selectedComment.replies.length > 0 && (
+                    <div style={{ marginBottom: 16 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: C.dimmed, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Antworten ({selectedComment.replies.length})</div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8, paddingLeft: 16, borderLeft: `2px solid ${C.border}` }}>
+                        {selectedComment.replies.map((r, ri) => (
+                          <div key={ri} style={{ padding: "10px 14px", borderRadius: 10, background: C.bg, border: `1px solid ${C.border}` }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                              <span style={{ fontSize: 12, fontWeight: 700, color: C.white }}>{r.author?.username || r.username || "Unbekannt"}</span>
+                              <span style={{ fontSize: 10, color: C.dimmed }}>{formatTime(r.createdAt)}</span>
+                            </div>
+                            <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.5 }}>{r.text || r.content || r.message || ""}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Reply input at bottom */}
+                  <div style={{ marginTop: "auto", paddingTop: 16, borderTop: `1px solid ${C.border}` }}>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <input type="text" value={replyText} onChange={(e) => setReplyText(e.target.value)}
+                        placeholder="Antwort schreiben..."
+                        style={{ flex: 1, padding: "10px 14px", borderRadius: 10, background: C.card, border: `1px solid ${C.border}`, color: C.white, fontSize: 13, fontFamily: "inherit", outline: "none" }} />
+                      <button style={{ padding: "10px 18px", borderRadius: 10, background: C.red, border: "none", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 6, opacity: !replyText.trim() ? 0.5 : 1 }}>
+                        <Send size={14} /> Antworten
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </React.Fragment>
+        )}
+
+        {/* ── DMs VIEW ─────────────────────────────────────── */}
+        {inboxView === "dms" && (
+          <React.Fragment>
+            {/* Left: Conversations List */}
+            <div style={listPanelStyle}>
+              {loadingDMs && (
+                <div style={{ padding: 30, textAlign: "center", color: C.dimmed, fontSize: 13 }}>
+                  <Loader2 size={16} style={{ animation: "spin 1s linear infinite", display: "inline-block", marginRight: 6 }} /> Wird geladen...
+                </div>
+              )}
+              {!loadingDMs && conversations.length === 0 && (
+                <div style={{ padding: 40, textAlign: "center", color: C.dimmed, fontSize: 13 }}>
+                  <Send size={32} color={C.border} style={{ marginBottom: 12 }} />
+                  <div>{isConnected ? "Keine Nachrichten vorhanden." : "Verbinde die API, um Nachrichten zu laden."}</div>
+                </div>
+              )}
+              {conversations.map((convo, i) => {
+                const active = selectedConvo?.id === convo.id;
+                const pc = (convo.platform || "instagram") === "instagram" ? C.instagram : C.tiktok;
+                const lastMsg = convo.lastMessage || convo.messages?.[convo.messages.length - 1] || {};
+                const name = convo.participant?.username || convo.participant?.name || convo.name || "Unbekannt";
+                return (
+                  <div key={convo.id || i} onClick={() => setSelectedConvo(convo)} style={listItemStyle(active)}
+                    onMouseOver={(e) => { if (!active) e.currentTarget.style.background = C.cardHover; }}
+                    onMouseOut={(e) => { if (!active) e.currentTarget.style.background = "transparent"; }}>
+                    {/* Avatar */}
+                    <div style={{ width: 38, height: 38, borderRadius: "50%", background: pc + "20", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      {convo.participant?.profilePicture
+                        ? <img src={convo.participant.profilePicture} alt="" style={{ width: 38, height: 38, borderRadius: "50%", objectFit: "cover" }} />
+                        : <span style={{ fontSize: 15, fontWeight: 700, color: pc }}>{name[0].toUpperCase()}</span>
+                      }
+                    </div>
+                    {/* Content */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 2 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: C.white }}>{name}</span>
+                          <PlatformBadge platform={convo.platform} />
+                        </div>
+                        <span style={{ fontSize: 10, color: C.dimmed, flexShrink: 0 }}>
+                          {formatTime(lastMsg.createdAt || convo.updatedAt)}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 12, color: C.muted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {lastMsg.text || lastMsg.content || lastMsg.message || "Keine Nachricht"}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Right: Chat Detail */}
+            <div style={detailPanelStyle}>
+              {!selectedConvo ? (
+                <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: C.dimmed, gap: 12 }}>
+                  <Send size={40} color={C.border} />
+                  <div style={{ fontSize: 14, fontWeight: 600 }}>Konversation auswählen</div>
+                  <div style={{ fontSize: 12 }}>Wähle eine Konversation, um den Chat zu öffnen.</div>
+                </div>
+              ) : (
+                <React.Fragment>
+                  {/* Chat header */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "16px 24px", borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
+                    <div style={{ width: 38, height: 38, borderRadius: "50%", background: ((selectedConvo.platform || "instagram") === "instagram" ? C.instagram : C.tiktok) + "20", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      {selectedConvo.participant?.profilePicture
+                        ? <img src={selectedConvo.participant.profilePicture} alt="" style={{ width: 38, height: 38, borderRadius: "50%", objectFit: "cover" }} />
+                        : <span style={{ fontSize: 15, fontWeight: 700, color: (selectedConvo.platform || "instagram") === "instagram" ? C.instagram : C.tiktok }}>{(selectedConvo.participant?.username || selectedConvo.name || "U")[0].toUpperCase()}</span>
+                      }
+                    </div>
+                    <div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontSize: 15, fontWeight: 700, color: C.white }}>{selectedConvo.participant?.username || selectedConvo.name || "Unbekannt"}</span>
+                        <PlatformBadge platform={selectedConvo.platform} />
+                      </div>
+                      <div style={{ fontSize: 11, color: C.dimmed, marginTop: 1 }}>Konversation</div>
+                    </div>
+                  </div>
+
+                  {/* Messages area */}
+                  <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px", display: "flex", flexDirection: "column", gap: 10 }}>
+                    {(selectedConvo.messages || []).length === 0 && (
+                      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: C.dimmed, fontSize: 12 }}>Keine Nachrichten in dieser Konversation.</div>
+                    )}
+                    {(selectedConvo.messages || []).map((msg, mi) => {
+                      const isOwn = msg.isOwn || msg.direction === "outgoing" || msg.from === "self";
+                      return (
+                        <div key={mi} style={{ display: "flex", justifyContent: isOwn ? "flex-end" : "flex-start" }}>
+                          <div style={{
+                            maxWidth: "65%", padding: "10px 14px",
+                            borderRadius: isOwn ? "14px 14px 4px 14px" : "14px 14px 14px 4px",
+                            background: isOwn ? C.red : C.card,
+                            border: isOwn ? "none" : `1px solid ${C.border}`,
+                          }}>
+                            <div style={{ fontSize: 13, color: isOwn ? "#fff" : C.white, lineHeight: 1.5 }}>
+                              {msg.text || msg.content || msg.message}
+                            </div>
+                            <div style={{ fontSize: 10, color: isOwn ? "rgba(255,255,255,0.6)" : C.dimmed, marginTop: 4, textAlign: isOwn ? "right" : "left" }}>
+                              {formatTime(msg.createdAt)}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                  {(selectedConvo.messages || []).length === 0 && (
-                    <div style={{ padding: 20, textAlign: "center", color: C.dimmed, fontSize: 12 }}>Keine Nachrichten in dieser Konversation.</div>
-                  )}
-                </div>
-                {/* Reply input */}
-                <div style={{ display: "flex", gap: 8 }}>
-                  <input type="text" value={replyText} onChange={(e) => setReplyText(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter" && !sendingReply) handleReply(selectedConvo.id); }}
-                    placeholder="Nachricht schreiben..."
-                    style={{ flex: 1, padding: "10px 14px", borderRadius: 10, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontSize: 13, fontFamily: "inherit", outline: "none" }} />
-                  <button onClick={() => handleReply(selectedConvo.id)} disabled={sendingReply || !replyText.trim()}
-                    style={{ padding: "10px 18px", borderRadius: 10, background: C.red, border: "none", color: "#fff", fontSize: 13, fontWeight: 600, cursor: sendingReply ? "wait" : "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 6, opacity: !replyText.trim() ? 0.5 : 1 }}>
-                    {sendingReply ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <Send size={14} />}
-                    Senden
-                  </button>
-                </div>
-              </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Reply input */}
+                  <div style={{ padding: "12px 24px 16px", borderTop: `1px solid ${C.border}`, flexShrink: 0 }}>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <input type="text" value={replyText} onChange={(e) => setReplyText(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter" && !sendingReply) handleReply(selectedConvo.id); }}
+                        placeholder="Nachricht schreiben..."
+                        style={{ flex: 1, padding: "11px 16px", borderRadius: 12, background: C.card, border: `1px solid ${C.border}`, color: C.white, fontSize: 13, fontFamily: "inherit", outline: "none" }} />
+                      <button onClick={() => handleReply(selectedConvo.id)} disabled={sendingReply || !replyText.trim()}
+                        style={{ padding: "11px 20px", borderRadius: 12, background: C.red, border: "none", color: "#fff", fontSize: 13, fontWeight: 600, cursor: sendingReply ? "wait" : "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 6, opacity: !replyText.trim() ? 0.5 : 1 }}>
+                        {sendingReply ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <Send size={14} />}
+                      </button>
+                    </div>
+                  </div>
+                </React.Fragment>
+              )}
             </div>
-          )}
-        </div>
-      )}
-
-      {/* ── Comments View ────────────────────────────────────── */}
-      {inboxView === "comments" && <>
-      {/* Unread section */}
-      {unread.length > 0 && (
-        <div style={{ marginBottom: 24 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: C.dimmed, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>Neu</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {unread.map((n) => {
-              const { icon: Icon, color, bg } = getIcon(n.type);
-              const pc = n.platform === "instagram" ? C.instagram : C.tiktok;
-              return (
-                <div key={n.id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 16px", borderRadius: 12, background: C.card, border: `1px solid ${color}25`, cursor: "default", transition: "all 0.2s" }}
-                  onMouseOver={(e) => e.currentTarget.style.background = C.cardHover}
-                  onMouseOut={(e) => e.currentTarget.style.background = C.card}>
-                  <div style={{ width: 40, height: 40, borderRadius: 12, background: bg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                    <Icon size={18} color={color} />
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 14, color: C.white, lineHeight: 1.5 }}>
-                      <span style={{ fontWeight: 700 }}>{n.user}</span>{" "}
-                      <span style={{ color: C.muted }}>{n.text}</span>
-                    </div>
-                    {n.post && <div style={{ fontSize: 12, color: C.dimmed, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{n.post}</div>}
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, flexShrink: 0 }}>
-                    <div style={{ fontSize: 11, color: C.dimmed }}>{n.time}</div>
-                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: pc }} />
-                  </div>
-                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: C.red, flexShrink: 0 }} />
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Read section */}
-      {filtered.filter((n) => n.read).length > 0 && (
-        <div>
-          <div style={{ fontSize: 12, fontWeight: 700, color: C.dimmed, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>Früher</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            {filtered.filter((n) => n.read).map((n) => {
-              const { icon: Icon, color, bg } = getIcon(n.type);
-              const pc = n.platform === "instagram" ? C.instagram : C.tiktok;
-              return (
-                <div key={n.id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "12px 16px", borderRadius: 12, background: "transparent", cursor: "default", transition: "all 0.2s", opacity: 0.7 }}
-                  onMouseOver={(e) => { e.currentTarget.style.background = C.card; e.currentTarget.style.opacity = "1"; }}
-                  onMouseOut={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.opacity = "0.7"; }}>
-                  <div style={{ width: 36, height: 36, borderRadius: 10, background: bg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                    <Icon size={16} color={color} />
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.5 }}>
-                      <span style={{ fontWeight: 600, color: C.white }}>{n.user}</span>{" "}{n.text}
-                    </div>
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-                    <div style={{ fontSize: 11, color: C.dimmed }}>{n.time}</div>
-                    <div style={{ width: 6, height: 6, borderRadius: "50%", background: pc }} />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {filtered.length === 0 && !loadingComments && (
-        <div style={{ padding: 40, textAlign: "center", color: C.dimmed, fontSize: 14 }}>Keine Benachrichtigungen für diesen Filter.</div>
-      )}
-      </>}
+          </React.Fragment>
+        )}
+      </div>
     </div>
   );
 }
@@ -2259,84 +2377,108 @@ export default function Dashboard() {
         <NotificationPanel notifications={notifications} onMarkAllRead={markAllRead} isConnected={isConnected} />
       )}
 
-      {/* ── Analytics Tab ────────────────────────────────────── */}
+      {/* ── Analytics Tab (Zernio Design) ─────────────────────── */}
       {activeTab === "analytics" && (() => {
-        // Demo fallback data
-        const demoDailyData = demoPerformance.map((d) => ({ date: d.month, impressions: d.views, reach: Math.round(d.views * 0.7), likes: d.likes, comments: d.comments, shares: d.shares, saves: Math.round(d.likes * 0.3), clicks: Math.round(d.views * 0.04), views: d.views }));
-        const demoBestTime = { slots: [
-          { dayOfWeek: 0, hour: 9, avg_engagement: 4.2 }, { dayOfWeek: 0, hour: 12, avg_engagement: 5.1 }, { dayOfWeek: 0, hour: 18, avg_engagement: 6.8 },
-          { dayOfWeek: 1, hour: 8, avg_engagement: 3.8 }, { dayOfWeek: 1, hour: 12, avg_engagement: 4.9 }, { dayOfWeek: 1, hour: 19, avg_engagement: 7.2 },
-          { dayOfWeek: 2, hour: 9, avg_engagement: 4.5 }, { dayOfWeek: 2, hour: 13, avg_engagement: 5.3 }, { dayOfWeek: 2, hour: 20, avg_engagement: 6.1 },
-          { dayOfWeek: 3, hour: 10, avg_engagement: 4.1 }, { dayOfWeek: 3, hour: 14, avg_engagement: 5.7 }, { dayOfWeek: 3, hour: 18, avg_engagement: 7.5 },
-          { dayOfWeek: 4, hour: 9, avg_engagement: 5.2 }, { dayOfWeek: 4, hour: 12, avg_engagement: 6.4 }, { dayOfWeek: 4, hour: 17, avg_engagement: 8.1 },
-          { dayOfWeek: 5, hour: 10, avg_engagement: 6.8 }, { dayOfWeek: 5, hour: 14, avg_engagement: 7.2 }, { dayOfWeek: 5, hour: 20, avg_engagement: 5.4 },
-          { dayOfWeek: 6, hour: 11, avg_engagement: 7.5 }, { dayOfWeek: 6, hour: 15, avg_engagement: 6.9 }, { dayOfWeek: 6, hour: 19, avg_engagement: 5.8 },
-        ]};
-        const demoDecay = { buckets: [
-          { bucket_label: "Tag 1", avg_pct_of_final: 35 }, { bucket_label: "Tag 2", avg_pct_of_final: 58 },
-          { bucket_label: "Tag 3", avg_pct_of_final: 72 }, { bucket_label: "Tag 7", avg_pct_of_final: 88 },
-          { bucket_label: "Tag 14", avg_pct_of_final: 95 }, { bucket_label: "Tag 30", avg_pct_of_final: 100 },
-        ]};
-        const demoFreq = { rows: [
-          { posts_per_week: 1, avg_engagement_rate: 3.2, weeks_count: 4 },
-          { posts_per_week: 2, avg_engagement_rate: 4.1, weeks_count: 6 },
-          { posts_per_week: 3, avg_engagement_rate: 5.8, weeks_count: 8 },
-          { posts_per_week: 4, avg_engagement_rate: 5.2, weeks_count: 3 },
-          { posts_per_week: 5, avg_engagement_rate: 4.5, weeks_count: 2 },
-        ]};
+        // ── Robust data extraction from API response ──
+        const raw = analyticsData.daily || {};
+        // Try every possible path for daily data
+        let daily = raw.dailyData || raw.data || raw.daily || (Array.isArray(raw) ? raw : null);
+        if (!daily || (Array.isArray(daily) && daily.length === 0)) daily = null;
 
-        const daily = analyticsData.daily?.dailyData || analyticsData.daily?.data || (Array.isArray(analyticsData.daily) ? analyticsData.daily : null) || demoDailyData;
-        const breakdown = analyticsData.daily?.platformBreakdown || null;
-        const bestTimeData = analyticsData.bestTime?.slots || analyticsData.bestTime?.data || demoBestTime.slots;
-        const decayData = analyticsData.decay?.buckets || analyticsData.decay?.data || demoDecay.buckets;
-        const freqData = analyticsData.frequency?.rows || analyticsData.frequency?.data || demoFreq.rows;
-        const isDemo = !analyticsData.daily?.dailyData && !analyticsData.daily?.data && !(Array.isArray(analyticsData.daily) && analyticsData.daily.length > 0);
+        // Extract breakdown – try multiple paths
+        const breakdown = raw.platformBreakdown || raw.breakdown || raw.platforms || null;
 
-        // Compute summary from daily data
-        const totalImpressions = daily.reduce((s, d) => s + (d.impressions || d.views || 0), 0);
-        const totalLikes = daily.reduce((s, d) => s + (d.likes || 0), 0);
-        const totalComments = daily.reduce((s, d) => s + (d.comments || 0), 0);
-        const totalReach = daily.reduce((s, d) => s + (d.reach || 0), 0);
+        // Compute totals: prefer breakdown sums (more reliable), fallback to daily sums
+        let totals = { likes: 0, comments: 0, shares: 0, views: 0, impressions: 0, reach: 0, clicks: 0, saves: 0 };
+        if (breakdown && typeof breakdown === "object") {
+          Object.values(breakdown).forEach((m) => {
+            totals.likes += (m.likes || 0);
+            totals.comments += (m.comments || 0);
+            totals.shares += (m.shares || 0);
+            totals.views += (m.views || 0);
+            totals.impressions += (m.impressions || 0);
+            totals.reach += (m.reach || 0);
+            totals.clicks += (m.clicks || 0);
+            totals.saves += (m.saves || 0);
+          });
+        } else if (daily) {
+          daily.forEach((d) => {
+            totals.likes += (d.likes || 0);
+            totals.comments += (d.comments || 0);
+            totals.shares += (d.shares || 0);
+            totals.views += (d.views || 0);
+            totals.impressions += (d.impressions || 0);
+            totals.reach += (d.reach || 0);
+            totals.clicks += (d.clicks || 0);
+            totals.saves += (d.saves || 0);
+          });
+        }
 
-        // Best time heatmap
+        // Engagement rate
+        const totalEngagement = totals.likes + totals.comments + totals.shares;
+        const engRate = totals.impressions > 0 ? ((totalEngagement / totals.impressions) * 100).toFixed(2) : totals.reach > 0 ? ((totalEngagement / totals.reach) * 100).toFixed(2) : "0.00";
+
+        const hasRealData = breakdown || daily;
+        const isDemo = !hasRealData;
+
+        // Chart data: use daily if available, else build from posts
+        const chartData = daily || posts.filter((p) => p.status === "published").slice(0, 30).map((p) => ({
+          date: new Date(p.date).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" }),
+          likes: p.likes || 0, comments: p.comments || 0, shares: p.shares || 0, views: p.views || 0,
+        })).reverse();
+
+        // Best time
+        const bestTimeRaw = analyticsData.bestTime || {};
+        const bestTimeData = bestTimeRaw.slots || bestTimeRaw.data || bestTimeRaw.bestTimes || [];
         const dayLabels = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
-        const hours = Array.from({ length: 24 }, (_, i) => i);
         const btMap = {};
-        (bestTimeData || []).forEach((s) => { btMap[`${s.dayOfWeek}-${s.hour}`] = s.avg_engagement; });
+        (Array.isArray(bestTimeData) ? bestTimeData : []).forEach((s) => {
+          btMap[`${s.dayOfWeek || s.day}-${s.hour}`] = s.avg_engagement || s.engagement || s.score || 0;
+        });
         const maxEng = Math.max(...Object.values(btMap), 1);
 
+        // Top performing posts (sort by engagement)
+        const topPosts = [...posts].filter((p) => p.status === "published").sort((a, b) => ((b.likes || 0) + (b.comments || 0) + (b.shares || 0)) - ((a.likes || 0) + (a.comments || 0) + (a.shares || 0))).slice(0, 5);
+
+        // Platform breakdown cards
+        const platformCards = [];
+        if (breakdown) {
+          Object.entries(breakdown).forEach(([key, metrics]) => {
+            // Detect platform from key (could be platform name, accountId, or profileId)
+            const acct = accounts.find((a) => a.accountId === key || a.id === key || a.profileId === key);
+            const platName = acct?.platform || (key.toLowerCase().includes("instagram") ? "instagram" : key.toLowerCase().includes("tiktok") ? "tiktok" : key);
+            platformCards.push({ key, platform: platName, name: acct?.name || platName, metrics, postCount: metrics.postCount || metrics.posts || "–" });
+          });
+        }
+
+        // Content decay
+        const decayRaw = analyticsData.decay || {};
+        const decayData = decayRaw.buckets || decayRaw.data || [];
+
         return (
-        <div style={{ padding: "28px 32px", maxWidth: 1100, margin: "0 auto" }}>
+        <div style={{ padding: "24px 32px" }}>
           {/* Header */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 24 }}>
             <div>
-              <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.02em" }}>Analytics</div>
-              <div style={{ fontSize: 13, color: C.muted, marginTop: 4 }}>
-                {analyticsLoading ? "Daten werden geladen..." : isDemo ? "Demo-Daten – verbinde die API für echte Statistiken" : "Echte Daten von Zernio API"}
-              </div>
+              <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.02em", color: C.white }}>Analytics</div>
+              <div style={{ fontSize: 13, color: C.muted, marginTop: 2 }}>Post-Performance-Metriken ansehen</div>
             </div>
-            <div style={{ display: "flex", gap: 8 }}>
-              {/* Platform filter */}
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               {["all", "instagram", "tiktok"].map((p) => {
                 const active = analyticsPlatform === p;
-                const col = p === "instagram" ? C.instagram : p === "tiktok" ? C.tiktok : C.red;
+                const col = p === "instagram" ? C.instagram : p === "tiktok" ? C.tiktok : C.white;
                 return (
-                  <button key={p} onClick={() => setAnalyticsPlatform(p)} style={{
-                    padding: "6px 14px", borderRadius: 8, border: `1.5px solid ${active ? col : C.border}`,
-                    background: active ? col + "15" : "transparent", color: active ? col : C.dimmed,
-                    fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
-                  }}>{p === "all" ? "Alle" : p === "instagram" ? "Instagram" : "TikTok"}</button>
+                  <button key={p} onClick={() => setAnalyticsPlatform(p)} style={{ padding: "7px 16px", borderRadius: 8, border: `1px solid ${active ? col + "60" : C.border}`, background: active ? col + "12" : "transparent", color: active ? col : C.dimmed, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+                    {p === "all" ? "Alle Plattformen" : p === "instagram" ? "Instagram" : "TikTok"}
+                  </button>
                 );
               })}
-              {/* Time range */}
               {["7d", "30d", "90d"].map((r) => {
                 const active = analyticsRange === r;
                 return (
-                  <button key={r} onClick={() => setAnalyticsRange(r)} style={{
-                    padding: "6px 12px", borderRadius: 8, border: `1.5px solid ${active ? C.blue : C.border}`,
-                    background: active ? C.blueGlow : "transparent", color: active ? C.blue : C.dimmed,
-                    fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
-                  }}>{r === "7d" ? "7 Tage" : r === "30d" ? "30 Tage" : "90 Tage"}</button>
+                  <button key={r} onClick={() => setAnalyticsRange(r)} style={{ padding: "7px 14px", borderRadius: 8, border: `1px solid ${active ? C.blue + "60" : C.border}`, background: active ? C.blueGlow : "transparent", color: active ? C.blue : C.dimmed, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+                    {r === "7d" ? "7 Tage" : r === "30d" ? "30 Tage" : "90 Tage"}
+                  </button>
                 );
               })}
               <button onClick={fetchAnalytics} style={{ width: 34, height: 34, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", background: C.card, border: `1px solid ${C.border}`, cursor: "pointer" }}>
@@ -2345,53 +2487,166 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Demo hint */}
           {isDemo && (
             <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 16px", borderRadius: 10, background: C.yellowGlow, border: `1px solid ${C.yellow}30`, marginBottom: 20 }}>
               <AlertCircle size={14} color={C.yellow} style={{ flexShrink: 0 }} />
-              <div style={{ fontSize: 12, color: C.yellow }}>Demo-Modus – Echte Analytics werden angezeigt, sobald die Zernio API verbunden ist und Daten vorliegen.</div>
+              <div style={{ fontSize: 12, color: C.yellow }}>Demo-Modus – Daten basieren auf deinen Posts. Verbinde die API für erweiterte Metriken.</div>
             </div>
           )}
 
-          {/* Summary Cards */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 24 }}>
+          {/* ── Metric Cards (Zernio style: 2 rows of 4) ───────── */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginBottom: 24 }}>
             {[
-              { label: "Impressions", value: fmt(totalImpressions), icon: Eye, color: C.blue, glow: C.blueGlow },
-              { label: "Reichweite", value: fmt(totalReach), icon: Users, color: C.purple, glow: C.purpleGlow },
-              { label: "Likes", value: fmt(totalLikes), icon: Heart, color: C.redLight, glow: C.redGlow },
-              { label: "Kommentare", value: fmt(totalComments), icon: MessageCircle, color: C.green, glow: C.greenGlow },
-            ].map((s) => (
-              <div key={s.label} style={{ background: C.card, borderRadius: 14, border: `1px solid ${C.border}`, padding: "18px 20px" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                  <div style={{ width: 32, height: 32, borderRadius: 8, background: s.glow, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <s.icon size={16} color={s.color} />
-                  </div>
-                  <div style={{ fontSize: 11, color: C.dimmed, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>{s.label}</div>
+              { label: "Likes", icon: Heart, value: fmt(totals.likes), color: C.redLight, change: null },
+              { label: "Comments", icon: MessageCircle, value: fmt(totals.comments), color: C.blue, change: null },
+              { label: "Shares", icon: Share2, value: fmt(totals.shares), color: C.green, change: null },
+              { label: "Views", icon: Eye, value: fmt(totals.views), color: C.purple, change: null },
+              { label: "Impressions", icon: TrendingUp, value: fmt(totals.impressions), color: C.blue, change: null },
+              { label: "Reach", icon: Users, value: fmt(totals.reach), color: C.yellow, change: null },
+              { label: "Clicks", icon: ExternalLink, value: fmt(totals.clicks), color: C.green, change: null },
+              { label: "Eng. Rate", icon: BarChart3, value: `${engRate}%`, color: C.redLight, change: null },
+            ].map((m) => (
+              <div key={m.label} style={{ background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, padding: "14px 16px", display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ color: m.color, display: "flex", alignItems: "center" }}><m.icon size={16} /></div>
+                <div>
+                  <div style={{ fontSize: 11, color: C.dimmed, fontWeight: 500, marginBottom: 2 }}>{m.label}</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: C.white }}>{m.value}</div>
                 </div>
-                <div style={{ fontSize: 24, fontWeight: 800, color: C.white, letterSpacing: "-0.02em" }}>{s.value}</div>
               </div>
             ))}
           </div>
 
-          {/* Platform Breakdown */}
-          {breakdown && (
-            <div style={{ background: C.card, borderRadius: 14, border: `1px solid ${C.border}`, padding: 20, marginBottom: 20 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Plattform-Übersicht</div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
-                {Object.entries(breakdown).map(([plat, metrics]) => {
-                  const pc = plat === "instagram" ? C.instagram : plat === "tiktok" ? C.tiktok : C.blue;
+          {/* ── Daily Chart ────────────────────────────────────── */}
+          <div style={{ background: C.card, borderRadius: 14, border: `1px solid ${C.border}`, padding: 20, marginBottom: 20 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 16, color: C.white }}>Tägliche Performance</div>
+            {chartData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={260}>
+                <LineChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
+                  <XAxis dataKey="date" tick={{ fill: C.dimmed, fontSize: 10 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: C.dimmed, fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={fmt} />
+                  <Tooltip contentStyle={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, fontSize: 12, color: C.white }} />
+                  <Line type="monotone" dataKey="likes" name="Likes" stroke={C.redLight} strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="comments" name="Comments" stroke={C.blue} strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="views" name="Views" stroke={C.purple} strokeWidth={2} dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div style={{ height: 200, display: "flex", alignItems: "center", justifyContent: "center", color: C.dimmed, fontSize: 13 }}>Keine täglichen Daten verfügbar</div>
+            )}
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 20 }}>
+            {/* ── Best Time to Post (green heatmap like Zernio) ── */}
+            <div style={{ background: C.card, borderRadius: 14, border: `1px solid ${C.border}`, padding: 20 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 14, color: C.white }}>Best Time to Post</div>
+              <div style={{ display: "grid", gridTemplateColumns: `36px repeat(7, 1fr)`, gap: 3 }}>
+                <div />
+                {dayLabels.map((d) => <div key={d} style={{ textAlign: "center", fontSize: 10, color: C.dimmed, fontWeight: 600, paddingBottom: 6 }}>{d}</div>)}
+                {[6, 9, 12, 15, 18, 21].map((h) => (
+                  <React.Fragment key={h}>
+                    <div style={{ fontSize: 10, color: C.dimmed, lineHeight: "26px", textAlign: "right", paddingRight: 6 }}>{h < 10 ? "0" : ""}{h}:00</div>
+                    {dayLabels.map((_, di) => {
+                      const val = btMap[`${di}-${h}`] || 0;
+                      const intensity = val / maxEng;
+                      // Green gradient (Zernio style)
+                      const bg = intensity > 0 ? `rgba(34,197,94,${0.15 + intensity * 0.75})` : C.bg;
+                      return (
+                        <div key={di} title={`${dayLabels[di]} ${h}:00 – ${val.toFixed(1)}% Engagement`} style={{
+                          height: 26, borderRadius: 4, background: bg,
+                          border: `1px solid ${intensity > 0.4 ? "rgba(34,197,94,0.3)" : C.border}`,
+                          cursor: "default",
+                        }} />
+                      );
+                    })}
+                  </React.Fragment>
+                ))}
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 12, justifyContent: "center" }}>
+                <div style={{ fontSize: 10, color: C.dimmed }}>Fewer</div>
+                {[0.1, 0.25, 0.45, 0.65, 0.85].map((o) => <div key={o} style={{ width: 14, height: 14, borderRadius: 3, background: `rgba(34,197,94,${o})` }} />)}
+                <div style={{ fontSize: 10, color: C.dimmed }}>More</div>
+              </div>
+              {/* Best times badges */}
+              {Object.entries(btMap).length > 0 && (() => {
+                const sorted = Object.entries(btMap).sort((a, b) => b[1] - a[1]).slice(0, 3);
+                return (
+                  <div style={{ display: "flex", gap: 6, marginTop: 12, justifyContent: "center" }}>
+                    <span style={{ fontSize: 11, color: C.dimmed, marginRight: 4 }}>Best time:</span>
+                    {sorted.map(([key]) => {
+                      const [d, h] = key.split("-").map(Number);
+                      return <span key={key} style={{ fontSize: 11, fontWeight: 600, color: C.green, background: C.green + "15", padding: "2px 10px", borderRadius: 6, border: `1px solid ${C.green}25` }}>{dayLabels[d]} {h}:00</span>;
+                    })}
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* ── Top Performing Posts ──────────────────────────── */}
+            <div style={{ background: C.card, borderRadius: 14, border: `1px solid ${C.border}`, padding: 20 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 14, color: C.white }}>Top Performing Posts</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {topPosts.length === 0 && <div style={{ color: C.dimmed, fontSize: 12, padding: 20, textAlign: "center" }}>Keine veröffentlichten Posts</div>}
+                {topPosts.map((p, i) => {
+                  const eng = (p.likes || 0) + (p.comments || 0) + (p.shares || 0);
+                  const pER = p.views > 0 ? ((eng / p.views) * 100).toFixed(2) : "–";
+                  const postDate = new Date(p.date).toLocaleDateString("de-DE", { day: "numeric", month: "short", year: "numeric" });
                   return (
-                    <div key={plat} style={{ padding: 14, borderRadius: 10, background: C.bg, border: `1px solid ${C.border}` }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
-                        {plat === "instagram" ? <Instagram size={14} color={pc} /> : <TikTokIcon size={14} color={pc} />}
-                        <span style={{ fontSize: 13, fontWeight: 700, color: pc }}>{plat}</span>
+                    <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 10px", borderRadius: 8, cursor: "pointer", transition: "background 0.15s" }}
+                      onMouseOver={(e) => e.currentTarget.style.background = C.bg}
+                      onMouseOut={(e) => e.currentTarget.style.background = "transparent"}
+                      onClick={() => setSelectedPost(p)}>
+                      <div style={{ width: 22, height: 22, borderRadius: 6, background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: C.dimmed, flexShrink: 0 }}>{i + 1}</div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 12, color: C.white, fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.title}</div>
+                        <div style={{ fontSize: 10, color: C.dimmed }}>{postDate}</div>
                       </div>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, fontSize: 11 }}>
-                        <span style={{ color: C.dimmed }}>Impressions:</span><span style={{ color: C.white, fontWeight: 600 }}>{fmt(metrics.impressions || 0)}</span>
-                        <span style={{ color: C.dimmed }}>Likes:</span><span style={{ color: C.white, fontWeight: 600 }}>{fmt(metrics.likes || 0)}</span>
-                        <span style={{ color: C.dimmed }}>Kommentare:</span><span style={{ color: C.white, fontWeight: 600 }}>{fmt(metrics.comments || 0)}</span>
-                        <span style={{ color: C.dimmed }}>Shares:</span><span style={{ color: C.white, fontWeight: 600 }}>{fmt(metrics.shares || 0)}</span>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: C.green, background: C.greenGlow, padding: "3px 10px", borderRadius: 6, flexShrink: 0 }}>ER {pER}%</div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+                        <Heart size={11} color={C.dimmed} /><span style={{ fontSize: 11, color: C.dimmed }}>{p.likes || 0}</span>
                       </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* ── Platform Breakdown (Zernio style cards) ────────── */}
+          {platformCards.length > 0 && (
+            <div style={{ background: C.card, borderRadius: 14, border: `1px solid ${C.border}`, padding: 20, marginBottom: 20 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 14, color: C.white }}>Platform Breakdown</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {platformCards.map((pc) => {
+                  const isIG = pc.platform.toLowerCase().includes("instagram");
+                  const isTT = pc.platform.toLowerCase().includes("tiktok");
+                  const color = isIG ? C.instagram : isTT ? C.tiktok : C.blue;
+                  const m = pc.metrics;
+                  const eng = (m.likes || 0) + (m.comments || 0) + (m.shares || 0);
+                  const er = m.impressions > 0 ? ((eng / m.impressions) * 100).toFixed(2) : m.reach > 0 ? ((eng / m.reach) * 100).toFixed(2) : "–";
+                  return (
+                    <div key={pc.key} style={{ display: "flex", alignItems: "center", gap: 16, padding: "12px 16px", borderRadius: 10, background: C.bg, border: `1px solid ${C.border}` }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 140 }}>
+                        {isIG ? <Instagram size={16} color={color} /> : <TikTokIcon size={16} color={color} />}
+                        <div>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: color }}>{isIG ? "Instagram" : isTT ? "TikTok" : pc.name}</div>
+                          <div style={{ fontSize: 10, color: C.dimmed }}>{pc.postCount} posts</div>
+                        </div>
+                      </div>
+                      <div style={{ flex: 1, display: "flex", gap: 20, justifyContent: "space-around" }}>
+                        {[
+                          { icon: Heart, val: m.likes || 0 },
+                          { icon: MessageCircle, val: m.comments || 0 },
+                          { icon: Share2, val: m.shares || 0 },
+                          { icon: Eye, val: m.views || 0 },
+                        ].map((s, si) => (
+                          <div key={si} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                            <s.icon size={12} color={C.dimmed} />
+                            <span style={{ fontSize: 12, color: C.white, fontWeight: 600 }}>{fmt(s.val)}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: C.green, background: C.greenGlow, padding: "4px 12px", borderRadius: 6 }}>ER {er}%</div>
                     </div>
                   );
                 })}
@@ -2399,69 +2654,10 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* Daily Performance Chart */}
-          <div style={{ background: C.card, borderRadius: 14, border: `1px solid ${C.border}`, padding: 20, marginBottom: 20 }}>
-            <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 16 }}>Tägliche Performance</div>
-            <ResponsiveContainer width="100%" height={280}>
-              <AreaChart data={daily}>
-                <defs>
-                  <linearGradient id="gradImpressions" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={C.blue} stopOpacity={0.3} />
-                    <stop offset="100%" stopColor={C.blue} stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="gradLikes" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={C.redLight} stopOpacity={0.3} />
-                    <stop offset="100%" stopColor={C.redLight} stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
-                <XAxis dataKey="date" tick={{ fill: C.dimmed, fontSize: 11 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: C.dimmed, fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={fmt} />
-                <Tooltip contentStyle={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, fontSize: 12, color: C.white }} />
-                <Area type="monotone" dataKey="impressions" name="Impressions" stroke={C.blue} fill="url(#gradImpressions)" strokeWidth={2} dot={false} />
-                <Area type="monotone" dataKey="likes" name="Likes" stroke={C.redLight} fill="url(#gradLikes)" strokeWidth={2} dot={false} />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 20 }}>
-            {/* Best Time Heatmap */}
+          {/* ── Content Decay Chart ────────────────────────────── */}
+          {decayData.length > 0 && (
             <div style={{ background: C.card, borderRadius: 14, border: `1px solid ${C.border}`, padding: 20 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>Beste Posting-Zeiten</div>
-              <div style={{ fontSize: 11, color: C.dimmed, marginBottom: 14 }}>Durchschnittliches Engagement nach Tag & Uhrzeit</div>
-              <div style={{ display: "grid", gridTemplateColumns: `32px repeat(${dayLabels.length}, 1fr)`, gap: 2 }}>
-                {/* Header row */}
-                <div />
-                {dayLabels.map((d) => <div key={d} style={{ textAlign: "center", fontSize: 10, color: C.dimmed, fontWeight: 600, paddingBottom: 4 }}>{d}</div>)}
-                {/* Hour rows – show key hours */}
-                {[6, 8, 10, 12, 14, 16, 18, 20, 22].map((h) => (
-                  <React.Fragment key={h}>
-                    <div style={{ fontSize: 10, color: C.dimmed, lineHeight: "22px", textAlign: "right", paddingRight: 4 }}>{h}:00</div>
-                    {dayLabels.map((_, di) => {
-                      const val = btMap[`${di}-${h}`] || 0;
-                      const intensity = val / maxEng;
-                      return (
-                        <div key={di} title={`${dayLabels[di]} ${h}:00 – ${val.toFixed(1)}% Engagement`} style={{
-                          height: 22, borderRadius: 4,
-                          background: intensity > 0 ? `rgba(220,38,38,${0.1 + intensity * 0.8})` : C.bg,
-                          border: `1px solid ${intensity > 0.5 ? C.red + "40" : C.border}`,
-                          transition: "all 0.2s", cursor: "default",
-                        }} />
-                      );
-                    })}
-                  </React.Fragment>
-                ))}
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 10, justifyContent: "center" }}>
-                <div style={{ fontSize: 10, color: C.dimmed }}>Niedrig</div>
-                {[0.1, 0.3, 0.5, 0.7, 0.9].map((o) => <div key={o} style={{ width: 16, height: 10, borderRadius: 3, background: `rgba(220,38,38,${o})` }} />)}
-                <div style={{ fontSize: 10, color: C.dimmed }}>Hoch</div>
-              </div>
-            </div>
-
-            {/* Content Decay */}
-            <div style={{ background: C.card, borderRadius: 14, border: `1px solid ${C.border}`, padding: 20 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>Content-Performance-Verlauf</div>
+              <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4, color: C.white }}>Content Performance Decay</div>
               <div style={{ fontSize: 11, color: C.dimmed, marginBottom: 14 }}>Wie schnell erreicht ein Post seine finale Reichweite?</div>
               <ResponsiveContainer width="100%" height={200}>
                 <AreaChart data={decayData}>
@@ -2479,24 +2675,7 @@ export default function Dashboard() {
                 </AreaChart>
               </ResponsiveContainer>
             </div>
-          </div>
-
-          {/* Posting Frequency */}
-          <div style={{ background: C.card, borderRadius: 14, border: `1px solid ${C.border}`, padding: 20 }}>
-            <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>Posting-Frequenz vs. Engagement</div>
-            <div style={{ fontSize: 11, color: C.dimmed, marginBottom: 14 }}>Wie wirkt sich die Posting-Häufigkeit auf die Engagement-Rate aus?</div>
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={freqData}>
-                <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
-                <XAxis dataKey="posts_per_week" tick={{ fill: C.dimmed, fontSize: 11 }} axisLine={false} tickLine={false} label={{ value: "Posts/Woche", position: "insideBottom", offset: -5, style: { fill: C.dimmed, fontSize: 10 } }} />
-                <YAxis tick={{ fill: C.dimmed, fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v}%`} />
-                <Tooltip contentStyle={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, fontSize: 12, color: C.white }} formatter={(v, name) => [name === "avg_engagement_rate" ? `${v}%` : `${v} Wochen`, name === "avg_engagement_rate" ? "Engagement" : "Wochen"]} />
-                <Bar dataKey="avg_engagement_rate" name="Engagement-Rate" radius={[6, 6, 0, 0]} fill={C.green}>
-                  {freqData.map((_, i) => <Cell key={i} fill={i === freqData.reduce((best, d, idx, arr) => d.avg_engagement_rate > arr[best].avg_engagement_rate ? idx : best, 0) ? C.green : C.green + "80"} />)}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          )}
         </div>
         );
       })()}
