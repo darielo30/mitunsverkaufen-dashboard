@@ -150,8 +150,21 @@ export async function GET(request) {
       const res = await fetch(`${BASE}/logs`, {
         headers: authHeaders(),
       });
-      const data = await res.json();
-      return Response.json(data);
+      const rawText = await res.text();
+      let data;
+      try { data = JSON.parse(rawText); } catch { return Response.json({ error: rawText.substring(0, 300) }, { status: 500 }); }
+      return Response.json({ _raw: data, _status: res.status, _ok: res.ok });
+    }
+
+    // Fetch single log detail
+    if (action === "log-detail") {
+      const logId = searchParams.get("logId");
+      if (!logId) return Response.json({ error: "logId required" }, { status: 400 });
+      const res = await fetch(`${BASE}/logs/${logId}`, { headers: authHeaders() });
+      const rawText = await res.text();
+      let data;
+      try { data = JSON.parse(rawText); } catch { return Response.json({ error: rawText.substring(0, 300) }, { status: 500 }); }
+      return Response.json({ _raw: data, _status: res.status, _ok: res.ok });
     }
 
     // Fetch inbox comments (notifications)

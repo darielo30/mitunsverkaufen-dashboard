@@ -957,9 +957,8 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
   const [replyText, setReplyText] = useState("");
   const [sendingReply, setSendingReply] = useState(false);
 
-  // Fetch real comments from Zernio Inbox API
+  // Always fetch real comments from Zernio Inbox API (no isConnected gate)
   useEffect(() => {
-    if (!isConnected) return;
     const fetchComments = async () => {
       setLoadingComments(true);
       setApiError(null);
@@ -969,26 +968,28 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
           : `/api/late?action=inbox-comments`;
         const res = await fetch(url);
         const data = await res.json();
-        if (data._raw) {
-          const comments = Array.isArray(data._raw) ? data._raw : (data._raw.comments || data._raw.data || []);
-          const mapped = comments.map((c, i) => ({
-            id: c.id || `api-${i}`,
-            type: "comment",
-            user: c.author?.username || c.author?.name || c.username || "Unbekannt",
-            avatar: c.author?.profilePicture || c.author?.avatar || null,
-            text: c.text || c.content || c.message || "",
-            post: c.postTitle || c.post?.content?.substring(0, 60) || "Beitrag",
-            postId: c.postId || c.post?.id || null,
-            commentId: c.id || c.commentId || null,
-            time: c.createdAt || c.timestamp || "",
-            timeFormatted: c.createdAt ? new Date(c.createdAt).toLocaleString("de-DE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "",
-            read: c.read || false,
-            platform: (c.platform || "instagram").toLowerCase(),
-            replies: c.replies || [],
-            isApi: true,
-          }));
-          setApiComments(mapped);
-        }
+        if (data.error) { setApiError(data.error); setLoadingComments(false); return; }
+        const raw = data._raw || data;
+        const comments = Array.isArray(raw) ? raw : (raw.comments || raw.data || raw.items || []);
+        const mapped = comments.map((c, i) => ({
+          id: c.id || c._id || `api-${i}`,
+          type: "comment",
+          user: c.author?.username || c.author?.name || c.username || c.from?.username || "Unbekannt",
+          avatar: c.author?.profilePicture || c.author?.avatar || c.from?.profilePicture || null,
+          text: c.text || c.content || c.message || c.body || "",
+          post: c.postTitle || c.postContent?.substring(0, 60) || c.post?.content?.substring(0, 60) || "Beitrag",
+          postId: c.postId || c.post?.id || c.post?._id || null,
+          postThumbnail: c.post?.thumbnail || c.post?.mediaItems?.[0]?.url || null,
+          commentId: c.id || c._id || c.commentId || null,
+          time: c.createdAt || c.timestamp || c.created || "",
+          timeFormatted: c.createdAt ? new Date(c.createdAt).toLocaleString("de-DE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "",
+          read: c.read || c.seen || false,
+          platform: (c.platform || c.source || "instagram").toLowerCase(),
+          replies: c.replies || c.children || [],
+          likes: c.likes || c.likeCount || 0,
+          isApi: true,
+        }));
+        setApiComments(mapped);
       } catch (err) {
         setApiError(err.message);
       } finally {
@@ -996,11 +997,11 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
       }
     };
     fetchComments();
-  }, [isConnected, platformFilter]);
+  }, [platformFilter]);
 
-  // Fetch DM conversations
+  // Always fetch DM conversations (no isConnected gate)
   useEffect(() => {
-    if (!isConnected || inboxView !== "dms") return;
+    if (inboxView !== "dms") return;
     const fetchDMs = async () => {
       setLoadingDMs(true);
       try {
@@ -1009,10 +1010,10 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
           : `/api/late?action=inbox-conversations`;
         const res = await fetch(url);
         const data = await res.json();
-        if (data._raw) {
-          const convos = Array.isArray(data._raw) ? data._raw : (data._raw.conversations || data._raw.data || []);
-          setConversations(convos);
-        }
+        if (data.error) { setApiError(data.error); setLoadingDMs(false); return; }
+        const raw = data._raw || data;
+        const convos = Array.isArray(raw) ? raw : (raw.conversations || raw.data || raw.items || []);
+        setConversations(convos);
       } catch (err) {
         setApiError(err.message);
       } finally {
@@ -1020,7 +1021,7 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
       }
     };
     fetchDMs();
-  }, [isConnected, inboxView, platformFilter]);
+  }, [inboxView, platformFilter]);
 
   const handleReply = async (conversationId) => {
     if (!replyText.trim()) return;
@@ -1037,10 +1038,10 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
     finally { setSendingReply(false); }
   };
 
-  // Merge API comments with demo notifications
-  const allNotifs = apiComments.length > 0 ? apiComments : notifications;
+  // Always use real API data (no demo fallback)
+  const allNotifs = apiComments;
   const filtered = platformFilter === "all" ? allNotifs : allNotifs.filter((n) => n.platform === platformFilter);
-  const isDemo = apiComments.length === 0;
+  const isDemo = false; // removed demo mode – always live
 
   // Zernio-style split panel styles
   const listPanelStyle = { width: 360, minWidth: 360, borderRight: `1px solid ${C.border}`, height: "calc(100vh - 140px)", overflowY: "auto", flexShrink: 0 };
@@ -1135,12 +1136,7 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
         </div>
       )}
 
-      {isDemo && (
-        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 24px", background: C.yellowGlow, borderBottom: `1px solid ${C.yellow}20` }}>
-          <AlertCircle size={13} color={C.yellow} />
-          <div style={{ fontSize: 11, color: C.yellow }}>Demo-Daten – Echte Inbox-Daten erscheinen, sobald die Zernio API Interaktionen liefert.</div>
-        </div>
-      )}
+      {/* Demo banner removed – always live data */}
 
       {/* ── Split Panel Layout ──────────────────────────────── */}
       <div style={{ display: "flex", height: "calc(100vh - 200px)" }}>
@@ -2109,32 +2105,63 @@ function LogsPanel({ errorLog }) {
   const [logsData, setLogsData] = useState([]);
   const [logsLoading, setLogsLoading] = useState(false);
   const [logsSearch, setLogsSearch] = useState("");
+  const [selectedLog, setSelectedLog] = useState(null);
+  const [logDetail, setLogDetail] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [copiedField, setCopiedField] = useState(null);
+  const [expandedSections, setExpandedSections] = useState({ response: false, request: false });
 
+  const fetchLogsData = async () => {
+    setLogsLoading(true);
+    try {
+      const res = await fetch("/api/late?action=logs");
+      const data = await res.json();
+      // Handle _raw wrapper from updated API route
+      const raw = data._raw || data;
+      const entries = Array.isArray(raw) ? raw : (raw.logs || raw.data || raw.items || []);
+      setLogsData(entries);
+    } catch { setLogsData([]); }
+    finally { setLogsLoading(false); }
+  };
+
+  useEffect(() => { fetchLogsData(); }, []);
+
+  // Fetch detail when a log is selected
   useEffect(() => {
-    const fetchLogs = async () => {
-      setLogsLoading(true);
+    if (!selectedLog) { setLogDetail(null); return; }
+    const logId = selectedLog._raw?.id || selectedLog._raw?._id || selectedLog.id || selectedLog._id;
+    if (!logId || logId.startsWith?.("err_")) { setLogDetail(selectedLog._raw || selectedLog); return; }
+    const fetchDetail = async () => {
+      setDetailLoading(true);
       try {
-        const res = await fetch("/api/late?action=logs");
+        const res = await fetch(`/api/late?action=log-detail&logId=${logId}`);
         const data = await res.json();
-        const entries = Array.isArray(data) ? data : (data.logs || data.data || []);
-        setLogsData(entries);
-      } catch { setLogsData([]); }
-      finally { setLogsLoading(false); }
+        setLogDetail(data._raw || data);
+      } catch { setLogDetail(selectedLog._raw || selectedLog); }
+      finally { setDetailLoading(false); }
     };
-    fetchLogs();
-  }, []);
+    fetchDetail();
+  }, [selectedLog]);
 
   const allLogs = [
     ...logsData.map((l) => ({
-      action: l.action || "Published",
-      status: l.status || l.statusCode || 200,
+      _raw: l,
+      id: l.id || l._id || null,
+      action: l.action || l.type || "publishing",
+      status: l.statusCode || l.status || 200,
       endpoint: l.endpoint || l.url || "POST /api/v1/posts",
-      platform: l.platform || "—",
-      account: l.account || l.profile || "mitunsverkaufen.de",
-      created: l.createdAt || l.created || l.timestamp || "",
-      ok: (l.status || 200) < 400 && l.success !== false,
+      platform: l.platform || l.platforms?.[0] || "—",
+      account: l.account || l.profile || l.accountName || "mitunsverkaufen.de",
+      created: l.createdAt || l.created || l.timestamp || l.loggedAt || "",
+      ok: l.success !== false && ((l.statusCode || l.status || 200) < 400),
+      content: l.content || l.postContent || l.text || "",
+      result: l.result || l.message || "",
+      postId: l.postId || l.post?.id || l.platformPostId || null,
+      mediaCount: l.mediaItems?.length || l.media?.length || 0,
     })),
     ...errorLog.map((e) => ({
+      _raw: e,
+      id: e.id,
       action: e.action || "Error",
       status: "ERR",
       endpoint: "—",
@@ -2142,6 +2169,10 @@ function LogsPanel({ errorLog }) {
       account: "mitunsverkaufen.de",
       created: e.timestamp || "",
       ok: false,
+      content: e.error || e.message || "",
+      result: "Failed",
+      postId: null,
+      mediaCount: 0,
     })),
   ].sort((a, b) => new Date(b.created) - new Date(a.created));
 
@@ -2160,68 +2191,241 @@ function LogsPanel({ errorLog }) {
     } catch { return "—"; }
   };
 
-  return (
-    <div style={{ padding: "24px 32px" }}>
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.02em", color: C.white }}>Logs</div>
-        <div style={{ fontSize: 13, color: C.muted, marginTop: 2 }}>View activity logs and debug errors</div>
+  const formatDate = (t) => {
+    if (!t) return "—";
+    try { return new Date(t).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }); }
+    catch { return "—"; }
+  };
+
+  const copyToClipboard = (text, field) => {
+    navigator.clipboard.writeText(typeof text === "string" ? text : JSON.stringify(text, null, 2));
+    setCopiedField(field);
+    setTimeout(() => setCopiedField(null), 2000);
+  };
+
+  const toggleSection = (section) => setExpandedSections((prev) => ({ ...prev, [section]: !prev[section] }));
+
+  // ── Detail Side Panel ──────────────────────────────────────
+  const renderDetailPanel = () => {
+    if (!selectedLog) return null;
+    const d = logDetail || selectedLog._raw || selectedLog;
+    const isSuccess = selectedLog.ok;
+    const pName = (selectedLog.platform || "").toLowerCase();
+    const PIcon = pName.includes("instagram") ? Instagram : pName.includes("tiktok") ? TikTokIcon : Globe;
+    const pColor = pName.includes("instagram") ? C.instagram : pName.includes("tiktok") ? C.tiktok : C.blue;
+
+    const detailRow = (label, value, mono) => (
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "10px 0", borderBottom: `1px solid ${C.border}30` }}>
+        <span style={{ fontSize: 12, color: C.dimmed, minWidth: 120, flexShrink: 0 }}>{label}</span>
+        <span style={{ fontSize: 12, color: C.white, textAlign: "right", wordBreak: "break-all", fontFamily: mono ? "monospace" : "inherit" }}>{value || "—"}</span>
       </div>
+    );
 
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 12px", flex: 1, maxWidth: 260 }}>
-          <Search size={14} color={C.dimmed} />
-          <input type="text" placeholder="Search logs..." value={logsSearch} onChange={(e) => setLogsSearch(e.target.value)}
-            style={{ background: "transparent", border: "none", outline: "none", color: C.white, fontSize: 12, width: "100%", fontFamily: "inherit" }} />
+    const jsonSection = (title, data, key) => {
+      const jsonStr = data ? (typeof data === "string" ? data : JSON.stringify(data, null, 2)) : null;
+      if (!jsonStr || jsonStr === "null" || jsonStr === "{}") return null;
+      return (
+        <div style={{ marginTop: 12 }}>
+          <button onClick={() => toggleSection(key)} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", padding: "10px 14px", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, cursor: "pointer", color: C.white, fontSize: 13, fontWeight: 600, fontFamily: "inherit" }}>
+            <span>{title}</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <button onClick={(e) => { e.stopPropagation(); copyToClipboard(jsonStr, key); }} style={{ padding: "2px 8px", borderRadius: 4, background: C.card, border: `1px solid ${C.border}`, color: copiedField === key ? C.green : C.dimmed, fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>
+                {copiedField === key ? "Copied!" : "Copy"}
+              </button>
+              <ChevronDown size={14} color={C.dimmed} style={{ transform: expandedSections[key] ? "rotate(180deg)" : "none", transition: "transform 0.2s" }} />
+            </div>
+          </button>
+          {expandedSections[key] && (
+            <pre style={{ margin: 0, marginTop: 4, padding: 14, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 11, color: C.muted, fontFamily: "monospace", whiteSpace: "pre-wrap", wordBreak: "break-all", maxHeight: 300, overflowY: "auto" }}>
+              {jsonStr}
+            </pre>
+          )}
         </div>
-        <button style={{ padding: "8px 14px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, color: C.dimmed, fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 4 }}>Publishing <ChevronDown size={11} /></button>
-        <button style={{ padding: "8px 14px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, color: C.dimmed, fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 4 }}>All platforms <ChevronDown size={11} /></button>
-        <button style={{ padding: "8px 14px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, color: C.dimmed, fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 4 }}>All statuses <ChevronDown size={11} /></button>
-        <button style={{ padding: "8px 14px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, color: C.dimmed, fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 4 }}>Last 7 days <ChevronDown size={11} /></button>
-        <button onClick={() => { setLogsData([]); setLogsLoading(true); fetch("/api/late?action=logs").then(r => r.json()).then(d => { setLogsData(Array.isArray(d) ? d : (d.logs || d.data || [])); setLogsLoading(false); }).catch(() => setLogsLoading(false)); }} style={{ width: 34, height: 34, borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
-          <RefreshCw size={14} color={C.dimmed} style={logsLoading ? { animation: "spin 1s linear infinite" } : {}} />
-        </button>
-      </div>
+      );
+    };
 
-      <div style={{ background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, overflow: "hidden" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "160px 80px 1fr 140px 180px 160px", padding: "12px 20px", borderBottom: `1px solid ${C.border}`, fontSize: 12, fontWeight: 600, color: C.dimmed }}>
-          <div>Action</div><div>Status</div><div>Endpoint</div><div>Platform</div><div>Account</div>
-          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>Created <ChevronDown size={10} /></div>
+    return (
+      <div style={{ width: 420, minWidth: 420, borderLeft: `1px solid ${C.border}`, height: "calc(100vh - 140px)", overflowY: "auto", background: C.card, flexShrink: 0 }}>
+        {/* Header */}
+        <div style={{ padding: "20px 24px", borderBottom: `1px solid ${C.border}` }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ width: 28, height: 28, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", background: isSuccess ? C.greenGlow : C.redGlow }}>
+                {isSuccess ? <Check size={14} color={C.green} /> : <X size={14} color={C.redLight} />}
+              </div>
+              <span style={{ fontSize: 16, fontWeight: 700, color: C.white, textTransform: "capitalize" }}>{selectedLog.action}</span>
+            </div>
+            <button onClick={() => setSelectedLog(null)} style={{ width: 28, height: 28, borderRadius: 6, background: C.bg, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+              <X size={14} color={C.dimmed} />
+            </button>
+          </div>
+          <span style={{ fontSize: 12, fontWeight: 700, padding: "3px 10px", borderRadius: 6, color: isSuccess ? C.green : "#fff", background: isSuccess ? C.greenGlow : C.red, border: `1px solid ${isSuccess ? C.green + "30" : C.red + "30"}` }}>
+            {isSuccess ? "SUCCESS" : "FAILED"}
+          </span>
         </div>
 
-        {logsLoading && (
-          <div style={{ padding: 30, textAlign: "center", color: C.dimmed, fontSize: 13 }}>
-            <Loader2 size={16} style={{ animation: "spin 1s linear infinite", display: "inline-block", marginRight: 6 }} /> Loading logs...
+        {detailLoading && (
+          <div style={{ padding: 30, textAlign: "center", color: C.dimmed }}>
+            <Loader2 size={16} style={{ animation: "spin 1s linear infinite", display: "inline-block", marginRight: 6 }} /> Loading details...
           </div>
         )}
-        {!logsLoading && filteredLogs.length === 0 && (
-          <div style={{ padding: 40, textAlign: "center", color: C.dimmed, fontSize: 13 }}>No logs found.</div>
-        )}
 
-        {filteredLogs.map((log, i) => {
-          const pIcon = log.platform?.toLowerCase().includes("instagram") ? Instagram : log.platform?.toLowerCase().includes("tiktok") ? TikTokIcon : null;
-          const pColor = log.platform?.toLowerCase().includes("instagram") ? C.instagram : log.platform?.toLowerCase().includes("tiktok") ? C.tiktok : C.dimmed;
-          return (
-            <div key={i} style={{ display: "grid", gridTemplateColumns: "160px 80px 1fr 140px 180px 160px", padding: "12px 20px", borderBottom: `1px solid ${C.border}08`, alignItems: "center", fontSize: 13, transition: "background 0.1s" }}
-              onMouseOver={(e) => e.currentTarget.style.background = C.bg + "60"}
-              onMouseOut={(e) => e.currentTarget.style.background = "transparent"}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <div style={{ width: 22, height: 22, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", background: log.ok ? C.greenGlow : C.redGlow }}>
-                  {log.ok ? <Check size={12} color={C.green} /> : <X size={12} color={C.redLight} />}
-                </div>
-                <span style={{ color: C.white, fontWeight: 500 }}>{log.action}</span>
+        {/* Detail Fields */}
+        <div style={{ padding: "8px 24px 24px" }}>
+          {detailRow("Platform", (
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              {React.createElement(PIcon, { size: 14, color: pColor })}
+              {selectedLog.platform}
+            </span>
+          ))}
+          {detailRow("Date", formatDate(selectedLog.created))}
+          {detailRow("Status Code", (
+            <span style={{ fontWeight: 700, color: selectedLog.ok ? C.green : C.redLight, background: selectedLog.ok ? C.greenGlow : C.redGlow, padding: "1px 8px", borderRadius: 4, fontFamily: "monospace" }}>
+              {selectedLog.status}
+            </span>
+          ))}
+          {detailRow("Type", (d.type || selectedLog.action || "publishing"))}
+          {detailRow("Endpoint", selectedLog.endpoint, true)}
+          {detailRow("Result", (
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              {isSuccess ? (
+                <React.Fragment>
+                  <span style={{ color: C.green }}>Published</span>
+                  {(d.platformPostId || d.platformPostUrl || selectedLog.postId) && (
+                    <span style={{ color: C.dimmed, fontSize: 11 }}>• Platform Post ID: {d.platformPostId || selectedLog.postId || "—"}</span>
+                  )}
+                </React.Fragment>
+              ) : (
+                <span style={{ color: C.redLight }}>{d.error || d.message || selectedLog.result || "Failed"}</span>
+              )}
+            </span>
+          ))}
+
+          {/* Content Preview */}
+          {(selectedLog.content || d.content || d.postContent || d.text) && (
+            <div style={{ marginTop: 16 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: C.dimmed, marginBottom: 8 }}>Content</div>
+              <div style={{ padding: 14, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 12, color: C.white, lineHeight: 1.6, whiteSpace: "pre-wrap", maxHeight: 160, overflowY: "auto" }}>
+                {selectedLog.content || d.content || d.postContent || d.text}
               </div>
-              <div><span style={{ fontSize: 12, fontWeight: 700, color: log.ok ? C.green : C.redLight, background: log.ok ? C.greenGlow : C.redGlow, padding: "2px 8px", borderRadius: 4 }}>{log.status}</span></div>
-              <div style={{ color: C.muted, fontSize: 12, fontFamily: "monospace", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{log.endpoint}</div>
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                {pIcon && React.createElement(pIcon, { size: 14, color: pColor })}
-                <span style={{ color: C.white, fontSize: 12 }}>{log.platform}</span>
-              </div>
-              <div style={{ color: C.muted, fontSize: 12 }}>{log.account}</div>
-              <div style={{ color: C.dimmed, fontSize: 12 }}>{formatTimeAgo(log.created)}</div>
             </div>
-          );
-        })}
+          )}
+
+          {/* Media Count */}
+          {(selectedLog.mediaCount > 0 || d.mediaItems?.length > 0) && (
+            <div style={{ marginTop: 12 }}>
+              {detailRow("Media", `${selectedLog.mediaCount || d.mediaItems?.length || 0} file(s)`)}
+            </div>
+          )}
+
+          {/* Expandable JSON Sections */}
+          {jsonSection("Response Body", d.responseBody || d.response || d.result_data || d.apiResponse, "response")}
+          {jsonSection("Request Body", d.requestBody || d.request || d.payload || d.body, "request")}
+
+          {/* Post ID */}
+          {(selectedLog.postId || d.postId || d._id) && (
+            <div style={{ marginTop: 16 }}>
+              {detailRow("Post ID", (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontFamily: "monospace", fontSize: 11 }}>{selectedLog.postId || d.postId || d._id}</span>
+                  <button onClick={() => copyToClipboard(selectedLog.postId || d.postId || d._id, "postId")} style={{ padding: "1px 6px", borderRadius: 4, background: C.bg, border: `1px solid ${C.border}`, color: copiedField === "postId" ? C.green : C.dimmed, fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>
+                    {copiedField === "postId" ? "Copied!" : "Copy"}
+                  </button>
+                </span>
+              ), true)}
+            </div>
+          )}
+
+          {/* Logged At */}
+          <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${C.border}30` }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontSize: 11, color: C.dimmed }}>Logged at</span>
+              <span style={{ fontSize: 11, color: C.dimmed }}>{formatDate(selectedLog.created)}</span>
+            </div>
+          </div>
+
+          {/* Platform Post URL if available */}
+          {(d.platformPostUrl || d.postUrl) && (
+            <div style={{ marginTop: 12 }}>
+              <a href={d.platformPostUrl || d.postUrl} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: C.blue, textDecoration: "none" }}>
+                <ExternalLink size={12} /> View on platform
+              </a>
+            </div>
+          )}
+        </div>
       </div>
+    );
+  };
+
+  return (
+    <div style={{ display: "flex", height: "calc(100vh - 64px)" }}>
+      {/* Main Logs Table */}
+      <div style={{ flex: 1, padding: "24px 32px", overflowY: "auto" }}>
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.02em", color: C.white }}>Logs</div>
+          <div style={{ fontSize: 13, color: C.muted, marginTop: 2 }}>View activity logs and debug errors</div>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 12px", flex: 1, maxWidth: 260 }}>
+            <Search size={14} color={C.dimmed} />
+            <input type="text" placeholder="Search logs..." value={logsSearch} onChange={(e) => setLogsSearch(e.target.value)}
+              style={{ background: "transparent", border: "none", outline: "none", color: C.white, fontSize: 12, width: "100%", fontFamily: "inherit" }} />
+          </div>
+          <button style={{ padding: "8px 14px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, color: C.dimmed, fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 4 }}>Publishing <ChevronDown size={11} /></button>
+          <button style={{ padding: "8px 14px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, color: C.dimmed, fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 4 }}>All platforms <ChevronDown size={11} /></button>
+          <button style={{ padding: "8px 14px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, color: C.dimmed, fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 4 }}>All statuses <ChevronDown size={11} /></button>
+          <button style={{ padding: "8px 14px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, color: C.dimmed, fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 4 }}>Last 7 days <ChevronDown size={11} /></button>
+          <button onClick={() => { setLogsData([]); fetchLogsData(); }} style={{ width: 34, height: 34, borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+            <RefreshCw size={14} color={C.dimmed} style={logsLoading ? { animation: "spin 1s linear infinite" } : {}} />
+          </button>
+        </div>
+
+        <div style={{ background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, overflow: "hidden" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "160px 80px 1fr 140px 180px 160px", padding: "12px 20px", borderBottom: `1px solid ${C.border}`, fontSize: 12, fontWeight: 600, color: C.dimmed }}>
+            <div>Action</div><div>Status</div><div>Endpoint</div><div>Platform</div><div>Account</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>Created <ChevronDown size={10} /></div>
+          </div>
+
+          {logsLoading && (
+            <div style={{ padding: 30, textAlign: "center", color: C.dimmed, fontSize: 13 }}>
+              <Loader2 size={16} style={{ animation: "spin 1s linear infinite", display: "inline-block", marginRight: 6 }} /> Loading logs...
+            </div>
+          )}
+          {!logsLoading && filteredLogs.length === 0 && (
+            <div style={{ padding: 40, textAlign: "center", color: C.dimmed, fontSize: 13 }}>No logs found.</div>
+          )}
+
+          {filteredLogs.map((log, i) => {
+            const pIcon = log.platform?.toLowerCase().includes("instagram") ? Instagram : log.platform?.toLowerCase().includes("tiktok") ? TikTokIcon : null;
+            const pColor = log.platform?.toLowerCase().includes("instagram") ? C.instagram : log.platform?.toLowerCase().includes("tiktok") ? C.tiktok : C.dimmed;
+            const isSelected = selectedLog && (selectedLog.id === log.id && selectedLog.created === log.created);
+            return (
+              <div key={i} onClick={() => setSelectedLog(log)} style={{ display: "grid", gridTemplateColumns: "160px 80px 1fr 140px 180px 160px", padding: "12px 20px", borderBottom: `1px solid ${C.border}08`, alignItems: "center", fontSize: 13, cursor: "pointer", transition: "background 0.1s", background: isSelected ? C.bg + "80" : "transparent", borderLeft: isSelected ? `3px solid ${C.red}` : "3px solid transparent" }}
+                onMouseOver={(e) => { if (!isSelected) e.currentTarget.style.background = C.bg + "60"; }}
+                onMouseOut={(e) => { if (!isSelected) e.currentTarget.style.background = "transparent"; }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div style={{ width: 22, height: 22, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", background: log.ok ? C.greenGlow : C.redGlow }}>
+                    {log.ok ? <Check size={12} color={C.green} /> : <X size={12} color={C.redLight} />}
+                  </div>
+                  <span style={{ color: C.white, fontWeight: 500 }}>{log.action}</span>
+                </div>
+                <div><span style={{ fontSize: 12, fontWeight: 700, color: log.ok ? C.green : C.redLight, background: log.ok ? C.greenGlow : C.redGlow, padding: "2px 8px", borderRadius: 4 }}>{log.status}</span></div>
+                <div style={{ color: C.muted, fontSize: 12, fontFamily: "monospace", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{log.endpoint}</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  {pIcon && React.createElement(pIcon, { size: 14, color: pColor })}
+                  <span style={{ color: C.white, fontSize: 12 }}>{log.platform}</span>
+                </div>
+                <div style={{ color: C.muted, fontSize: 12 }}>{log.account}</div>
+                <div style={{ color: C.dimmed, fontSize: 12 }}>{formatTimeAgo(log.created)}</div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Detail Side Panel */}
+      {renderDetailPanel()}
     </div>
   );
 }
