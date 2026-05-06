@@ -17,12 +17,12 @@ import {
 
 // ── Brand Colors ────────────────────────────────────────────────
 const darkTheme = {
-  bg: "#0B0F19", bgSoft: "#0F1320", card: "#131825", cardHover: "#1A2035",
-  border: "#1E2A3A", red: "#DC2626", redGlow: "rgba(220,38,38,0.12)",
+  bg: "#0B0F1A", bgSoft: "#0E1225", card: "#111631", cardHover: "#161B3D",
+  border: "#1A2040", red: "#DC2626", redGlow: "rgba(220,38,38,0.12)",
   redLight: "#EF4444", green: "#22C55E", greenGlow: "rgba(34,197,94,0.12)",
   blue: "#3B82F6", blueGlow: "rgba(59,130,246,0.12)", purple: "#8B5CF6",
   purpleGlow: "rgba(139,92,246,0.12)", yellow: "#EAB308",
-  yellowGlow: "rgba(234,179,8,0.12)", white: "#F9FAFB", muted: "#9CA3AF",
+  yellowGlow: "rgba(234,179,8,0.12)", white: "#F9FAFB", muted: "#8B8FA3",
   dimmed: "#6B7280", instagram: "#E1306C", tiktok: "#00F2EA",
 };
 const lightTheme = {
@@ -796,73 +796,160 @@ const demoNotifications = [
 
 // ── Sidebar ─────────────────────────────────────────────────────
 function Sidebar({ activeTab, onTabChange, unreadCount, errorCount, isDarkMode, onToggleTheme }) {
-  const tabs = [
-    { key: "dashboard", icon: LayoutDashboard, label: "Dashboard" },
-    { key: "calendar", icon: Calendar, label: "Kalender" },
-    { key: "skripte", icon: FileText, label: "Skripte" },
-    { key: "notifications", icon: Bell, label: "Inbox", badge: unreadCount },
+  const [expandedMenu, setExpandedMenu] = useState(null);
+
+  // Zernio-style sidebar colors
+  const SB = {
+    bg: isDarkMode ? "#111631" : "#F8F9FB",
+    activeBg: isDarkMode ? "#1C2248" : "#E8EAFF",
+    hoverBg: isDarkMode ? "#171D3D" : "#EEEEFF",
+    text: isDarkMode ? "#8B8FA3" : "#6B7280",
+    activeText: isDarkMode ? "#FFFFFF" : "#111827",
+    border: isDarkMode ? "#1A2040" : "#E5E7EB",
+    userBg: isDarkMode ? "#0D1025" : "#F3F4F6",
+  };
+
+  const navItems = [
+    { key: "connections", icon: Globe, label: "Connections" },
+    {
+      key: "posts", icon: Send, label: "Posts", expandable: true,
+      children: [
+        { key: "dashboard", label: "Overview" },
+        { key: "calendar", label: "Queues" },
+      ],
+    },
     { key: "analytics", icon: BarChart3, label: "Analytics" },
-    { key: "settings", icon: Settings, label: "Einstellungen", badge: errorCount, badgeColor: "#DC2626" },
+    {
+      key: "inbox", icon: Bell, label: "Inbox", badge: unreadCount, expandable: true,
+      children: [
+        { key: "notifications", label: "Messages" },
+        { key: "comments", label: "Comments" },
+      ],
+    },
+    { key: "ads", icon: TrendingUp, label: "Ads", disabled: true },
+    { key: "skripte", icon: FileText, label: "Skripte" },
+    { key: "webhooks", icon: RefreshCw, label: "Webhooks", disabled: true },
+    { key: "logs", icon: Shield, label: "Logs" },
+    { key: "settings", icon: Settings, label: "Settings", badge: errorCount },
   ];
+
+  const navItemStyle = (isActive, disabled) => ({
+    display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "9px 16px", borderRadius: 8,
+    border: "none", background: isActive ? SB.activeBg : "transparent", color: isActive ? SB.activeText : disabled ? SB.text + "60" : SB.text,
+    fontSize: 13, fontWeight: isActive ? 600 : 500, cursor: disabled ? "default" : "pointer",
+    fontFamily: "inherit", transition: "all 0.15s", textAlign: "left", opacity: disabled ? 0.5 : 1,
+  });
+
+  const subItemStyle = (isActive) => ({
+    display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "7px 16px 7px 42px", borderRadius: 8,
+    border: "none", background: isActive ? SB.activeBg : "transparent", color: isActive ? SB.activeText : SB.text,
+    fontSize: 12.5, fontWeight: isActive ? 600 : 400, cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s", textAlign: "left",
+  });
+
+  // Auto-expand parent menus based on active tab
+  const isPostsChild = ["dashboard", "calendar"].includes(activeTab);
+  const isInboxChild = ["notifications", "comments"].includes(activeTab);
 
   return (
     <div style={{
-      width: 64, minHeight: "100vh", background: C.card, borderRight: `1px solid ${C.border}`,
-      display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 16, gap: 4,
-      position: "fixed", left: 0, top: 0, zIndex: 40,
+      width: 220, minWidth: 220, minHeight: "100vh", background: SB.bg, borderRight: `1px solid ${SB.border}`,
+      display: "flex", flexDirection: "column", position: "fixed", left: 0, top: 0, zIndex: 40,
+      overflowY: "auto",
     }}>
-      {/* Logo */}
-      <div style={{ width: 36, height: 36, borderRadius: 10, background: `linear-gradient(135deg, ${C.red}, #991B1B)`, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 16, color: "#fff", marginBottom: 20, boxShadow: `0 4px 12px ${C.redGlow}` }}>M</div>
+      {/* User Profile */}
+      <div style={{ padding: "20px 16px 16px", display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ width: 38, height: 38, borderRadius: "50%", background: `linear-gradient(135deg, ${C.red}, #991B1B)`, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 15, color: "#fff", flexShrink: 0 }}>D</div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: SB.activeText, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>Dariel</div>
+          <div style={{ fontSize: 10, color: SB.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>darielo30@live.de</div>
+        </div>
+      </div>
 
-      {tabs.map((tab) => {
-        const isActive = activeTab === tab.key;
-        return (
-          <button key={tab.key} onClick={() => onTabChange(tab.key)} title={tab.label}
-            style={{
-              width: 44, height: 44, borderRadius: 12, border: "none", display: "flex", alignItems: "center", justifyContent: "center",
-              background: isActive ? C.redGlow : "transparent", cursor: "pointer", transition: "all 0.2s", position: "relative",
-            }}
-            onMouseOver={(e) => { if (!isActive) e.currentTarget.style.background = C.bg; }}
-            onMouseOut={(e) => { if (!isActive) e.currentTarget.style.background = "transparent"; }}>
-            <tab.icon size={20} color={isActive ? C.red : C.dimmed} />
-            {tab.badge > 0 && (
-              <div style={{
-                position: "absolute", top: 4, right: 4, minWidth: 18, height: 18, borderRadius: 9,
-                background: C.red, color: "#fff", fontSize: 10, fontWeight: 800,
-                display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px",
-                boxShadow: `0 2px 8px ${C.redGlow}`,
-              }}>{tab.badge > 99 ? "99+" : tab.badge}</div>
-            )}
-          </button>
-        );
-      })}
+      {/* Navigation */}
+      <nav style={{ padding: "4px 8px", flex: 1, display: "flex", flexDirection: "column", gap: 1 }}>
+        {navItems.map((item) => {
+          const isParentActive = item.expandable
+            ? item.children.some((c) => c.key === activeTab)
+            : activeTab === item.key;
+          const isExpanded = item.expandable && (
+            (item.key === "posts" && (isPostsChild || expandedMenu === "posts")) ||
+            (item.key === "inbox" && (isInboxChild || expandedMenu === "inbox"))
+          );
 
-      {/* Spacer */}
-      <div style={{ flex: 1 }} />
+          return (
+            <div key={item.key}>
+              <button
+                onClick={() => {
+                  if (item.disabled) return;
+                  if (item.expandable) {
+                    setExpandedMenu(isExpanded ? null : item.key);
+                    // Navigate to first child if not already in this group
+                    if (!item.children.some((c) => c.key === activeTab)) {
+                      onTabChange(item.children[0].key);
+                    }
+                  } else {
+                    onTabChange(item.key);
+                    setExpandedMenu(null);
+                  }
+                }}
+                style={navItemStyle(isParentActive && !item.expandable, item.disabled)}
+                onMouseOver={(e) => { if (!isParentActive && !item.disabled) e.currentTarget.style.background = SB.hoverBg; }}
+                onMouseOut={(e) => { if (!isParentActive && !item.disabled) e.currentTarget.style.background = "transparent"; }}
+              >
+                <item.icon size={16} />
+                <span style={{ flex: 1 }}>{item.label}</span>
+                {item.badge > 0 && (
+                  <span style={{ fontSize: 10, fontWeight: 700, color: "#fff", background: C.red, padding: "1px 6px", borderRadius: 8, minWidth: 18, textAlign: "center" }}>{item.badge > 99 ? "99+" : item.badge}</span>
+                )}
+                {item.expandable && (
+                  <ChevronDown size={13} style={{ transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s", opacity: 0.5 }} />
+                )}
+              </button>
+              {/* Sub-items */}
+              {item.expandable && isExpanded && (
+                <div style={{ marginTop: 1 }}>
+                  {item.children.map((child) => {
+                    const childActive = activeTab === child.key;
+                    return (
+                      <button key={child.key} onClick={() => onTabChange(child.key)} style={subItemStyle(childActive)}
+                        onMouseOver={(e) => { if (!childActive) e.currentTarget.style.background = SB.hoverBg; }}
+                        onMouseOut={(e) => { if (!childActive) e.currentTarget.style.background = "transparent"; }}>
+                        {child.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </nav>
 
-      {/* Theme Toggle */}
-      <button onClick={onToggleTheme} title={isDarkMode ? "Light Mode" : "Dark Mode"}
-        style={{
-          width: 40, height: 40, borderRadius: 12, border: `1px solid ${C.border}`,
-          display: "flex", alignItems: "center", justifyContent: "center",
-          background: isDarkMode ? C.bg : C.cardHover, cursor: "pointer",
-          transition: "all 0.3s", marginBottom: 16,
+      {/* Bottom: Theme Toggle */}
+      <div style={{ padding: "12px 16px", borderTop: `1px solid ${SB.border}` }}>
+        <button onClick={onToggleTheme} style={{
+          display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "8px 12px", borderRadius: 8,
+          background: "transparent", border: "none", color: SB.text, fontSize: 12, cursor: "pointer", fontFamily: "inherit",
         }}
-        onMouseOver={(e) => { e.currentTarget.style.background = isDarkMode ? C.cardHover : C.border; }}
-        onMouseOut={(e) => { e.currentTarget.style.background = isDarkMode ? C.bg : C.cardHover; }}>
-        {isDarkMode ? <Sun size={18} color={C.yellow} /> : <Moon size={18} color="#6366F1" />}
-      </button>
+        onMouseOver={(e) => e.currentTarget.style.background = SB.hoverBg}
+        onMouseOut={(e) => e.currentTarget.style.background = "transparent"}>
+          {isDarkMode ? <Sun size={15} color={C.yellow} /> : <Moon size={15} color="#6366F1" />}
+          {isDarkMode ? "Light Mode" : "Dark Mode"}
+        </button>
+      </div>
     </div>
   );
 }
 
 // ── Notification Panel ──────────────────────────────────────────
-function NotificationPanel({ notifications, onMarkAllRead, isConnected }) {
+function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultView }) {
   const [platformFilter, setPlatformFilter] = useState("all");
   const [apiComments, setApiComments] = useState([]);
   const [loadingComments, setLoadingComments] = useState(false);
   const [apiError, setApiError] = useState(null);
-  const [inboxView, setInboxView] = useState("comments"); // "comments" | "dms"
+  const [inboxView, setInboxView] = useState(defaultView || "dms"); // "comments" | "dms"
+  // Sync view when tab changes
+  useEffect(() => { if (defaultView) setInboxView(defaultView); }, [defaultView]);
   const [conversations, setConversations] = useState([]);
   const [loadingDMs, setLoadingDMs] = useState(false);
   const [selectedConvo, setSelectedConvo] = useState(null);
@@ -2017,6 +2104,128 @@ function SkriptePanel({ scripts, onRefresh, loading }) {
 }
 
 // ── Main Dashboard ──────────────────────────────────────────────
+// ── Logs Panel (Zernio-style table) ──────────────────────────
+function LogsPanel({ errorLog }) {
+  const [logsData, setLogsData] = useState([]);
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [logsSearch, setLogsSearch] = useState("");
+
+  useEffect(() => {
+    const fetchLogs = async () => {
+      setLogsLoading(true);
+      try {
+        const res = await fetch("/api/late?action=logs");
+        const data = await res.json();
+        const entries = Array.isArray(data) ? data : (data.logs || data.data || []);
+        setLogsData(entries);
+      } catch { setLogsData([]); }
+      finally { setLogsLoading(false); }
+    };
+    fetchLogs();
+  }, []);
+
+  const allLogs = [
+    ...logsData.map((l) => ({
+      action: l.action || "Published",
+      status: l.status || l.statusCode || 200,
+      endpoint: l.endpoint || l.url || "POST /api/v1/posts",
+      platform: l.platform || "—",
+      account: l.account || l.profile || "mitunsverkaufen.de",
+      created: l.createdAt || l.created || l.timestamp || "",
+      ok: (l.status || 200) < 400 && l.success !== false,
+    })),
+    ...errorLog.map((e) => ({
+      action: e.action || "Error",
+      status: "ERR",
+      endpoint: "—",
+      platform: e.platforms?.join(", ") || "—",
+      account: "mitunsverkaufen.de",
+      created: e.timestamp || "",
+      ok: false,
+    })),
+  ].sort((a, b) => new Date(b.created) - new Date(a.created));
+
+  const filteredLogs = logsSearch
+    ? allLogs.filter((l) => JSON.stringify(l).toLowerCase().includes(logsSearch.toLowerCase()))
+    : allLogs;
+
+  const formatTimeAgo = (t) => {
+    if (!t) return "—";
+    try {
+      const diff = (Date.now() - new Date(t).getTime()) / 1000;
+      if (diff < 60) return "just now";
+      if (diff < 3600) return `${Math.floor(diff / 60)} minutes ago`;
+      if (diff < 86400) return `about ${Math.floor(diff / 3600)} hours ago`;
+      return `${Math.floor(diff / 86400)} days ago`;
+    } catch { return "—"; }
+  };
+
+  return (
+    <div style={{ padding: "24px 32px" }}>
+      <div style={{ marginBottom: 24 }}>
+        <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.02em", color: C.white }}>Logs</div>
+        <div style={{ fontSize: 13, color: C.muted, marginTop: 2 }}>View activity logs and debug errors</div>
+      </div>
+
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 12px", flex: 1, maxWidth: 260 }}>
+          <Search size={14} color={C.dimmed} />
+          <input type="text" placeholder="Search logs..." value={logsSearch} onChange={(e) => setLogsSearch(e.target.value)}
+            style={{ background: "transparent", border: "none", outline: "none", color: C.white, fontSize: 12, width: "100%", fontFamily: "inherit" }} />
+        </div>
+        <button style={{ padding: "8px 14px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, color: C.dimmed, fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 4 }}>Publishing <ChevronDown size={11} /></button>
+        <button style={{ padding: "8px 14px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, color: C.dimmed, fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 4 }}>All platforms <ChevronDown size={11} /></button>
+        <button style={{ padding: "8px 14px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, color: C.dimmed, fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 4 }}>All statuses <ChevronDown size={11} /></button>
+        <button style={{ padding: "8px 14px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, color: C.dimmed, fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 4 }}>Last 7 days <ChevronDown size={11} /></button>
+        <button onClick={() => { setLogsData([]); setLogsLoading(true); fetch("/api/late?action=logs").then(r => r.json()).then(d => { setLogsData(Array.isArray(d) ? d : (d.logs || d.data || [])); setLogsLoading(false); }).catch(() => setLogsLoading(false)); }} style={{ width: 34, height: 34, borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+          <RefreshCw size={14} color={C.dimmed} style={logsLoading ? { animation: "spin 1s linear infinite" } : {}} />
+        </button>
+      </div>
+
+      <div style={{ background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, overflow: "hidden" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "160px 80px 1fr 140px 180px 160px", padding: "12px 20px", borderBottom: `1px solid ${C.border}`, fontSize: 12, fontWeight: 600, color: C.dimmed }}>
+          <div>Action</div><div>Status</div><div>Endpoint</div><div>Platform</div><div>Account</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>Created <ChevronDown size={10} /></div>
+        </div>
+
+        {logsLoading && (
+          <div style={{ padding: 30, textAlign: "center", color: C.dimmed, fontSize: 13 }}>
+            <Loader2 size={16} style={{ animation: "spin 1s linear infinite", display: "inline-block", marginRight: 6 }} /> Loading logs...
+          </div>
+        )}
+        {!logsLoading && filteredLogs.length === 0 && (
+          <div style={{ padding: 40, textAlign: "center", color: C.dimmed, fontSize: 13 }}>No logs found.</div>
+        )}
+
+        {filteredLogs.map((log, i) => {
+          const pIcon = log.platform?.toLowerCase().includes("instagram") ? Instagram : log.platform?.toLowerCase().includes("tiktok") ? TikTokIcon : null;
+          const pColor = log.platform?.toLowerCase().includes("instagram") ? C.instagram : log.platform?.toLowerCase().includes("tiktok") ? C.tiktok : C.dimmed;
+          return (
+            <div key={i} style={{ display: "grid", gridTemplateColumns: "160px 80px 1fr 140px 180px 160px", padding: "12px 20px", borderBottom: `1px solid ${C.border}08`, alignItems: "center", fontSize: 13, transition: "background 0.1s" }}
+              onMouseOver={(e) => e.currentTarget.style.background = C.bg + "60"}
+              onMouseOut={(e) => e.currentTarget.style.background = "transparent"}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ width: 22, height: 22, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", background: log.ok ? C.greenGlow : C.redGlow }}>
+                  {log.ok ? <Check size={12} color={C.green} /> : <X size={12} color={C.redLight} />}
+                </div>
+                <span style={{ color: C.white, fontWeight: 500 }}>{log.action}</span>
+              </div>
+              <div><span style={{ fontSize: 12, fontWeight: 700, color: log.ok ? C.green : C.redLight, background: log.ok ? C.greenGlow : C.redGlow, padding: "2px 8px", borderRadius: 4 }}>{log.status}</span></div>
+              <div style={{ color: C.muted, fontSize: 12, fontFamily: "monospace", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{log.endpoint}</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                {pIcon && React.createElement(pIcon, { size: 14, color: pColor })}
+                <span style={{ color: C.white, fontSize: 12 }}>{log.platform}</span>
+              </div>
+              <div style={{ color: C.muted, fontSize: 12 }}>{log.account}</div>
+              <div style={{ color: C.dimmed, fontSize: 12 }}>{formatTimeAgo(log.created)}</div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   // Theme state persisted in localStorage
   const [isDarkMode, setIsDarkMode] = useState(() => {
@@ -2339,7 +2548,7 @@ export default function Dashboard() {
       <Sidebar activeTab={activeTab} onTabChange={setActiveTab} unreadCount={unreadCount} errorCount={errorLog.length} isDarkMode={isDarkMode} onToggleTheme={toggleTheme} />
 
       {/* Main Content */}
-      <div style={{ flex: 1, marginLeft: 64 }}>
+      <div style={{ flex: 1, marginLeft: 220 }}>
 
       {notification && (
         <div style={{ position: "fixed", top: 20, right: 20, zIndex: 200, background: C.card, border: `1px solid ${notification.color === "green" ? C.green : notification.color === "red" ? C.redLight : C.yellow}`, borderRadius: 12, padding: "12px 20px", display: "flex", alignItems: "center", gap: 10, boxShadow: "0 8px 32px rgba(0,0,0,0.4)", maxWidth: 480 }}>
@@ -2347,6 +2556,112 @@ export default function Dashboard() {
            <div style={{ width: 8, height: 8, borderRadius: "50%", background: notification.color === "green" ? C.green : C.yellow, flexShrink: 0 }} />}
           <span style={{ fontSize: 13, fontWeight: 600, color: notification.color === "red" ? C.redLight : C.white }}>{notification.text}</span>
         </div>
+      )}
+
+      {/* ── Connections Tab (Zernio style) ──────────────────── */}
+      {activeTab === "connections" && (
+        <div style={{ padding: "24px 32px" }}>
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 24 }}>
+            <div>
+              <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.02em", color: C.white }}>Connections</div>
+              <div style={{ fontSize: 13, color: C.muted, marginTop: 2 }}>Manage profiles and platform integrations</div>
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button style={{ display: "flex", alignItems: "center", gap: 6, padding: "9px 20px", borderRadius: 8, background: C.red, border: "none", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+                <Plus size={15} /> New Connection
+              </button>
+              <button style={{ padding: "9px 20px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, color: C.white, fontSize: 13, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>
+                New Profile
+              </button>
+            </div>
+          </div>
+
+          {/* Filter bar */}
+          <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 14, fontWeight: 700, color: C.white }}>Platforms</span>
+              <select style={{ padding: "8px 14px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, color: C.white, fontSize: 13, fontFamily: "inherit", cursor: "pointer", minWidth: 140 }}>
+                <option>All profiles</option>
+              </select>
+            </div>
+            <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+              <button style={{ padding: "7px 14px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, color: C.dimmed, fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>All platforms</button>
+              <button style={{ padding: "7px 14px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, color: C.dimmed, fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>All statuses</button>
+            </div>
+          </div>
+
+          {/* Connection Cards */}
+          <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+            {accounts.length > 0 ? accounts.map((acc, i) => {
+              const isIG = acc.platform === "instagram";
+              const color = isIG ? C.instagram : C.tiktok;
+              const Icon = isIG ? Instagram : TikTokIcon;
+              return (
+                <div key={i} style={{ width: 240, background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, padding: "18px 20px", position: "relative" }}>
+                  {/* Info icon top right */}
+                  <div style={{ position: "absolute", top: 14, right: 14, cursor: "pointer" }}>
+                    <AlertCircle size={16} color={C.dimmed} />
+                  </div>
+                  {/* Platform header */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
+                    <Icon size={20} color={color} />
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: C.white }}>{isIG ? "Instagram" : "TikTok"}</div>
+                      <div style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10, fontWeight: 600, color: C.green, background: C.greenGlow, padding: "2px 8px", borderRadius: 4, marginTop: 2 }}>
+                        <div style={{ width: 5, height: 5, borderRadius: "50%", background: C.green }} /> connected
+                      </div>
+                    </div>
+                  </div>
+                  {/* Handle */}
+                  <div style={{ fontSize: 13, fontWeight: 600, color: C.white, marginTop: 10 }}>@{acc.name || "mitunsverkaufen.de"}</div>
+                  <div style={{ fontSize: 11, color: C.dimmed, marginTop: 2 }}>{acc.connectedAt ? new Date(acc.connectedAt).toLocaleDateString("de-DE") : new Date().toLocaleDateString("de-DE")}</div>
+                  {/* Business badge */}
+                  <div style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10, fontWeight: 600, color: C.redLight, background: C.redGlow, padding: "3px 10px", borderRadius: 4, marginTop: 10 }}>
+                    <div style={{ width: 5, height: 5, borderRadius: "50%", background: C.redLight }} /> Business
+                  </div>
+                  {/* Disconnect button */}
+                  <button style={{ display: "block", width: "100%", padding: "8px 0", borderRadius: 8, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", marginTop: 14, textAlign: "center" }}>
+                    Disconnect
+                  </button>
+                </div>
+              );
+            }) : (
+              /* Demo connection cards when not connected */
+              ["Instagram", "TikTok"].map((plat) => {
+                const isIG = plat === "Instagram";
+                const color = isIG ? C.instagram : C.tiktok;
+                const Icon = isIG ? Instagram : TikTokIcon;
+                return (
+                  <div key={plat} style={{ width: 240, background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, padding: "18px 20px", position: "relative" }}>
+                    <div style={{ position: "absolute", top: 14, right: 14 }}><AlertCircle size={16} color={C.dimmed} /></div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
+                      <Icon size={20} color={color} />
+                      <div>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: C.white }}>{plat}</div>
+                        <div style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10, fontWeight: 600, color: isConnected ? C.green : C.yellow, background: isConnected ? C.greenGlow : C.yellowGlow, padding: "2px 8px", borderRadius: 4, marginTop: 2 }}>
+                          <div style={{ width: 5, height: 5, borderRadius: "50%", background: isConnected ? C.green : C.yellow }} /> {isConnected ? "connected" : "disconnected"}
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: C.white, marginTop: 10 }}>@mitunsverkaufen.de</div>
+                    <div style={{ fontSize: 11, color: C.dimmed, marginTop: 2 }}>—</div>
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10, fontWeight: 600, color: C.redLight, background: C.redGlow, padding: "3px 10px", borderRadius: 4, marginTop: 10 }}>
+                      <div style={{ width: 5, height: 5, borderRadius: "50%", background: C.redLight }} /> Business
+                    </div>
+                    <button style={{ display: "block", width: "100%", padding: "8px 0", borderRadius: 8, background: isConnected ? C.bg : C.red, border: `1px solid ${isConnected ? C.border : C.red}`, color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", marginTop: 14, textAlign: "center" }}>
+                      {isConnected ? "Disconnect" : "Connect"}
+                    </button>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Logs Tab (Zernio style table) ─────────────────── */}
+      {activeTab === "logs" && (
+        <LogsPanel errorLog={errorLog} />
       )}
 
       {/* Calendar Tab */}
@@ -2372,9 +2687,9 @@ export default function Dashboard() {
         <SkriptePanel scripts={scripts} onRefresh={fetchScripts} loading={scriptsLoading} />
       )}
 
-      {/* Notifications Tab */}
-      {activeTab === "notifications" && (
-        <NotificationPanel notifications={notifications} onMarkAllRead={markAllRead} isConnected={isConnected} />
+      {/* Inbox Tabs (Messages & Comments share one panel with preset view) */}
+      {(activeTab === "notifications" || activeTab === "comments") && (
+        <NotificationPanel notifications={notifications} onMarkAllRead={markAllRead} isConnected={isConnected} defaultView={activeTab === "comments" ? "comments" : "dms"} />
       )}
 
       {/* ── Analytics Tab (Zernio Design) ─────────────────────── */}
@@ -2461,7 +2776,7 @@ export default function Dashboard() {
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 24 }}>
             <div>
               <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.02em", color: C.white }}>Analytics</div>
-              <div style={{ fontSize: 13, color: C.muted, marginTop: 2 }}>Post-Performance-Metriken ansehen</div>
+              <div style={{ fontSize: 13, color: C.muted, marginTop: 2 }}>View post performance metrics</div>
             </div>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               {["all", "instagram", "tiktok"].map((p) => {
@@ -2682,9 +2997,9 @@ export default function Dashboard() {
 
       {/* Settings Tab */}
       {activeTab === "settings" && (
-        <div style={{ padding: "28px 32px", maxWidth: 800, margin: "0 auto" }}>
-          <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.02em", marginBottom: 8 }}>Einstellungen</div>
-          <div style={{ fontSize: 13, color: C.muted, marginBottom: 20 }}>API-Verbindung, Team-Zugang und Benachrichtigungseinstellungen.</div>
+        <div style={{ padding: "24px 32px", maxWidth: 800 }}>
+          <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.02em", marginBottom: 4, color: C.white }}>Settings</div>
+          <div style={{ fontSize: 13, color: C.muted, marginBottom: 24 }}>API connection, team access, and notification settings</div>
 
           {/* API Status */}
           <div style={{ background: C.card, borderRadius: 14, border: `1px solid ${C.border}`, padding: 20, marginBottom: 16 }}>
@@ -2818,98 +3133,66 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Dashboard Tab */}
+      {/* Dashboard / Posts Tab */}
       {activeTab === "dashboard" && (<>
 
-      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 32px", borderBottom: `1px solid ${C.border}`, background: "rgba(11,15,25,0.85)", backdropFilter: "blur(12px)", position: "sticky", top: 0, zIndex: 30 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+      <div style={{ padding: "24px 32px 0" }}>
+        {/* Zernio-style Posts header */}
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 20 }}>
           <div>
-            <div style={{ fontSize: 17, fontWeight: 700, letterSpacing: "-0.02em", color: "#FFFFFF" }}>mitunsverkaufen.de</div>
-            <div style={{ fontSize: 12, color: C.muted, fontWeight: 500, display: "flex", alignItems: "center", gap: 6 }}>
-              Social Media Dashboard
-              <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: isConnected ? C.green : C.yellow, fontWeight: 600 }}>
-                {isConnected ? <Wifi size={11} /> : <WifiOff size={11} />} {isConnected ? `Late API · ${accounts.length} Account${accounts.length !== 1 ? "s" : ""}` : "Demo-Modus"}
-              </span>
-            </div>
+            <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.02em", color: C.white }}>Posts</div>
+            <div style={{ fontSize: 13, color: C.muted, marginTop: 2 }}>Manage your scheduled and published content</div>
           </div>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "8px 14px", width: 220 }}>
-            <Search size={16} color={C.dimmed} />
-            <input type="text" placeholder="Beiträge suchen..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-              style={{ background: "transparent", border: "none", outline: "none", color: C.white, fontSize: 13, width: "100%", fontFamily: "inherit" }} />
-          </div>
-          <button onClick={() => { fetchAccounts(); fetchPosts(); }} title="Daten aktualisieren" style={{ width: 38, height: 38, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", background: C.card, border: `1px solid ${C.border}`, cursor: "pointer" }}>
-            <RefreshCw size={16} color={C.muted} style={isLoading ? { animation: "spin 1s linear infinite" } : {}} />
-          </button>
-          <MonthPicker selectedMonth={selectedMonth} selectedYear={selectedYear} onSelect={(m, y) => { setSelectedMonth(m); setSelectedYear(y); }} />
-          <button onClick={() => { setCreateModalInitialDate(""); setShowCreateModal(true); }} style={{ display: "flex", alignItems: "center", gap: 6, background: C.red, border: "none", borderRadius: 10, padding: "8px 18px", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer", boxShadow: `0 4px 16px ${C.redGlow}` }}>
-            <Plus size={15} /> Neuer Beitrag
-          </button>
-        </div>
-      </header>
-
-      <div style={{ padding: "28px 32px", maxWidth: 1440, margin: "0 auto" }}>
-        <div style={{ display: "flex", gap: 14, marginBottom: 28, flexWrap: "wrap" }}>
-          <StatCard icon={Eye} label="Views" value={fmt(totalViews)} change={18.2} color={C.yellow} glowColor={C.yellowGlow} />
-          <StatCard icon={Heart} label="Likes" value={fmt(totalLikes)} change={12.5} color={C.redLight} glowColor={C.redGlow} />
-          <StatCard icon={MessageCircle} label="Kommentare" value={fmt(totalComments)} change={24.1} color={C.blue} glowColor={C.blueGlow} />
-          <StatCard icon={Share2} label="Shares" value={fmt(totalShares)} change={31.4} color={C.green} glowColor={C.greenGlow} />
-          <StatCard icon={Users} label="Monatsziel" value={`${filtered.length}/${MONTHLY_GOAL}`} change={progress} color={C.purple} glowColor={C.purpleGlow} />
-        </div>
-
-        <div style={{ display: "flex", gap: 14, marginBottom: 28, flexWrap: "wrap" }}>
-          <div style={{ flex: 2, minWidth: 400, background: C.card, borderRadius: 16, border: `1px solid ${C.border}`, padding: 24 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
-              <div><div style={{ fontSize: 16, fontWeight: 700 }}>Performance Trend</div><div style={{ fontSize: 13, color: C.muted, marginTop: 2 }}>Letzte 6 Monate</div></div>
-              <div style={{ display: "flex", gap: 16 }}>
-                {[{ color: C.yellow, label: "Views" }, { color: C.redLight, label: "Likes" }, { color: C.blue, label: "Kommentare" }].map((l) => (
-                  <div key={l.label} style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ width: 10, height: 10, borderRadius: "50%", background: l.color }} /><span style={{ fontSize: 12, color: C.muted }}>{l.label}</span></div>
-                ))}
-              </div>
-            </div>
-            <ResponsiveContainer width="100%" height={230}>
-              <AreaChart data={performance}>
-                <defs>
-                  <linearGradient id="vG" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={C.yellow} stopOpacity={0.25} /><stop offset="100%" stopColor={C.yellow} stopOpacity={0} /></linearGradient>
-                  <linearGradient id="lG" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={C.redLight} stopOpacity={0.25} /><stop offset="100%" stopColor={C.redLight} stopOpacity={0} /></linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke={C.border} /><XAxis dataKey="month" stroke={C.dimmed} fontSize={12} tickLine={false} axisLine={false} /><YAxis stroke={C.dimmed} fontSize={12} tickLine={false} axisLine={false} tickFormatter={fmt} /><Tooltip content={<ChartTooltip />} />
-                <Area type="monotone" dataKey="views" name="Views" stroke={C.yellow} strokeWidth={2.5} fill="url(#vG)" dot={false} />
-                <Area type="monotone" dataKey="likes" name="Likes" stroke={C.redLight} strokeWidth={2.5} fill="url(#lG)" dot={false} />
-                <Area type="monotone" dataKey="comments" name="Kommentare" stroke={C.blue} strokeWidth={2} fill="transparent" dot={false} strokeDasharray="5 3" />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-          <div style={{ flex: 1, minWidth: 280, background: C.card, borderRadius: 16, border: `1px solid ${C.border}`, padding: 24 }}>
-            <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>Plattform-Vergleich</div>
-            <div style={{ fontSize: 13, color: C.muted, marginBottom: 20 }}>Instagram vs. TikTok</div>
-            <ResponsiveContainer width="100%" height={230}>
-              <BarChart data={(() => { const ig = filtered.filter(p => p.platform === "instagram"); const tt = filtered.filter(p => p.platform === "tiktok"); const sum = (a, k) => a.reduce((s, p) => s + p[k], 0); return [{ name: "Views", ig: sum(ig, "views"), tt: sum(tt, "views") }, { name: "Likes", ig: sum(ig, "likes"), tt: sum(tt, "likes") }, { name: "Komm.", ig: sum(ig, "comments"), tt: sum(tt, "comments") }, { name: "Shares", ig: sum(ig, "shares"), tt: sum(tt, "shares") }]; })()} barGap={4}>
-                <CartesianGrid strokeDasharray="3 3" stroke={C.border} /><XAxis dataKey="name" stroke={C.dimmed} fontSize={11} tickLine={false} axisLine={false} /><YAxis stroke={C.dimmed} fontSize={11} tickLine={false} axisLine={false} tickFormatter={fmt} /><Tooltip content={<ChartTooltip />} />
-                <Bar dataKey="ig" name="Instagram" fill={C.instagram} radius={[6, 6, 0, 0]} /><Bar dataKey="tt" name="TikTok" fill={C.tiktok} radius={[6, 6, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        <div style={{ background: C.card, borderRadius: 14, border: `1px solid ${C.border}`, padding: "14px 24px", marginBottom: 20, display: "flex", alignItems: "center", gap: 20 }}>
-          <div style={{ fontSize: 14, fontWeight: 600, whiteSpace: "nowrap" }}>Monatsziel</div>
-          <div style={{ flex: 1, height: 8, borderRadius: 4, background: C.border, overflow: "hidden" }}><div style={{ height: "100%", width: `${progress}%`, borderRadius: 4, background: `linear-gradient(90deg, ${C.red}, ${C.redLight})`, transition: "width 0.6s cubic-bezier(0.4,0,0.2,1)" }} /></div>
-          <div style={{ fontSize: 15, fontWeight: 800, color: C.red, whiteSpace: "nowrap" }}>{filtered.length}/{MONTHLY_GOAL}</div>
-          <div style={{ fontSize: 13, color: C.muted, whiteSpace: "nowrap" }}>{doneCount} erledigt · {MONTHLY_GOAL - filtered.length > 0 ? `${MONTHLY_GOAL - filtered.length} fehlen` : "Ziel erreicht!"}</div>
-        </div>
-
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
-          {[{ key: "all", label: "Alle", count: filtered.length }, { key: "instagram", label: "Instagram", icon: Instagram, color: C.instagram, count: filtered.filter(p => p.platform === "instagram").length }, { key: "tiktok", label: "TikTok", icon: TikTokIcon, color: C.tiktok, count: filtered.filter(p => p.platform === "tiktok").length }, { key: "offen", label: "Offen", count: filtered.filter(p => !p.done && p.status !== "failed").length }, { key: "erledigt", label: "Erledigt", count: filtered.filter(p => p.done).length }, { key: "failed", label: "Fehler", icon: AlertCircle, color: C.redLight, count: filtered.filter(p => p.status === "failed").length }].filter(f => f.key !== "failed" || f.count > 0).map((f) => (
-            <button key={f.key} onClick={() => setFilter(f.key)} style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 16px", borderRadius: 8, border: `1px solid ${filter === f.key ? (f.color || C.red) : C.border}`, background: filter === f.key ? (f.color ? f.color + "15" : C.redGlow) : "transparent", color: filter === f.key ? (f.color || C.red) : C.muted, fontSize: 13, fontWeight: 500, cursor: "pointer", transition: "all 0.2s", fontFamily: "inherit" }}>
-              {f.icon && <f.icon size={14} />} {f.label} <span style={{ background: filter === f.key ? (f.color || C.red) + "30" : C.border, padding: "1px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700, color: filter === f.key ? (f.color || C.red) : C.dimmed }}>{f.count}</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <button onClick={() => { setCreateModalInitialDate(""); setShowCreateModal(true); }} style={{ display: "flex", alignItems: "center", gap: 6, background: C.red, border: "none", borderRadius: 8, padding: "9px 20px", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+              <Plus size={15} /> Create post
             </button>
-          ))}
+          </div>
         </div>
 
-        {/* Card Grid */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16 }}>
+        {/* Filter bar like Zernio */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
+          {[
+            { key: "all", label: "All posts" },
+            { key: "instagram", label: "Instagram", icon: Instagram, color: C.instagram },
+            { key: "tiktok", label: "TikTok", icon: TikTokIcon, color: C.tiktok },
+          ].map((f) => {
+            const active = filter === f.key || (f.key === "all" && filter === "all");
+            return (
+              <button key={f.key} onClick={() => setFilter(f.key)} style={{
+                display: "flex", alignItems: "center", gap: 5, padding: "7px 14px", borderRadius: 8,
+                border: `1px solid ${active ? (f.color || C.white) + "40" : C.border}`,
+                background: active ? (f.color || C.white) + "10" : C.card,
+                color: active ? (f.color || C.white) : C.dimmed, fontSize: 12, fontWeight: 500,
+                cursor: "pointer", fontFamily: "inherit",
+              }}>
+                {f.icon && <f.icon size={13} />} {f.label} <ChevronDown size={10} style={{ opacity: 0.5 }} />
+              </button>
+            );
+          })}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "7px 12px", marginLeft: 4 }}>
+            <Search size={14} color={C.dimmed} />
+            <input type="text" placeholder="Search..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+              style={{ background: "transparent", border: "none", outline: "none", color: C.white, fontSize: 12, width: 120, fontFamily: "inherit" }} />
+          </div>
+          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
+            <button onClick={() => { fetchAccounts(); fetchPosts(); }} style={{ width: 32, height: 32, borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+              <RefreshCw size={14} color={C.muted} style={isLoading ? { animation: "spin 1s linear infinite" } : {}} />
+            </button>
+            <MonthPicker selectedMonth={selectedMonth} selectedYear={selectedYear} onSelect={(m, y) => { setSelectedMonth(m); setSelectedYear(y); }} />
+          </div>
+        </div>
+      </div>
+
+      <div style={{ padding: "0 32px 32px" }}>
+
+        {/* Post Count */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+          <div style={{ fontSize: 12, color: C.dimmed }}>{filtered.length > 0 ? `1–${filtered.length} of ${posts.length}` : "No posts"}</div>
+        </div>
+
+        {/* Zernio-style Post Card Grid (4 columns) */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 14 }}>
           {filtered.length === 0 && (
             <div style={{ gridColumn: "1 / -1", padding: 40, textAlign: "center", color: C.dimmed, fontSize: 14 }}>Keine Beiträge für {MONTHS_DE[selectedMonth]} {selectedYear} gefunden.</div>
           )}
@@ -2917,7 +3200,7 @@ export default function Dashboard() {
             const postPlats = post.platforms || [post.platform || "instagram"];
             const primaryColor = postPlats.includes("instagram") ? C.instagram : C.tiktok;
             const isSelected = selectedPost?.id === post.id;
-            const statusConf = { published: { label: "Published", color: C.green }, scheduled: { label: "Scheduled", color: C.yellow }, draft: { label: "Draft", color: C.dimmed }, failed: { label: "Failed", color: C.redLight } };
+            const statusConf = { published: { label: "published", color: C.green }, scheduled: { label: "scheduled", color: C.yellow }, draft: { label: "draft", color: C.dimmed }, failed: { label: "failed", color: C.redLight }, partial: { label: "partial", color: "#F59E0B" } };
             const sc = statusConf[post.status] || statusConf.draft;
             return (
               <div key={post.id}>
@@ -3094,7 +3377,7 @@ export default function Dashboard() {
           <div style={{ marginTop: 32, padding: 24, background: C.card, borderRadius: 16, border: `1px solid ${C.border}`, display: "flex", gap: 16, alignItems: "flex-start" }}>
             <div style={{ width: 44, height: 44, borderRadius: 12, background: C.redGlow, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><BarChart3 size={22} color={C.red} /></div>
             <div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: C.white, marginBottom: 8 }}>Late API verbinden – 3 Schritte</div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: C.white, marginBottom: 8 }}>Zernio API verbinden – 3 Schritte</div>
               <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.8 }}>
                 <span style={{ color: C.red, fontWeight: 700 }}>1.</span> Erstelle einen Account auf <span style={{ color: C.blue, fontWeight: 600 }}>zernio.com</span> und verbinde Instagram + TikTok<br />
                 <span style={{ color: C.red, fontWeight: 700 }}>2.</span> Kopiere deinen API-Key unter Settings → API<br />
@@ -3103,11 +3386,6 @@ export default function Dashboard() {
             </div>
           </div>
         )}
-
-        <div style={{ marginTop: 48, paddingTop: 20, borderTop: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: 32 }}>
-          <div style={{ fontSize: 12, color: C.dimmed }}>© 2026 mitunsverkaufen.de GmbH</div>
-          <div style={{ fontSize: 12, color: C.dimmed }}>Powered by Late API · Built with Claude AI</div>
-        </div>
       </div>
 
       </>)}
