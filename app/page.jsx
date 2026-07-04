@@ -559,16 +559,28 @@ function CreatePostModal({ onClose, onSubmit, isSubmitting, accounts, initialDat
 
   const fmtSize = (bytes) => bytes > 1024 * 1024 ? (bytes / 1024 / 1024).toFixed(1) + " MB" : (bytes / 1024).toFixed(0) + " KB";
 
-  return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 }} onClick={onClose}>
-      <div style={{ background: C.card, borderRadius: 20, border: `1px solid ${C.border}`, width: 640, maxWidth: "92vw", maxHeight: "92vh", overflow: "auto", boxShadow: "0 24px 80px rgba(0,0,0,0.6)" }} onClick={(e) => e.stopPropagation()}>
+  const [panelVisible, setPanelVisible] = useState(false);
+  useEffect(() => { requestAnimationFrame(() => setPanelVisible(true)); }, []);
+  const handleClose = () => { setPanelVisible(false); setTimeout(onClose, 300); };
 
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "20px 24px", borderBottom: `1px solid ${C.border}` }}>
-          <div style={{ fontSize: 17, fontWeight: 700, color: C.white }}>Neuer Beitrag</div>
-          <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 8, background: C.bg, border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}><X size={16} color={C.muted} /></button>
+  return (
+    <div style={{ position: "fixed", inset: 0, background: panelVisible ? "rgba(0,0,0,0.5)" : "transparent", backdropFilter: panelVisible ? "blur(4px)" : "none", zIndex: 100, transition: "background 0.3s, backdrop-filter 0.3s" }} onClick={handleClose}>
+      <div style={{
+        position: "absolute", top: 0, right: 0, bottom: 0, width: "50vw", minWidth: 520, maxWidth: 720,
+        background: C.card, borderLeft: `1px solid ${C.border}`, boxShadow: "-8px 0 40px rgba(0,0,0,0.5)",
+        display: "flex", flexDirection: "column", transform: panelVisible ? "translateX(0)" : "translateX(100%)",
+        transition: "transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
+      }} onClick={(e) => e.stopPropagation()}>
+
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "20px 24px", borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
+          <div>
+            <div style={{ fontSize: 17, fontWeight: 700, color: C.white }}>Neuer Beitrag</div>
+            <div style={{ fontSize: 12, color: C.dimmed, marginTop: 2 }}>Erstelle & veröffentliche Content</div>
+          </div>
+          <button onClick={handleClose} style={{ width: 32, height: 32, borderRadius: 8, background: C.bg, border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}><X size={16} color={C.muted} /></button>
         </div>
 
-        <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20 }}>
+        <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20, flex: 1, overflowY: "auto" }}>
 
           {/* Platform Selection */}
           <div>
@@ -877,8 +889,8 @@ function CreatePostModal({ onClose, onSubmit, isSubmitting, accounts, initialDat
         </div>
 
         {/* Footer */}
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, padding: "16px 24px", borderTop: `1px solid ${C.border}` }}>
-          <button onClick={onClose} style={{ padding: "10px 20px", borderRadius: 10, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Abbrechen</button>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, padding: "16px 24px", borderTop: `1px solid ${C.border}`, flexShrink: 0 }}>
+          <button onClick={handleClose} style={{ padding: "10px 20px", borderRadius: 10, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Abbrechen</button>
           <button onClick={handleSubmit} disabled={isSubmitting || !content.trim()} style={{
             display: "flex", alignItems: "center", gap: 6, padding: "10px 24px", borderRadius: 10,
             background: !content.trim() ? C.border : C.red, border: "none",
