@@ -401,6 +401,8 @@ function CreatePostModal({ onClose, onSubmit, isSubmitting, accounts, initialDat
   const [aiTranscript, setAiTranscript] = useState("");
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiError, setAiError] = useState(null);
+  const [aiResults, setAiResults] = useState(null); // { instagram, tiktok }
+  const [includeHashtags, setIncludeHashtags] = useState(false);
   const fileInputRef = useRef(null);
   const thumbInputRef = useRef(null);
 
@@ -488,23 +490,27 @@ function CreatePostModal({ onClose, onSubmit, isSubmitting, accounts, initialDat
     if (!aiTranscript.trim()) return;
     setAiGenerating(true);
     setAiError(null);
+    setAiResults(null);
     try {
-      const selectedPlatforms = Object.entries(platforms).filter(([, v]) => v).map(([k]) => k);
-      const platform = selectedPlatforms.includes("tiktok") ? "tiktok" : "instagram";
       const res = await fetch("/api/generate-caption", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ transcript: aiTranscript, platform }),
+        body: JSON.stringify({ transcript: aiTranscript, includeHashtags }),
       });
       const data = await res.json();
       if (data.error) { setAiError(data.error); }
-      else if (data.caption) {
-        setContent(data.caption);
-        setShowAiCaption(false);
-        setAiTranscript("");
+      else if (data.instagram || data.tiktok) {
+        setAiResults({ instagram: data.instagram, tiktok: data.tiktok });
       }
     } catch (err) { setAiError(err.message); }
     finally { setAiGenerating(false); }
+  };
+
+  const selectAiCaption = (text) => {
+    setContent(text);
+    setAiResults(null);
+    setShowAiCaption(false);
+    setAiTranscript("");
   };
 
   // Toggle a default partner on/off
@@ -676,27 +682,80 @@ function CreatePostModal({ onClose, onSubmit, isSubmitting, accounts, initialDat
                   <div style={{ fontSize: 13, fontWeight: 700, color: C.white }}>Caption aus Transkript generieren</div>
                 </div>
                 <div style={{ fontSize: 11, color: C.dimmed, marginBottom: 10, lineHeight: 1.5 }}>
-                  Kopiere das Transkript deines Reels hier rein. Claude generiert daraus eine fertige Caption mit Hashtags.
+                  Kopiere das Transkript deines Reels hier rein. Es werden automatisch Captions für Instagram & TikTok generiert.
                 </div>
-                <textarea value={aiTranscript} onChange={(e) => setAiTranscript(e.target.value)}
-                  placeholder="Transkript hier einfügen..." rows={5}
-                  style={{ width: "100%", background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 12, color: C.white, fontSize: 13, fontFamily: "inherit", resize: "vertical", outline: "none", lineHeight: 1.6, boxSizing: "border-box", marginBottom: 10 }}
-                  onFocus={(e) => e.target.style.borderColor = C.purple} onBlur={(e) => e.target.style.borderColor = C.border} />
+
+                {!aiResults && (
+                  <React.Fragment>
+                    <textarea value={aiTranscript} onChange={(e) => setAiTranscript(e.target.value)}
+                      placeholder="Transkript hier einfügen..." rows={5}
+                      style={{ width: "100%", background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 12, color: C.white, fontSize: 13, fontFamily: "inherit", resize: "vertical", outline: "none", lineHeight: 1.6, boxSizing: "border-box", marginBottom: 10 }}
+                      onFocus={(e) => e.target.style.borderColor = C.purple} onBlur={(e) => e.target.style.borderColor = C.border} />
+
+                    {/* Hashtag Toggle */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                      <button onClick={() => setIncludeHashtags(!includeHashtags)} style={{
+                        width: 36, height: 20, borderRadius: 10, border: "none", cursor: "pointer",
+                        background: includeHashtags ? C.purple : C.border, position: "relative", transition: "background 0.2s",
+                      }}>
+                        <div style={{ width: 16, height: 16, borderRadius: 8, background: "#fff", position: "absolute", top: 2, left: includeHashtags ? 18 : 2, transition: "left 0.2s" }} />
+                      </button>
+                      <span style={{ fontSize: 12, color: C.muted }}>Hashtags einfügen</span>
+                    </div>
+                  </React.Fragment>
+                )}
+
                 {aiError && (
                   <div style={{ fontSize: 12, color: C.redLight, marginBottom: 8, padding: "6px 10px", background: C.redGlow, borderRadius: 6 }}>{aiError}</div>
                 )}
-                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                  <button onClick={() => { setShowAiCaption(false); setAiTranscript(""); setAiError(null); }} style={{ padding: "7px 14px", borderRadius: 8, background: "transparent", border: `1px solid ${C.border}`, color: C.dimmed, fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>Abbrechen</button>
-                  <button onClick={generateCaption} disabled={aiGenerating || !aiTranscript.trim()} style={{
-                    display: "flex", alignItems: "center", gap: 6, padding: "7px 16px", borderRadius: 8,
-                    background: !aiTranscript.trim() ? C.border : C.purple, border: "none",
-                    color: "#fff", fontSize: 12, fontWeight: 700, cursor: !aiTranscript.trim() ? "not-allowed" : "pointer",
-                    fontFamily: "inherit", opacity: aiGenerating ? 0.7 : 1,
-                  }}>
-                    {aiGenerating ? <Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} /> : <Sparkles size={13} />}
-                    {aiGenerating ? "Wird generiert..." : "Caption generieren"}
-                  </button>
-                </div>
+
+                {/* Results: Show both captions */}
+                {aiResults && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 12 }}>
+                    {[
+                      { key: "instagram", label: "Instagram", icon: Instagram, color: C.instagram, text: aiResults.instagram, limit: "2.200" },
+                      { key: "tiktok", label: "TikTok", icon: TikTokIcon, color: C.tiktok, text: aiResults.tiktok, limit: "4.000" },
+                    ].map((p) => (
+                      <div key={p.key} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden" }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderBottom: `1px solid ${C.border}` }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <p.icon size={14} color={p.color} />
+                            <span style={{ fontSize: 12, fontWeight: 700, color: p.color }}>{p.label}</span>
+                            <span style={{ fontSize: 10, color: C.dimmed }}>{p.text.length} / {p.limit} Zeichen</span>
+                          </div>
+                          <button onClick={() => selectAiCaption(p.text)} style={{
+                            display: "flex", alignItems: "center", gap: 5, padding: "5px 12px", borderRadius: 6,
+                            background: p.color + "15", border: `1px solid ${p.color}40`, color: p.color,
+                            fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+                          }}>
+                            <Check size={11} /> Übernehmen
+                          </button>
+                        </div>
+                        <div style={{ padding: 14, fontSize: 12, color: C.white, lineHeight: 1.7, whiteSpace: "pre-wrap", maxHeight: 180, overflowY: "auto" }}>
+                          {p.text}
+                        </div>
+                      </div>
+                    ))}
+                    <button onClick={() => { setAiResults(null); }} style={{ padding: "6px 14px", borderRadius: 8, background: "transparent", border: `1px solid ${C.border}`, color: C.dimmed, fontSize: 12, cursor: "pointer", fontFamily: "inherit", alignSelf: "flex-start" }}>
+                      Neu generieren
+                    </button>
+                  </div>
+                )}
+
+                {!aiResults && (
+                  <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                    <button onClick={() => { setShowAiCaption(false); setAiTranscript(""); setAiError(null); setAiResults(null); }} style={{ padding: "7px 14px", borderRadius: 8, background: "transparent", border: `1px solid ${C.border}`, color: C.dimmed, fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>Abbrechen</button>
+                    <button onClick={generateCaption} disabled={aiGenerating || !aiTranscript.trim()} style={{
+                      display: "flex", alignItems: "center", gap: 6, padding: "7px 16px", borderRadius: 8,
+                      background: !aiTranscript.trim() ? C.border : C.purple, border: "none",
+                      color: "#fff", fontSize: 12, fontWeight: 700, cursor: !aiTranscript.trim() ? "not-allowed" : "pointer",
+                      fontFamily: "inherit", opacity: aiGenerating ? 0.7 : 1,
+                    }}>
+                      {aiGenerating ? <Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} /> : <Sparkles size={13} />}
+                      {aiGenerating ? "Wird generiert..." : "Captions generieren"}
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
