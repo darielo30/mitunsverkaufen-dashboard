@@ -8,7 +8,7 @@ import {
   RefreshCw, Wifi, WifiOff, Upload, FileVideo, Trash2, ChevronLeft, ChevronRight,
   Globe, SkipForward, SkipBack, Scissors,
   LayoutDashboard, Bell, Settings, UserPlus, AlertCircle, XCircle, UsersRound, Shield, ExternalLink,
-  Sun, Moon, FileText, CheckSquare, Square, Download, EyeOff
+  Sun, Moon, FileText, CheckSquare, Square, Download, EyeOff, Sparkles
 } from "lucide-react";
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip,
@@ -396,9 +396,16 @@ function CreatePostModal({ onClose, onSubmit, isSubmitting, accounts, initialDat
   const [customThumbnail, setCustomThumbnail] = useState(null);
   const [thumbnailMode, setThumbnailMode] = useState("scrub"); // "scrub" | "upload"
   const [contentType, setContentType] = useState("reel");
-  const [collabs, setCollabs] = useState([""]);
+  const [collabs, setCollabs] = useState(["ludewigmarketing", "proadvicemarketing", ""]);
+  const [showAiCaption, setShowAiCaption] = useState(false);
+  const [aiTranscript, setAiTranscript] = useState("");
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiError, setAiError] = useState(null);
   const fileInputRef = useRef(null);
   const thumbInputRef = useRef(null);
+
+  // Default collab partners that should always be included
+  const DEFAULT_PARTNERS = ["ludewigmarketing", "proadvicemarketing"];
 
   const hasVideo = mediaFiles.some((f) => f.type === "video");
   const hasOnlyImages = mediaFiles.length > 0 && !hasVideo;
@@ -474,6 +481,47 @@ function CreatePostModal({ onClose, onSubmit, isSubmitting, accounts, initialDat
         setCustomThumbnail((prev) => ({ ...prev, url: presignData.publicUrl }));
       }
     } catch { /* keep local */ }
+  };
+
+  // AI Caption generation from transcript
+  const generateCaption = async () => {
+    if (!aiTranscript.trim()) return;
+    setAiGenerating(true);
+    setAiError(null);
+    try {
+      const selectedPlatforms = Object.entries(platforms).filter(([, v]) => v).map(([k]) => k);
+      const platform = selectedPlatforms.includes("tiktok") ? "tiktok" : "instagram";
+      const res = await fetch("/api/generate-caption", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ transcript: aiTranscript, platform }),
+      });
+      const data = await res.json();
+      if (data.error) { setAiError(data.error); }
+      else if (data.caption) {
+        setContent(data.caption);
+        setShowAiCaption(false);
+        setAiTranscript("");
+      }
+    } catch (err) { setAiError(err.message); }
+    finally { setAiGenerating(false); }
+  };
+
+  // Toggle a default partner on/off
+  const toggleDefaultPartner = (username) => {
+    const clean = username.replace(/^@/, "");
+    const exists = collabs.some((c) => c.trim().replace(/^@/, "") === clean);
+    if (exists) {
+      setCollabs((prev) => {
+        const filtered = prev.filter((c) => c.trim().replace(/^@/, "") !== clean);
+        return filtered.length === 0 ? [""] : filtered;
+      });
+    } else {
+      setCollabs((prev) => {
+        const withoutEmpty = prev.filter((c) => c.trim() !== "");
+        return [...withoutEmpty, clean, ""];
+      });
+    }
   };
 
   const handleSubmit = () => {
@@ -593,11 +641,55 @@ function CreatePostModal({ onClose, onSubmit, isSubmitting, accounts, initialDat
             )}
           </div>
 
-          {/* Content */}
+          {/* Caption */}
           <div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: C.muted, marginBottom: 8 }}>Beitragstext</div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: C.muted }}>Caption</div>
+              <button onClick={() => setShowAiCaption(!showAiCaption)} style={{
+                display: "flex", alignItems: "center", gap: 6, padding: "5px 12px", borderRadius: 8,
+                background: showAiCaption ? C.purpleGlow : "transparent",
+                border: `1px solid ${showAiCaption ? C.purple + "60" : C.border}`,
+                color: showAiCaption ? C.purple : C.dimmed, fontSize: 12, fontWeight: 600,
+                cursor: "pointer", fontFamily: "inherit", transition: "all 0.2s",
+              }}>
+                <Sparkles size={13} /> Mit KI generieren
+              </button>
+            </div>
+
+            {/* AI Caption Generator Dialog */}
+            {showAiCaption && (
+              <div style={{ background: C.bg, border: `1px solid ${C.purple}30`, borderRadius: 12, padding: 16, marginBottom: 12 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                  <Sparkles size={16} color={C.purple} />
+                  <div style={{ fontSize: 13, fontWeight: 700, color: C.white }}>Caption aus Transkript generieren</div>
+                </div>
+                <div style={{ fontSize: 11, color: C.dimmed, marginBottom: 10, lineHeight: 1.5 }}>
+                  Kopiere das Transkript deines Reels hier rein. Claude generiert daraus eine fertige Caption mit Hashtags.
+                </div>
+                <textarea value={aiTranscript} onChange={(e) => setAiTranscript(e.target.value)}
+                  placeholder="Transkript hier einfügen..." rows={5}
+                  style={{ width: "100%", background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 12, color: C.white, fontSize: 13, fontFamily: "inherit", resize: "vertical", outline: "none", lineHeight: 1.6, boxSizing: "border-box", marginBottom: 10 }}
+                  onFocus={(e) => e.target.style.borderColor = C.purple} onBlur={(e) => e.target.style.borderColor = C.border} />
+                {aiError && (
+                  <div style={{ fontSize: 12, color: C.redLight, marginBottom: 8, padding: "6px 10px", background: C.redGlow, borderRadius: 6 }}>{aiError}</div>
+                )}
+                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                  <button onClick={() => { setShowAiCaption(false); setAiTranscript(""); setAiError(null); }} style={{ padding: "7px 14px", borderRadius: 8, background: "transparent", border: `1px solid ${C.border}`, color: C.dimmed, fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>Abbrechen</button>
+                  <button onClick={generateCaption} disabled={aiGenerating || !aiTranscript.trim()} style={{
+                    display: "flex", alignItems: "center", gap: 6, padding: "7px 16px", borderRadius: 8,
+                    background: !aiTranscript.trim() ? C.border : C.purple, border: "none",
+                    color: "#fff", fontSize: 12, fontWeight: 700, cursor: !aiTranscript.trim() ? "not-allowed" : "pointer",
+                    fontFamily: "inherit", opacity: aiGenerating ? 0.7 : 1,
+                  }}>
+                    {aiGenerating ? <Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} /> : <Sparkles size={13} />}
+                    {aiGenerating ? "Wird generiert..." : "Caption generieren"}
+                  </button>
+                </div>
+              </div>
+            )}
+
             <textarea value={content} onChange={(e) => setContent(e.target.value)}
-              placeholder="Was möchtet ihr posten? Schreibt euren Text hier..." rows={4}
+              placeholder="Caption hier eingeben oder mit KI generieren..." rows={4}
               style={{ width: "100%", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, color: C.white, fontSize: 14, fontFamily: "inherit", resize: "vertical", outline: "none", lineHeight: 1.6, boxSizing: "border-box" }}
               onFocus={(e) => e.target.style.borderColor = C.red} onBlur={(e) => e.target.style.borderColor = C.border} />
             <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}>
@@ -605,9 +697,29 @@ function CreatePostModal({ onClose, onSubmit, isSubmitting, accounts, initialDat
             </div>
           </div>
 
-          {/* Collab Partners */}
+          {/* Collab Partner */}
           <div>
             <div style={{ fontSize: 13, fontWeight: 600, color: C.muted, marginBottom: 8 }}>Collab Partner</div>
+
+            {/* Quick-select default partners */}
+            <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+              {DEFAULT_PARTNERS.map((partner) => {
+                const isActive = collabs.some((c) => c.trim().replace(/^@/, "") === partner);
+                return (
+                  <button key={partner} onClick={() => toggleDefaultPartner(partner)} style={{
+                    display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 20,
+                    border: `1.5px solid ${isActive ? C.green : C.border}`,
+                    background: isActive ? C.greenGlow : "transparent",
+                    color: isActive ? C.green : C.dimmed, fontSize: 12, fontWeight: 600,
+                    cursor: "pointer", fontFamily: "inherit", transition: "all 0.2s",
+                  }}>
+                    {isActive ? <Check size={12} /> : <Plus size={12} />}
+                    @{partner}
+                  </button>
+                );
+              })}
+            </div>
+
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {collabs.map((c, i) => (
                 <div key={i} style={{ display: "flex", alignItems: "center", gap: 8 }}>
