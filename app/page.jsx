@@ -8,7 +8,8 @@ import {
   RefreshCw, Wifi, WifiOff, Upload, FileVideo, Trash2, ChevronLeft, ChevronRight,
   Globe, SkipForward, SkipBack, Scissors,
   LayoutDashboard, Bell, Settings, UserPlus, AlertCircle, XCircle, UsersRound, Shield, ExternalLink,
-  Sun, Moon, FileText, CheckSquare, Square, Download, EyeOff, Sparkles
+  Sun, Moon, FileText, CheckSquare, Square, Download, EyeOff, Sparkles,
+  Kanban, Lightbulb, PenLine, Wand2, Rocket, GripVertical, Pencil
 } from "lucide-react";
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip,
@@ -978,6 +979,207 @@ const demoNotifications = [
 ];
 
 // ── Sidebar ─────────────────────────────────────────────────────
+// ── Content Pipeline (Kanban Board) ─────────────────────────────
+const PIPELINE_COLUMNS = [
+  { key: "idea", label: "Idee", icon: Lightbulb, colorKey: "yellow", glowKey: "yellowGlow", desc: "Rohe Content-Ideen" },
+  { key: "script", label: "Skript", icon: PenLine, colorKey: "blue", glowKey: "blueGlow", desc: "Skript aus der Idee" },
+  { key: "optimized", label: "Optimiertes Skript", icon: Wand2, colorKey: "purple", glowKey: "purpleGlow", desc: "Überarbeitet & verbessert" },
+  { key: "ready", label: "Ready für Produktion", icon: Rocket, colorKey: "green", glowKey: "greenGlow", desc: "Bereit zum Dreh" },
+];
+
+function ContentPipelinePanel() {
+  const [cards, setCards] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("pipelineCards") || "[]"); } catch { return []; }
+  });
+  const [dragId, setDragId] = useState(null);
+  const [dragOverCol, setDragOverCol] = useState(null);
+  const [addingCol, setAddingCol] = useState(null);
+  const [newTitle, setNewTitle] = useState("");
+  const [editingId, setEditingId] = useState(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editNotes, setEditNotes] = useState("");
+
+  const persist = (next) => {
+    setCards(next);
+    try { localStorage.setItem("pipelineCards", JSON.stringify(next)); } catch {}
+  };
+
+  const addCard = (colKey) => {
+    if (!newTitle.trim()) return;
+    persist([...cards, { id: Date.now(), title: newTitle.trim(), notes: "", column: colKey, createdAt: new Date().toISOString() }]);
+    setNewTitle("");
+  };
+
+  const moveCard = (id, colKey) => {
+    const card = cards.find((c) => c.id === id);
+    if (!card || card.column === colKey) return;
+    persist([...cards.filter((c) => c.id !== id), { ...card, column: colKey }]);
+  };
+
+  const moveStep = (id, dir) => {
+    const card = cards.find((c) => c.id === id);
+    if (!card) return;
+    const idx = PIPELINE_COLUMNS.findIndex((col) => col.key === card.column);
+    const target = PIPELINE_COLUMNS[idx + dir];
+    if (target) moveCard(id, target.key);
+  };
+
+  const deleteCard = (id) => persist(cards.filter((c) => c.id !== id));
+
+  const startEdit = (card) => { setEditingId(card.id); setEditTitle(card.title); setEditNotes(card.notes || ""); };
+  const saveEdit = () => {
+    persist(cards.map((c) => c.id === editingId ? { ...c, title: editTitle.trim() || c.title, notes: editNotes } : c));
+    setEditingId(null);
+  };
+
+  return (
+    <div style={{ padding: "24px 32px", minHeight: "100vh" }}>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 24 }}>
+        <div>
+          <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.02em", color: C.white, display: "flex", alignItems: "center", gap: 10 }}>
+            <Kanban size={22} color={C.red} /> Content-Pipeline
+          </div>
+          <div style={{ fontSize: 13, color: C.muted, marginTop: 2 }}>Von der Idee bis zur Produktion – Karten per Drag & Drop verschieben</div>
+        </div>
+        <div style={{ fontSize: 12, color: C.dimmed, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 14px" }}>
+          {cards.length} Karte{cards.length !== 1 ? "n" : ""} insgesamt
+        </div>
+      </div>
+
+      {/* Board */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, alignItems: "start" }}>
+        {PIPELINE_COLUMNS.map((col, colIdx) => {
+          const color = C[col.colorKey];
+          const glow = C[col.glowKey];
+          const colCards = cards.filter((c) => c.column === col.key);
+          const isDragTarget = dragOverCol === col.key && dragId !== null;
+
+          return (
+            <div key={col.key}
+              onDragOver={(e) => { e.preventDefault(); setDragOverCol(col.key); }}
+              onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setDragOverCol(null); }}
+              onDrop={(e) => { e.preventDefault(); if (dragId !== null) moveCard(dragId, col.key); setDragId(null); setDragOverCol(null); }}
+              style={{
+                background: C.bgSoft, borderRadius: 16, border: `1px solid ${isDragTarget ? color : C.border}`,
+                borderTop: `3px solid ${color}`, minHeight: 320, display: "flex", flexDirection: "column",
+                boxShadow: isDragTarget ? `0 0 24px ${glow}` : "none", transition: "border-color 0.2s, box-shadow 0.2s",
+              }}>
+              {/* Column header */}
+              <div style={{ padding: "14px 16px 10px", display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ width: 30, height: 30, borderRadius: 9, background: glow, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <col.icon size={15} color={color} />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: C.white, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{col.label}</div>
+                  <div style={{ fontSize: 10.5, color: C.dimmed, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{col.desc}</div>
+                </div>
+                <span style={{ fontSize: 11, fontWeight: 700, color, background: glow, padding: "2px 8px", borderRadius: 10, flexShrink: 0 }}>{colCards.length}</span>
+              </div>
+
+              {/* Cards */}
+              <div style={{ padding: "4px 10px 10px", display: "flex", flexDirection: "column", gap: 8, flex: 1 }}>
+                {colCards.length === 0 && !isDragTarget && (
+                  <div style={{ border: `1.5px dashed ${C.border}`, borderRadius: 10, padding: "18px 12px", textAlign: "center", fontSize: 11.5, color: C.dimmed }}>
+                    Noch keine Karten
+                  </div>
+                )}
+                {isDragTarget && (
+                  <div style={{ border: `1.5px dashed ${color}`, background: glow, borderRadius: 10, padding: "14px 12px", textAlign: "center", fontSize: 11.5, fontWeight: 600, color }}>
+                    Hier ablegen
+                  </div>
+                )}
+                {colCards.map((card) => {
+                  const isEditing = editingId === card.id;
+                  const isDragging = dragId === card.id;
+                  return (
+                    <div key={card.id}
+                      draggable={!isEditing}
+                      onDragStart={(e) => { setDragId(card.id); e.dataTransfer.effectAllowed = "move"; }}
+                      onDragEnd={() => { setDragId(null); setDragOverCol(null); }}
+                      style={{
+                        background: C.card, border: `1px solid ${C.border}`, borderLeft: `3px solid ${color}`,
+                        borderRadius: 10, padding: "10px 12px", cursor: isEditing ? "default" : "grab",
+                        opacity: isDragging ? 0.4 : 1, transition: "opacity 0.15s, border-color 0.2s, box-shadow 0.2s",
+                      }}
+                      onMouseOver={(e) => { if (!isEditing) { e.currentTarget.style.borderColor = color; e.currentTarget.style.boxShadow = `0 4px 16px ${glow}`; e.currentTarget.style.borderLeftColor = color; } }}
+                      onMouseOut={(e) => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.borderLeftColor = color; }}>
+                      {isEditing ? (
+                        <div>
+                          <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} autoFocus
+                            onKeyDown={(e) => { if (e.key === "Enter") saveEdit(); if (e.key === "Escape") setEditingId(null); }}
+                            style={{ width: "100%", background: C.bg, border: `1px solid ${color}`, borderRadius: 8, padding: "7px 10px", color: C.white, fontSize: 13, fontWeight: 600, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }} />
+                          <textarea value={editNotes} onChange={(e) => setEditNotes(e.target.value)} rows={3} placeholder="Notizen / Skript-Text..."
+                            style={{ width: "100%", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: "7px 10px", color: C.white, fontSize: 12, fontFamily: "inherit", outline: "none", resize: "vertical", lineHeight: 1.5, marginTop: 6, boxSizing: "border-box" }} />
+                          <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", marginTop: 6 }}>
+                            <button onClick={() => setEditingId(null)} style={{ padding: "5px 10px", borderRadius: 6, background: "transparent", border: `1px solid ${C.border}`, color: C.dimmed, fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>Abbrechen</button>
+                            <button onClick={saveEdit} style={{ padding: "5px 12px", borderRadius: 6, background: color, border: "none", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Speichern</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div>
+                          <div style={{ display: "flex", alignItems: "flex-start", gap: 6 }}>
+                            <GripVertical size={13} color={C.dimmed} style={{ marginTop: 2, flexShrink: 0, opacity: 0.6 }} />
+                            <div style={{ fontSize: 13, fontWeight: 600, color: C.white, lineHeight: 1.4, flex: 1, wordBreak: "break-word" }}>{card.title}</div>
+                          </div>
+                          {card.notes && (
+                            <div style={{ fontSize: 11.5, color: C.muted, lineHeight: 1.5, marginTop: 5, marginLeft: 19, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden", whiteSpace: "pre-wrap" }}>{card.notes}</div>
+                          )}
+                          <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 8, marginLeft: 19 }}>
+                            <button onClick={() => moveStep(card.id, -1)} disabled={colIdx === 0} title="Schritt zurück"
+                              style={{ width: 24, height: 24, borderRadius: 6, background: C.bg, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: colIdx === 0 ? "default" : "pointer", opacity: colIdx === 0 ? 0.3 : 1 }}>
+                              <ChevronLeft size={12} color={C.muted} />
+                            </button>
+                            <button onClick={() => moveStep(card.id, 1)} disabled={colIdx === PIPELINE_COLUMNS.length - 1} title="Nächster Schritt"
+                              style={{ width: 24, height: 24, borderRadius: 6, background: C.bg, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: colIdx === PIPELINE_COLUMNS.length - 1 ? "default" : "pointer", opacity: colIdx === PIPELINE_COLUMNS.length - 1 ? 0.3 : 1 }}>
+                              <ChevronRight size={12} color={C.muted} />
+                            </button>
+                            <div style={{ flex: 1 }} />
+                            <button onClick={() => startEdit(card)} title="Bearbeiten"
+                              style={{ width: 24, height: 24, borderRadius: 6, background: "transparent", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+                              <Pencil size={12} color={C.dimmed} />
+                            </button>
+                            <button onClick={() => deleteCard(card.id)} title="Löschen"
+                              style={{ width: 24, height: 24, borderRadius: 6, background: "transparent", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+                              <Trash2 size={12} color={C.dimmed} />
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Add card */}
+              <div style={{ padding: "0 10px 12px" }}>
+                {addingCol === col.key ? (
+                  <div style={{ background: C.card, border: `1px solid ${color}`, borderRadius: 10, padding: 10 }}>
+                    <input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} autoFocus placeholder="Titel der Karte..."
+                      onKeyDown={(e) => { if (e.key === "Enter") addCard(col.key); if (e.key === "Escape") { setAddingCol(null); setNewTitle(""); } }}
+                      style={{ width: "100%", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: "7px 10px", color: C.white, fontSize: 13, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }} />
+                    <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", marginTop: 8 }}>
+                      <button onClick={() => { setAddingCol(null); setNewTitle(""); }} style={{ padding: "5px 10px", borderRadius: 6, background: "transparent", border: `1px solid ${C.border}`, color: C.dimmed, fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>Abbrechen</button>
+                      <button onClick={() => addCard(col.key)} style={{ padding: "5px 12px", borderRadius: 6, background: color, border: "none", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Hinzufügen</button>
+                    </div>
+                  </div>
+                ) : (
+                  <button onClick={() => { setAddingCol(col.key); setNewTitle(""); }}
+                    style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, width: "100%", padding: "8px 0", borderRadius: 10, background: "transparent", border: `1.5px dashed ${C.border}`, color: C.dimmed, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", transition: "all 0.2s" }}
+                    onMouseOver={(e) => { e.currentTarget.style.borderColor = color; e.currentTarget.style.color = color; e.currentTarget.style.background = glow; }}
+                    onMouseOut={(e) => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.dimmed; e.currentTarget.style.background = "transparent"; }}>
+                    <Plus size={13} /> Karte hinzufügen
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function Sidebar({ activeTab, onTabChange, unreadCount, errorCount, isDarkMode, onToggleTheme }) {
   const [expandedMenu, setExpandedMenu] = useState(null);
 
@@ -1011,6 +1213,7 @@ function Sidebar({ activeTab, onTabChange, unreadCount, errorCount, isDarkMode, 
     },
     { key: "ads", icon: TrendingUp, label: "Ads", disabled: true },
     { key: "skripte", icon: FileText, label: "Skripte" },
+    { key: "pipeline", icon: Kanban, label: "Content-Pipeline" },
     { key: "webhooks", icon: RefreshCw, label: "Webhooks", disabled: true },
     { key: "logs", icon: Shield, label: "Logs" },
     { key: "settings", icon: Settings, label: "Settings", badge: errorCount },
@@ -3072,6 +3275,11 @@ export default function Dashboard() {
       {/* Skripte Tab */}
       {activeTab === "skripte" && (
         <SkriptePanel scripts={scripts} onRefresh={fetchScripts} loading={scriptsLoading} />
+      )}
+
+      {/* Content-Pipeline Tab */}
+      {activeTab === "pipeline" && (
+        <ContentPipelinePanel />
       )}
 
       {/* Inbox Tabs (Messages & Comments share one panel with preset view) */}
