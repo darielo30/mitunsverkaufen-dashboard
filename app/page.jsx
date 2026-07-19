@@ -531,10 +531,25 @@ function CreatePostModal({ onClose, onSubmit, isSubmitting, accounts, initialDat
     }
   };
 
+  // ── Submit-Voraussetzungen ────────────────────────────────────
+  const selectedPlatformKeys = Object.entries(platforms).filter(([, v]) => v).map(([k]) => k);
+  const isUploading = mediaFiles.some((f) => f.uploading);
+  const readyMedia = mediaFiles.filter((f) => f.url && f.url !== "local");
+  const hasMedia = readyMedia.length > 0;
+
+  let blockReason = null;
+  if (isSubmitting) blockReason = null;
+  else if (!content.trim()) blockReason = "Caption fehlt";
+  else if (selectedPlatformKeys.length === 0) blockReason = "Keine Plattform ausgewählt";
+  else if (isUploading) blockReason = "Video wird noch hochgeladen…";
+  else if (!hasMedia) blockReason = "Video oder Bild erforderlich";
+  else if (!postNow && (!scheduleDate || !scheduleTime)) blockReason = "Datum & Uhrzeit fehlen";
+
+  const canSubmit = !blockReason && !isSubmitting;
+
   const handleSubmit = () => {
-    if (!content.trim()) return;
-    const selectedPlatforms = Object.entries(platforms).filter(([, v]) => v).map(([k]) => k);
-    if (selectedPlatforms.length === 0) return;
+    if (!canSubmit) return;
+    const selectedPlatforms = selectedPlatformKeys;
 
     let scheduledFor = null;
     if (!postNow && scheduleDate && scheduleTime) {
@@ -949,13 +964,23 @@ function CreatePostModal({ onClose, onSubmit, isSubmitting, accounts, initialDat
         </div>
 
         {/* Footer */}
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, padding: "16px 24px", borderTop: `1px solid ${C.border}`, flexShrink: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 10, padding: "16px 24px", borderTop: `1px solid ${C.border}`, flexShrink: 0 }}>
+          {blockReason && (
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginRight: "auto", fontSize: 12, color: isUploading ? C.muted : C.dimmed }}>
+              {isUploading
+                ? <Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} />
+                : <AlertCircle size={13} />}
+              {blockReason}
+            </div>
+          )}
           <button onClick={handleClose} style={{ padding: "10px 20px", borderRadius: 10, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Abbrechen</button>
-          <button onClick={handleSubmit} disabled={isSubmitting || !content.trim()} style={{
+          <button onClick={handleSubmit} disabled={!canSubmit} title={blockReason || ""} style={{
             display: "flex", alignItems: "center", gap: 6, padding: "10px 24px", borderRadius: 10,
-            background: !content.trim() ? C.border : C.red, border: "none",
-            color: "#fff", fontSize: 13, fontWeight: 700, cursor: !content.trim() ? "not-allowed" : "pointer",
-            fontFamily: "inherit", boxShadow: content.trim() ? `0 4px 16px ${C.redGlow}` : "none", opacity: isSubmitting ? 0.7 : 1,
+            background: canSubmit ? C.red : C.border, border: "none",
+            color: canSubmit ? "#fff" : C.dimmed, fontSize: 13, fontWeight: 700,
+            cursor: canSubmit ? "pointer" : "not-allowed",
+            fontFamily: "inherit", boxShadow: canSubmit ? `0 4px 16px ${C.redGlow}` : "none",
+            opacity: isSubmitting ? 0.7 : 1, transition: "background 0.2s, color 0.2s, box-shadow 0.2s",
           }}>
             {isSubmitting ? <Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} /> : postNow ? <Send size={15} /> : <Clock size={15} />}
             {isSubmitting ? "Wird gesendet..." : postNow ? "Jetzt posten" : "Beitrag planen"}
