@@ -384,6 +384,234 @@ const CONTENT_TYPES = [
 ];
 
 // ── Create Post Modal with Media Upload + Thumbnail + Timezone ──
+// ── Post Detail Panel (Slide-in von rechts) ─────────────────────
+function PostDetailPanel({ post, onClose, isConnected, onHide, onDeleteRemote }) {
+  const [visible, setVisible] = useState(false);
+  useEffect(() => { requestAnimationFrame(() => setVisible(true)); }, []);
+  const close = () => { setVisible(false); setTimeout(onClose, 300); };
+
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape") close(); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
+
+  if (!post) return null;
+
+  const plats = post.platformDetails?.length
+    ? post.platformDetails
+    : (post.platforms || []).map((pl) => ({ platform: pl, status: post.status, url: post.postUrls?.[pl], analytics: {} }));
+
+  const meta = (name) => name === "instagram"
+    ? { label: "Instagram", Icon: Instagram, color: C.instagram }
+    : name === "tiktok"
+      ? { label: "TikTok", Icon: TikTokIcon, color: C.tiktok }
+      : { label: name, Icon: Globe, color: C.muted };
+
+  const statusColors = {
+    published: C.green, scheduled: C.blue, queued: C.purple,
+    draft: C.dimmed, failed: C.redLight, partial: C.yellow,
+  };
+
+  // Analytics-Spalten wie bei Zernio
+  const cols = [
+    { key: "likes", label: "Likes", icon: Heart, color: C.redLight },
+    { key: "comments", label: "Comments", icon: MessageCircle, color: C.blue },
+    { key: "shares", label: "Shares", icon: Share2, color: C.green },
+    { key: "saves", label: "Saves", icon: Bookmark, color: C.yellow },
+    { key: "clicks", label: "Clicks", icon: MousePointerClick, color: C.purple },
+    { key: "views", label: "Views", icon: Eye, color: C.muted },
+    { key: "follows", label: "Follows", icon: UserPlus, color: C.blue },
+    { key: "impressions", label: "Impr.", icon: TrendingUp, color: C.green },
+    { key: "reach", label: "Reach", icon: UsersRound, color: C.purple },
+  ];
+
+  const sum = (k) => plats.reduce((a, p) => a + (p.analytics?.[k] || 0), 0);
+  // Engagement Rate = (Likes + Kommentare + Shares + Saves) / Impressions
+  const er = (a) => {
+    const base = a?.impressions || a?.views || 0;
+    if (!base) return null;
+    const eng = (a.likes || 0) + (a.comments || 0) + (a.shares || 0) + (a.saves || 0);
+    return ((eng / base) * 100).toFixed(2) + "%";
+  };
+  const totalAnalytics = Object.fromEntries(cols.map((c) => [c.key, sum(c.key)]));
+  const hasAnalytics = cols.some((c) => sum(c.key) > 0);
+
+  const dash = (v) => (v > 0 ? v.toLocaleString("de-DE") : "–");
+  const cell = { padding: "10px 12px", fontSize: 12, textAlign: "right", whiteSpace: "nowrap" };
+
+  const headline = post.status === "published" ? "Published" : post.status === "scheduled" ? "Scheduled for" : "Created";
+  const headlineDate = new Date(post.publishedAt || post.date).toLocaleDateString("de-DE", { day: "numeric", month: "long", year: "numeric" });
+  const headlineTime = new Date(post.publishedAt || post.date).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+
+  return (
+    <div onClick={close} style={{
+      position: "fixed", inset: 0, zIndex: 100,
+      background: visible ? "rgba(0,0,0,0.5)" : "transparent",
+      backdropFilter: visible ? "blur(4px)" : "none",
+      transition: "background 0.3s, backdrop-filter 0.3s",
+    }}>
+      <div onClick={(e) => e.stopPropagation()} style={{
+        position: "absolute", top: 0, right: 0, bottom: 0,
+        width: "50vw", minWidth: 520, maxWidth: 760,
+        background: C.card, borderLeft: `1px solid ${C.border}`,
+        boxShadow: "-8px 0 40px rgba(0,0,0,0.5)",
+        display: "flex", flexDirection: "column",
+        transform: visible ? "translateX(0)" : "translateX(100%)",
+        transition: "transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
+      }}>
+
+        {/* Kopfzeile */}
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", padding: "20px 24px", borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
+          <div>
+            <div style={{ fontSize: 19, fontWeight: 800, color: C.white, letterSpacing: "-0.02em" }}>Post Details</div>
+            <div style={{ fontSize: 12.5, color: C.dimmed, marginTop: 3 }}>{headline} {headlineDate} um {headlineTime}</div>
+          </div>
+          <button onClick={close} style={{ width: 34, height: 34, borderRadius: 8, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
+            onMouseOver={(e) => { e.currentTarget.style.borderColor = C.red; e.currentTarget.style.color = C.redLight; }}
+            onMouseOut={(e) => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.muted; }}>
+            <X size={17} />
+          </button>
+        </div>
+
+        {/* Scrollbereich */}
+        <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px 28px" }}>
+
+          {/* Content */}
+          <div style={{ fontSize: 14, fontWeight: 700, color: C.white, marginBottom: 10 }}>Content</div>
+          <div style={{ fontSize: 12.5, color: C.muted, lineHeight: 1.75, whiteSpace: "pre-wrap", wordBreak: "break-word", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: "14px 16px", marginBottom: 16 }}>
+            {post.caption || post.title || "–"}
+          </div>
+
+          {/* Medien */}
+          {(post.videoUrl || post.thumbnail) && (
+            <div style={{ marginBottom: 16, borderRadius: 8, overflow: "hidden", background: C.bg, border: `1px solid ${C.border}`, width: "fit-content", maxWidth: "100%" }}>
+              {post.videoUrl ? (
+                <video src={post.videoUrl} controls preload="metadata" style={{ display: "block", maxWidth: 340, maxHeight: 260, background: "#000" }} />
+              ) : (
+                <img src={post.thumbnail} alt="" style={{ display: "block", maxWidth: 340, maxHeight: 260, objectFit: "contain" }} />
+              )}
+            </div>
+          )}
+
+          {/* Plattform-Zeilen */}
+          <div style={{ border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden", marginBottom: 22 }}>
+            {plats.map((pd, i) => {
+              const m = meta(pd.platform);
+              const stColor = statusColors[pd.status] || C.dimmed;
+              return (
+                <div key={pd.platform} style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 14px", background: C.bg, borderTop: i > 0 ? `1px solid ${C.border}` : "none" }}>
+                  <m.Icon size={16} color={C.white} />
+                  <span style={{ fontSize: 13, fontWeight: 600, color: C.white }}>{m.label}</span>
+                  <span style={{ fontSize: 10.5, fontWeight: 600, color: stColor, background: stColor + "18", padding: "2px 8px", borderRadius: 5 }}>{pd.status}</span>
+                  <span style={{ fontSize: 12, color: C.dimmed }}>
+                    {pd.publishedAt
+                      ? new Date(pd.publishedAt).toLocaleString("de-DE", { day: "numeric", month: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" })
+                      : new Date(post.date).toLocaleString("de-DE", { day: "numeric", month: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                  {pd.url && (
+                    <a href={pd.url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}
+                      style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, color: C.muted, textDecoration: "none" }}>
+                      View <ExternalLink size={11} />
+                    </a>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Analytics */}
+          <div style={{ fontSize: 14, fontWeight: 700, color: C.white, marginBottom: 10 }}>Analytics</div>
+          {hasAnalytics ? (
+            <>
+              <div style={{ border: `1px solid ${C.border}`, borderRadius: 8, overflowX: "auto", marginBottom: 14 }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 640 }}>
+                  <thead>
+                    <tr style={{ background: C.bg }}>
+                      <th style={{ padding: "10px 12px", fontSize: 11.5, color: C.dimmed, fontWeight: 600, textAlign: "left", whiteSpace: "nowrap" }}>Platform</th>
+                      {cols.map((c) => (
+                        <th key={c.key} style={{ padding: "10px 12px", fontSize: 11.5, color: C.dimmed, fontWeight: 600, textAlign: "right", whiteSpace: "nowrap" }}>
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                            <c.icon size={12} color={c.color} /> {c.label}
+                          </span>
+                        </th>
+                      ))}
+                      <th style={{ padding: "10px 12px", fontSize: 11.5, color: C.dimmed, fontWeight: 600, textAlign: "right" }}>ER</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {plats.map((pd) => {
+                      const m = meta(pd.platform);
+                      return (
+                        <tr key={pd.platform} style={{ borderTop: `1px solid ${C.border}` }}>
+                          <td style={{ padding: "10px 12px", whiteSpace: "nowrap" }}>
+                            <span style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 12.5, color: C.white }}>
+                              <m.Icon size={13} color={C.white} /> {m.label}
+                            </span>
+                          </td>
+                          {cols.map((c) => (
+                            <td key={c.key} style={{ ...cell, color: (pd.analytics?.[c.key] || 0) > 0 ? C.white : C.dimmed }}>
+                              {dash(pd.analytics?.[c.key] || 0)}
+                            </td>
+                          ))}
+                          <td style={{ ...cell, color: C.white }}>{er(pd.analytics) || "–"}</td>
+                        </tr>
+                      );
+                    })}
+                    <tr style={{ borderTop: `1px solid ${C.border}`, background: C.bg }}>
+                      <td style={{ padding: "10px 12px", fontSize: 12.5, fontWeight: 700, color: C.white }}>Total</td>
+                      {cols.map((c) => (
+                        <td key={c.key} style={{ ...cell, fontWeight: 700, color: totalAnalytics[c.key] > 0 ? C.white : C.dimmed }}>
+                          {dash(totalAnalytics[c.key])}
+                        </td>
+                      ))}
+                      <td style={{ ...cell, fontWeight: 700, color: C.white }}>{er(totalAnalytics) || "–"}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div style={{ padding: "14px 16px", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 12.5, color: C.dimmed, textAlign: "center", marginBottom: 20 }}>
+                Nur ein Snapshot bisher – morgen gibt es Trendlinien.
+              </div>
+            </>
+          ) : (
+            <div style={{ padding: "18px 16px", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 12.5, color: C.dimmed, textAlign: "center", marginBottom: 20 }}>
+              Noch keine Analytics für diesen Beitrag verfügbar.
+            </div>
+          )}
+
+          {/* Aktionen */}
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", paddingTop: 18, borderTop: `1px solid ${C.border}`, marginBottom: 16 }}>
+            <button onClick={() => { if (window.confirm("Beitrag aus dem Dashboard entfernen?\n(Bleibt auf den Plattformen online)")) { onHide(post); close(); } }}
+              style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 8, background: C.redGlow, border: `1px solid ${C.red}25`, color: C.redLight, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+              <EyeOff size={12} /> Ausblenden
+            </button>
+            {isConnected && (post.status === "scheduled" || post.status === "draft") && (
+              <button onClick={async () => {
+                if (!window.confirm("Beitrag unwiderruflich bei Zernio löschen?\nDer Beitrag wird NICHT veröffentlicht.")) return;
+                const ok = await onDeleteRemote(post);
+                if (ok) close();
+              }}
+                style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 8, background: C.red + "15", border: `1px solid ${C.red}50`, color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+                <Trash2 size={12} /> Bei Zernio löschen
+              </button>
+            )}
+          </div>
+
+          {/* Post ID */}
+          <div style={{ fontSize: 12, color: C.dimmed, fontFamily: "monospace", display: "flex", alignItems: "center", gap: 8 }}>
+            Post ID: {String(post.id)}
+            <button onClick={() => navigator.clipboard?.writeText(String(post.id))} title="Kopieren"
+              style={{ background: "transparent", border: "none", color: C.dimmed, cursor: "pointer", display: "flex", padding: 2 }}>
+              <Copy size={12} />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Zernio-style Filter Dropdown ────────────────────────────────
 function FilterDropdown({ label, value, options, onChange, icon: LeadIcon, searchable = false, width, align = "left" }) {
   const [open, setOpen] = useState(false);
@@ -3182,6 +3410,24 @@ export default function Dashboard() {
           clicks: a.clicks || 0,
           thumbnail: thumb,
           videoUrl,
+          publishedAt: p.publishedAt || p.completedAt || undefined,
+          // Pro-Plattform-Details für das Detail-Panel
+          platformDetails: (p.platforms || []).map((pl) => {
+            const name = pl.platform || pl;
+            const pa = pl.analytics || pl.metrics || pl.stats || {};
+            return {
+              platform: name,
+              status: pl.status || p.status || "draft",
+              publishedAt: pl.publishedAt || pl.postedAt || pl.completedAt || undefined,
+              url: urls[name],
+              analytics: {
+                likes: pa.likes || 0, comments: pa.comments || 0, shares: pa.shares || 0,
+                saves: pa.saves || 0, clicks: pa.clicks || 0, views: pa.views || 0,
+                follows: pa.follows || pa.newFollowers || 0,
+                impressions: pa.impressions || 0, reach: pa.reach || 0,
+              },
+            };
+          }),
           profile: p.profile?.name || p.profileName || p.profile || undefined,
           profileColor: p.profile?.color || undefined,
           done: p.status === "published",
@@ -4226,96 +4472,6 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* ── Post Detail Panel ── */}
-              {isSelected && (
-                <div style={{ background: C.card, border: `1px solid ${primaryColor}60`, borderTop: `1px solid ${C.border}`, padding: "20px 20px", animation: "fadeIn 0.2s ease" }}>
-                  {/* Caption */}
-                  <div style={{ fontSize: 11, fontWeight: 700, color: C.dimmed, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Caption</div>
-                  <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.7, whiteSpace: "pre-wrap", wordBreak: "break-word", background: C.bg, borderRadius: 10, padding: "12px 14px", border: `1px solid ${C.border}`, maxHeight: 140, overflowY: "auto", marginBottom: 14 }}>
-                    {post.caption || post.title || "–"}
-                  </div>
-
-                  {/* Info rows */}
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 14 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
-                      <span style={{ color: C.dimmed, fontWeight: 600 }}>Status</span>
-                      <StatusBadge status={post.status} />
-                    </div>
-                    {post.type && (
-                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
-                        <span style={{ color: C.dimmed, fontWeight: 600 }}>Typ</span>
-                        <span style={{ color: C.white, fontWeight: 600 }}>{post.type}</span>
-                      </div>
-                    )}
-                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
-                      <span style={{ color: C.dimmed, fontWeight: 600 }}>Plattformen</span>
-                      <div style={{ display: "flex", gap: 6 }}>
-                        {postPlats.map((plat) => {
-                          const ic = plat === "instagram" ? C.instagram : C.tiktok;
-                          const Icon = plat === "instagram" ? Instagram : TikTokIcon;
-                          return <div key={plat} style={{ display: "flex", alignItems: "center", gap: 4, background: ic + "15", borderRadius: 5, padding: "2px 8px" }}><Icon size={11} color={ic} /><span style={{ fontSize: 11, color: ic, fontWeight: 600 }}>{plat === "instagram" ? "IG" : "TT"}</span></div>;
-                        })}
-                      </div>
-                    </div>
-                    {(post.status === "scheduled" || post.status === "published") && (
-                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
-                        <span style={{ color: C.dimmed, fontWeight: 600 }}>{post.status === "scheduled" ? "Geplant" : "Veröffentlicht"}</span>
-                        <span style={{ color: post.status === "scheduled" ? C.yellow : C.green, fontWeight: 600 }}>{new Date(post.date).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" })}</span>
-                      </div>
-                    )}
-                    {post.createdAt && (
-                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
-                        <span style={{ color: C.dimmed, fontWeight: 600 }}>Erstellt</span>
-                        <span style={{ color: C.muted }}>{new Date(post.createdAt).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" })}{post.createdBy ? ` · ${post.createdBy}` : ""}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Performance stats */}
-                  {post.status === "published" && post.views > 0 && (
-                    <div style={{ display: "flex", gap: 10, marginBottom: 14, padding: "10px 12px", background: C.bg, borderRadius: 8, border: `1px solid ${C.border}` }}>
-                      <div style={{ flex: 1, textAlign: "center" }}><div style={{ fontSize: 14, fontWeight: 700, color: C.white }}>{fmt(post.views)}</div><div style={{ fontSize: 9, color: C.yellow, fontWeight: 600 }}>Views</div></div>
-                      <div style={{ flex: 1, textAlign: "center" }}><div style={{ fontSize: 14, fontWeight: 700, color: C.redLight }}>{fmt(post.likes)}</div><div style={{ fontSize: 9, color: C.muted, fontWeight: 600 }}>Likes</div></div>
-                      <div style={{ flex: 1, textAlign: "center" }}><div style={{ fontSize: 14, fontWeight: 700, color: C.white }}>{fmt(post.comments)}</div><div style={{ fontSize: 9, color: C.muted, fontWeight: 600 }}>Komm.</div></div>
-                      <div style={{ flex: 1, textAlign: "center" }}><div style={{ fontSize: 14, fontWeight: 700, color: C.white }}>{fmt(post.shares)}</div><div style={{ fontSize: 9, color: C.muted, fontWeight: 600 }}>Shares</div></div>
-                    </div>
-                  )}
-
-                  {/* Action buttons */}
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
-                    {post.status === "published" && postPlats.map((plat) => {
-                      const ic = plat === "instagram" ? C.instagram : C.tiktok;
-                      const url = post.postUrls?.[plat] || (plat === "instagram" ? "https://www.instagram.com/mitunsverkaufen/" : "https://www.tiktok.com/@mitunsverkaufen");
-                      return (
-                        <button key={plat} onClick={(e) => { e.stopPropagation(); window.open(url, "_blank"); }} style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 12px", borderRadius: 7, background: ic + "15", border: `1px solid ${ic}30`, color: ic, fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
-                          <ExternalLink size={11} /> {plat === "instagram" ? "Instagram" : "TikTok"}
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {/* Delete buttons */}
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", paddingTop: 10, borderTop: `1px solid ${C.border}` }}>
-                    <button onClick={(e) => { e.stopPropagation(); if (window.confirm("Beitrag aus dem Dashboard entfernen?\n(Bleibt auf den Plattformen online)")) { hidePost(post.id); setPosts((prev) => prev.filter((p) => p.id !== post.id)); setSelectedPost(null); showNotif("Beitrag vom Dashboard entfernt", "red"); } }} style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 12px", borderRadius: 7, background: C.redGlow, border: `1px solid ${C.red}25`, color: C.redLight, fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
-                      <X size={11} /> Ausblenden
-                    </button>
-                    {isConnected && (post.status === "scheduled" || post.status === "draft") && (
-                      <button onClick={async (e) => {
-                        e.stopPropagation();
-                        if (!window.confirm("Beitrag unwiderruflich bei Zernio löschen?\nDer Beitrag wird NICHT veröffentlicht.")) return;
-                        try {
-                          const res = await fetch("/api/late", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "delete-post", postId: post.id }) });
-                          const data = await res.json();
-                          if (res.ok) { hidePost(post.id); setPosts((prev) => prev.filter((p) => p.id !== post.id)); setSelectedPost(null); showNotif("Beitrag bei Zernio gelöscht", "green"); }
-                          else { showNotif(data.error || "Fehler beim Löschen", "red"); addErrorLog({ action: "Beitrag löschen", error: data.error || "Unbekannter Fehler", postId: post.id, postTitle: post.title, response: data }); }
-                        } catch (err) { showNotif("Verbindungsfehler: " + err.message, "red"); addErrorLog({ action: "Beitrag löschen", error: `Netzwerkfehler: ${err.message}`, postId: post.id, postTitle: post.title }); }
-                      }} style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 12px", borderRadius: 7, background: C.red + "15", border: `1px solid ${C.red}50`, color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
-                        <Trash2 size={11} /> Bei Zernio löschen
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
               </div>
             );
           })}
@@ -4377,6 +4533,38 @@ export default function Dashboard() {
       {/* End of main content wrapper */}
 
       {showCreateModal && <CreatePostModal onClose={() => setShowCreateModal(false)} onSubmit={handleCreatePost} isSubmitting={isSubmitting} accounts={accounts} initialDate={createModalInitialDate} />}
+
+      {selectedPost && (
+        <PostDetailPanel
+          post={selectedPost}
+          isConnected={isConnected}
+          onClose={() => setSelectedPost(null)}
+          onHide={(post) => {
+            hidePost(post.id);
+            setPosts((prev) => prev.filter((p) => p.id !== post.id));
+            showNotif("Beitrag vom Dashboard entfernt", "red");
+          }}
+          onDeleteRemote={async (post) => {
+            try {
+              const res = await fetch("/api/late", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "delete-post", postId: post.id }) });
+              const data = await res.json();
+              if (res.ok) {
+                hidePost(post.id);
+                setPosts((prev) => prev.filter((p) => p.id !== post.id));
+                showNotif("Beitrag bei Zernio gelöscht", "green");
+                return true;
+              }
+              showNotif(data.error || "Fehler beim Löschen", "red");
+              addErrorLog({ action: "Beitrag löschen", error: data.error || "Unbekannter Fehler", postId: post.id, postTitle: post.title, response: data });
+              return false;
+            } catch (err) {
+              showNotif("Verbindungsfehler: " + err.message, "red");
+              addErrorLog({ action: "Beitrag löschen", error: `Netzwerkfehler: ${err.message}`, postId: post.id, postTitle: post.title });
+              return false;
+            }
+          }}
+        />
+      )}
     </div>
   );
 }
