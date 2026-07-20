@@ -384,6 +384,109 @@ const CONTENT_TYPES = [
 ];
 
 // ── Create Post Modal with Media Upload + Thumbnail + Timezone ──
+// ── Analytics-Verlauf (Tages-Snapshots) ─────────────────────────
+// Zernios API liefert nur den aktuellen Stand pro Post, keinen Verlauf.
+// Wir speichern deshalb einmal pro Tag einen Snapshot lokal – daraus
+// entstehen nach ein paar Tagen echte Trendlinien.
+const SNAPSHOT_KEY = "postAnalyticsSnapshots";
+const SNAP_METRICS = ["likes", "comments", "shares", "saves", "views", "impressions", "reach", "clicks"];
+
+function saveAnalyticsSnapshots(items) {
+  if (typeof window === "undefined") return;
+  try {
+    const store = JSON.parse(localStorage.getItem(SNAPSHOT_KEY) || "{}");
+    const today = new Date().toISOString().split("T")[0];
+
+    for (const it of items) {
+      const id = it.postId || it.latePostId || it._id || it.id;
+      const a = it.analytics;
+      if (!id || !a) continue;
+      // Nur Posts mit tatsächlichen Werten aufzeichnen
+      if (!SNAP_METRICS.some((k) => (a[k] || 0) > 0)) continue;
+
+      const entry = { date: today };
+      for (const k of SNAP_METRICS) entry[k] = a[k] || 0;
+
+      const arr = Array.isArray(store[id]) ? store[id] : [];
+      const idx = arr.findIndex((e) => e.date === today);
+      if (idx >= 0) arr[idx] = entry; else arr.push(entry);
+      arr.sort((x, y) => x.date.localeCompare(y.date));
+      store[id] = arr.slice(-120);
+    }
+    localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(store));
+  } catch {}
+}
+
+function loadAnalyticsSnapshots(postId, publishedAt) {
+  if (typeof window === "undefined") return [];
+  try {
+    const store = JSON.parse(localStorage.getItem(SNAPSHOT_KEY) || "{}");
+    const arr = store[String(postId)] || [];
+    if (arr.length === 0) return [];
+
+    // Startpunkt am Veröffentlichungstag ergänzen (dort waren alle Werte 0),
+    // damit schon ab dem ersten Snapshot eine Linie sichtbar ist.
+    if (publishedAt) {
+      const pub = new Date(publishedAt).toISOString().split("T")[0];
+      if (pub < arr[0].date) {
+        const zero = { date: pub };
+        for (const k of SNAP_METRICS) zero[k] = 0;
+        return [zero, ...arr];
+      }
+    }
+    return arr;
+  } catch {
+    return [];
+  }
+}
+
+// ── Verlaufs-Diagramm mit zwei Y-Achsen ─────────────────────────
+function ChartCard({ title, hint, data, left, right }) {
+  const fmtDay = (d) => new Date(d).toLocaleDateString("de-DE", { day: "numeric", month: "short" });
+  const axis = { stroke: C.dimmed, fontSize: 10, tickLine: false, axisLine: false };
+
+  return (
+    <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: "14px 14px 8px", marginBottom: 14 }}>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
+        <div style={{ fontSize: 12.5, fontWeight: 700, color: C.white }}>{title}</div>
+        <div style={{ fontSize: 10.5, color: C.dimmed }}>{hint}</div>
+      </div>
+      <div style={{ height: 190 }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={data} margin={{ top: 4, right: 6, bottom: 0, left: -12 }}>
+            <CartesianGrid stroke={C.border} strokeDasharray="3 3" vertical={false} />
+            <XAxis dataKey="date" tickFormatter={fmtDay} {...axis} minTickGap={20} />
+            <YAxis yAxisId="l" {...axis} width={38} allowDecimals={false} />
+            <YAxis yAxisId="r" orientation="right" {...axis} width={38} allowDecimals={false} />
+            <Tooltip
+              contentStyle={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 12 }}
+              labelStyle={{ color: C.white, fontWeight: 600, marginBottom: 4 }}
+              labelFormatter={fmtDay}
+            />
+            {left.map((s) => (
+              <Line key={s.key} yAxisId="l" type="monotone" dataKey={s.key} name={s.label}
+                stroke={s.color} strokeWidth={2} dot={{ r: 2.5, fill: s.color }} activeDot={{ r: 4 }} />
+            ))}
+            {right.map((s) => (
+              <Line key={s.key} yAxisId="r" type="monotone" dataKey={s.key} name={s.label}
+                stroke={s.color} strokeWidth={2} dot={{ r: 2.5, fill: s.color }} activeDot={{ r: 4 }} />
+            ))}
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+      {/* Legende */}
+      <div style={{ display: "flex", justifyContent: "center", gap: 14, flexWrap: "wrap", paddingTop: 6 }}>
+        {[...left, ...right].map((s) => (
+          <span key={s.key} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 10.5, color: s.color }}>
+            <span style={{ width: 12, height: 2, background: s.color, display: "inline-block", borderRadius: 1 }} />
+            {s.label}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Post Detail Panel (Slide-in von rechts) ─────────────────────
 function PostDetailPanel({ post, onClose, isConnected, onHide, onDeleteRemote }) {
   const [visible, setVisible] = useState(false);
@@ -439,7 +542,9 @@ function PostDetailPanel({ post, onClose, isConnected, onHide, onDeleteRemote })
     return ((eng / base) * 100).toFixed(2) + "%";
   };
   const totalAnalytics = Object.fromEntries(cols.map((c) => [c.key, sum(c.key)]));
+  totalAnalytics.engagementRate = post.engagementRate;
   const hasAnalytics = cols.some((c) => sum(c.key) > 0);
+  const history = loadAnalyticsSnapshots(post.id, post.publishedAt || post.date);
 
   const dash = (v) => (v > 0 ? v.toLocaleString("de-DE") : "–");
   const cell = { padding: "10px 12px", fontSize: 12, textAlign: "right", whiteSpace: "nowrap" };
@@ -574,9 +679,36 @@ function PostDetailPanel({ post, onClose, isConnected, onHide, onDeleteRemote })
                   </tbody>
                 </table>
               </div>
-              <div style={{ padding: "14px 16px", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 12.5, color: C.dimmed, textAlign: "center", marginBottom: 20 }}>
-                Nur ein Snapshot bisher – morgen gibt es Trendlinien.
-              </div>
+              {/* Verlaufsdiagramme */}
+              {history.length >= 2 ? (
+                <>
+                  <ChartCard
+                    title="Engagement over time"
+                    hint="Likes ← linke Achse · andere → rechte Achse"
+                    data={history}
+                    left={[{ key: "likes", label: "Likes", color: C.redLight }]}
+                    right={[
+                      { key: "comments", label: "Comments", color: C.blue },
+                      { key: "saves", label: "Saves", color: C.yellow },
+                      { key: "shares", label: "Shares", color: C.green },
+                    ]}
+                  />
+                  <ChartCard
+                    title="Reach & impressions over time"
+                    hint="Impressions ← linke Achse · Reach & Views → rechte Achse"
+                    data={history}
+                    left={[{ key: "impressions", label: "Impressions", color: C.purple }]}
+                    right={[
+                      { key: "reach", label: "Reach", color: C.blue },
+                      { key: "views", label: "Views", color: C.instagram },
+                    ]}
+                  />
+                </>
+              ) : (
+                <div style={{ padding: "14px 16px", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 12.5, color: C.dimmed, textAlign: "center", marginBottom: 20 }}>
+                  Erst ein Snapshot vorhanden – ab morgen entstehen hier Trendlinien.
+                </div>
+              )}
             </>
           ) : (
             <div style={{ padding: "18px 16px", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 12.5, color: C.dimmed, textAlign: "center", marginBottom: 20 }}>
@@ -3273,6 +3405,9 @@ export default function Dashboard() {
       const data = await res.json();
       const items = data.posts || [];
       if (items.length === 0) return;
+
+      // Tages-Snapshot sichern, damit über die Zeit Trendlinien entstehen
+      saveAnalyticsSnapshots(items);
 
       // Nach Post-ID indizieren – Zernio nutzt postId bzw. latePostId
       const byId = {};
