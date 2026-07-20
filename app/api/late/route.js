@@ -320,6 +320,25 @@ export async function POST(request) {
       return Response.json(data);
     }
 
+    // ── Analytics für mehrere Posts auf einmal ──────────────
+    // Die /posts-Liste liefert keine Kennzahlen, deshalb holen wir sie
+    // hier gebündelt und parallel nach.
+    if (action === "posts-analytics") {
+      const ids = Array.isArray(body.postIds) ? body.postIds.slice(0, 60) : [];
+      if (ids.length === 0) return Response.json({ analytics: {} });
+
+      const entries = await Promise.all(ids.map(async (id) => {
+        try {
+          const res = await fetch(`${BASE}/analytics/${id}`, { headers: authHeaders() });
+          if (!res.ok) return [id, null];
+          const text = await res.text();
+          try { return [id, JSON.parse(text)]; } catch { return [id, null]; }
+        } catch { return [id, null]; }
+      }));
+
+      return Response.json({ analytics: Object.fromEntries(entries) });
+    }
+
     // ── Delete a post ───────────────────────────────────────
     if (action === "delete-post") {
       const res = await fetch(`${BASE}/posts/${body.postId}`, {

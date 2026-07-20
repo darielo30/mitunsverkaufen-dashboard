@@ -3259,6 +3259,104 @@ export default function Dashboard() {
 
   const showNotif = (text, color) => { setNotification({ text, color }); setTimeout(() => setNotification(null), 5000); };
 
+  // ── Post-Analytics nachladen ───────────────────────────────
+  // Zernios /posts-Liste enthält keine Kennzahlen – die holen wir
+  // gebündelt über /analytics/{postId} nach und mergen sie in die Posts.
+  const METRIC_KEYS = ["likes", "comments", "shares", "saves", "clicks", "views", "follows", "impressions", "reach"];
+
+  // Findet Kennzahlen egal wie tief bzw. unter welchem Namen sie stecken
+  const readMetrics = (obj) => {
+    if (!obj || typeof obj !== "object") return null;
+    const alias = {
+      likes: ["likes", "likeCount", "favorites"],
+      comments: ["comments", "commentCount", "replies"],
+      shares: ["shares", "shareCount", "reposts"],
+      saves: ["saves", "saveCount", "bookmarks"],
+      clicks: ["clicks", "clickCount", "linkClicks"],
+      views: ["views", "viewCount", "videoViews", "plays"],
+      follows: ["follows", "newFollowers", "followers", "followerCount"],
+      impressions: ["impressions", "impressionCount"],
+      reach: ["reach", "reachCount", "uniqueViews"],
+    };
+    const out = {};
+    let found = false;
+    for (const key of METRIC_KEYS) {
+      for (const a of alias[key]) {
+        const v = obj[a];
+        if (typeof v === "number" && !Number.isNaN(v)) { out[key] = v; if (v > 0) found = true; break; }
+      }
+      if (out[key] === undefined) out[key] = 0;
+    }
+    return found ? out : null;
+  };
+
+  // Normalisiert die /analytics/{id}-Antwort in { totals, perPlatform }
+  const normalizeAnalytics = (raw) => {
+    if (!raw) return null;
+    const root = raw._raw || raw.data || raw.analytics || raw;
+    const perPlatform = {};
+
+    // Variante A: Array bzw. Objekt mit Plattform-Aufschlüsselung
+    const list = Array.isArray(root) ? root
+      : Array.isArray(root.platforms) ? root.platforms
+      : Array.isArray(root.breakdown) ? root.breakdown
+      : Array.isArray(root.results) ? root.results : null;
+
+    if (list) {
+      for (const entry of list) {
+        const name = entry.platform || entry.platformName || entry.name;
+        const m = readMetrics(entry.analytics || entry.metrics || entry.stats || entry);
+        if (name && m) perPlatform[String(name).toLowerCase()] = m;
+      }
+    } else if (root.platforms && typeof root.platforms === "object") {
+      // Variante B: { platforms: { instagram: {...}, tiktok: {...} } }
+      for (const [name, val] of Object.entries(root.platforms)) {
+        const m = readMetrics(val?.analytics || val?.metrics || val);
+        if (m) perPlatform[name.toLowerCase()] = m;
+      }
+    }
+
+    // Totals: entweder direkt vorhanden oder aus den Plattformen summiert
+    let totals = readMetrics(root.totals || root.total || root.summary || root);
+    if (!totals && Object.keys(perPlatform).length > 0) {
+      totals = Object.fromEntries(METRIC_KEYS.map((k) => [k, Object.values(perPlatform).reduce((a, m) => a + (m[k] || 0), 0)]));
+    }
+    if (!totals && Object.keys(perPlatform).length === 0) return null;
+    return { totals: totals || {}, perPlatform };
+  };
+
+  const fetchPostAnalytics = useCallback(async (postList) => {
+    const ids = postList.filter((p) => p.status === "published" || p.status === "partial").map((p) => p.id);
+    if (ids.length === 0) return;
+    try {
+      const res = await fetch("/api/late", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "posts-analytics", postIds: ids }),
+      });
+      const data = await res.json();
+      const map = data.analytics || {};
+      setPosts((prev) => prev.map((p) => {
+        const norm = normalizeAnalytics(map[p.id]);
+        if (!norm) return p;
+        const t = norm.totals;
+        return {
+          ...p,
+          likes: t.likes ?? p.likes, comments: t.comments ?? p.comments,
+          shares: t.shares ?? p.shares, saves: t.saves ?? p.saves,
+          clicks: t.clicks ?? p.clicks, views: t.views ?? p.views,
+          impressions: t.impressions ?? p.impressions, reach: t.reach ?? p.reach,
+          follows: t.follows ?? 0,
+          platformDetails: (p.platformDetails || []).map((pd) => ({
+            ...pd,
+            analytics: norm.perPlatform[pd.platform] || pd.analytics,
+          })),
+        };
+      }));
+    } catch (err) {
+      console.error("Post-Analytics konnten nicht geladen werden:", err);
+    }
+  }, []);
+
   // ── Analytics State ────────────────────────────────────────
   const [analyticsData, setAnalyticsData] = useState({ daily: null, bestTime: null, decay: null, frequency: null });
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
@@ -3443,7 +3541,10 @@ export default function Dashboard() {
       const postsList = data.posts || (Array.isArray(rawPosts) ? rawPosts : rawPosts?.posts) || (Array.isArray(data) ? data : null);
       if (postsList && Array.isArray(postsList)) {
         const hidden = JSON.parse(localStorage.getItem("hiddenPostIds") || "[]");
-        setPosts(postsList.map(mapPost).filter((p) => !hidden.includes(p.id)));
+        const mapped = postsList.map(mapPost).filter((p) => !hidden.includes(p.id));
+        setPosts(mapped);
+        // Kennzahlen im Hintergrund nachladen
+        fetchPostAnalytics(mapped);
       }
     } catch {
       setIsConnected(false);
