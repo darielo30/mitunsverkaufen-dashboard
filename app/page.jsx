@@ -3137,16 +3137,38 @@ export default function Dashboard() {
         if (p.platformPostUrl) urls[plats[0]] = p.platformPostUrl;
         else if (p.postUrl || p.permalink || p.url) urls[plats[0]] = p.postUrl || p.permalink || p.url;
         const a = p.analytics || {};
-        // Thumbnail: erstes Bild bzw. Video-Cover aus den MediaItems
-        const media = p.mediaItems || p.media || [];
-        const thumb = p.thumbnailUrl || p.thumbnail
-          || media.find((m) => m.thumbnailUrl)?.thumbnailUrl
-          || media.find((m) => m.type === "image")?.url
-          || undefined;
+        // ── Medien / Thumbnail robust auslesen ──
+        const media = p.mediaItems || p.media || p.mediaUrls || [];
+        const mediaArr = Array.isArray(media) ? media : [media];
+        const pick = (m, keys) => keys.map((k) => m?.[k]).find(Boolean);
+        // Schritt 1 – explizites Thumbnail-Feld auf Post-Ebene
+        let thumb = pick(p, ["thumbnailUrl", "thumbnail", "coverUrl", "previewUrl", "imageUrl"]);
+        // Schritt 2 – Thumbnail-Feld auf Media-Ebene
+        if (!thumb) {
+          for (const m of mediaArr) {
+            const t = typeof m === "string" ? null : pick(m, ["thumbnailUrl", "thumbnail", "coverUrl", "previewUrl", "posterUrl"]);
+            if (t) { thumb = t; break; }
+          }
+        }
+        // Schritt 3 – Bild-Media direkt verwenden
+        if (!thumb) {
+          for (const m of mediaArr) {
+            const url = typeof m === "string" ? m : pick(m, ["url", "src", "mediaUrl", "publicUrl"]);
+            if (url && /\.(jpe?g|png|webp|gif|avif)(\?|$)/i.test(url)) { thumb = url; break; }
+          }
+        }
+        // Schritt 4 – Video-URL merken, daraus rendert das Frontend das erste Frame
+        let videoUrl;
+        for (const m of mediaArr) {
+          const url = typeof m === "string" ? m : pick(m, ["url", "src", "mediaUrl", "publicUrl"]);
+          const isVid = (typeof m !== "string" && (m?.type === "video" || m?.mediaType === "video"))
+            || (url && /\.(mp4|mov|webm|m4v)(\?|$)/i.test(url));
+          if (url && isVid) { videoUrl = url; break; }
+        }
         return {
           id: p._id || p.id || i + 1,
           platforms: plats,
-          type: media.some((m) => m.type === "video") ? "Video" : "Post",
+          type: videoUrl ? "Video" : "Post",
           title: p.content?.substring(0, 60) + (p.content?.length > 60 ? "..." : "") || "Unbenannt",
           caption: p.content || "",
           date: p.scheduledFor || p.createdAt || new Date().toISOString(),
@@ -3159,6 +3181,7 @@ export default function Dashboard() {
           saves: a.saves || 0,
           clicks: a.clicks || 0,
           thumbnail: thumb,
+          videoUrl,
           profile: p.profile?.name || p.profileName || p.profile || undefined,
           profileColor: p.profile?.color || undefined,
           done: p.status === "published",
@@ -4058,6 +4081,7 @@ export default function Dashboard() {
           gridTemplateColumns: viewMode === "list" ? "1fr" : `repeat(${gridCols}, minmax(0, 1fr))`,
           gap: 14, alignItems: "start",
         }}>
+          {/* Karten haben eine feste Höhe, damit das Raster gleichmäßig bleibt */}
           {filtered.length === 0 && (
             <div style={{ gridColumn: "1 / -1", padding: 40, textAlign: "center", color: C.dimmed, fontSize: 14 }}>Keine Beiträge gefunden.</div>
           )}
@@ -4095,23 +4119,23 @@ export default function Dashboard() {
               {/* ── Card ── */}
               <div onClick={() => setSelectedPost(isSelected ? null : post)}
                 style={{
-                  background: C.card, borderRadius: 12, border: `1px solid ${isSelected ? primaryColor + "60" : C.border}`,
-                  cursor: "pointer", transition: "all 0.2s", overflow: "hidden",
-                  borderBottomLeftRadius: isSelected ? 0 : 12, borderBottomRightRadius: isSelected ? 0 : 12,
+                  background: C.card, border: `1px solid ${isSelected ? primaryColor + "60" : C.border}`,
+                  cursor: "pointer", transition: "border-color 0.15s", overflow: "hidden",
+                  height: 186, display: "flex", flexDirection: "column",
                 }}
                 onMouseOver={(e) => { if (!isSelected) { e.currentTarget.style.borderColor = C.dimmed + "60"; } }}
                 onMouseOut={(e) => { if (!isSelected) { e.currentTarget.style.borderColor = C.border; } }}>
 
                 {/* Kopfbereich: Text links, Thumbnail rechts */}
-                <div style={{ display: "flex", gap: 12, padding: 14 }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    {/* Titel */}
-                    <div style={{ fontSize: 12.5, fontWeight: 500, color: C.white, lineHeight: 1.45, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", marginBottom: 10 }}>
+                <div style={{ display: "flex", gap: 12, padding: 14, flex: 1, minHeight: 0 }}>
+                  <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+                    {/* Titel – feste Höhe für 2 Zeilen */}
+                    <div style={{ fontSize: 12.5, fontWeight: 500, color: C.white, lineHeight: 1.45, height: 36, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", marginBottom: 10 }}>
                       {post.title}
                     </div>
 
                     {/* Plattform-Icons */}
-                    <div style={{ display: "flex", gap: 7, marginBottom: 9, alignItems: "center" }}>
+                    <div style={{ display: "flex", gap: 7, marginBottom: 9, alignItems: "center", height: 15 }}>
                       {postPlats.map((plat) => {
                         const Icon = plat === "instagram" ? Instagram : plat === "tiktok" ? TikTokIcon : Globe;
                         const ic = plat === "instagram" ? C.instagram : plat === "tiktok" ? C.tiktok : C.muted;
@@ -4126,15 +4150,14 @@ export default function Dashboard() {
                     </div>
 
                     {/* Datum + Uhrzeit */}
-                    <div style={{ fontSize: 11.5, color: C.muted, marginBottom: 5 }}>
+                    <div style={{ fontSize: 11.5, color: C.muted, marginBottom: 5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                       {new Date(post.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                       {", "}
                       {new Date(post.date).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true })}
-                      {" "}{post.timezone || "GMT+2"}
                     </div>
 
                     {/* User · Profil · Post-ID */}
-                    <div style={{ fontSize: 10.5, color: C.dimmed, display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap" }}>
+                    <div style={{ fontSize: 10.5, color: C.dimmed, display: "flex", gap: 5, alignItems: "center", whiteSpace: "nowrap", overflow: "hidden" }}>
                       {post.createdBy && <span>{post.createdBy}</span>}
                       {post.profile && (
                         <>
@@ -4145,7 +4168,7 @@ export default function Dashboard() {
                           </span>
                         </>
                       )}
-                      <span style={{ color: C.border }}>·</span>
+                      {(post.createdBy || post.profile) && <span style={{ color: C.border }}>·</span>}
                       <span
                         title={`Post ID: ${pid} (klicken zum Kopieren)`}
                         onClick={(e) => {
@@ -4161,10 +4184,15 @@ export default function Dashboard() {
                     </div>
                   </div>
 
-                  {/* Thumbnail rechts */}
-                  <div style={{ position: "relative", width: 74, height: 92, flexShrink: 0, borderRadius: 8, overflow: "hidden", background: C.bg }}>
+                  {/* Thumbnail rechts – Bild, Video-Erstframe oder Platzhalter */}
+                  <div style={{ position: "relative", width: 76, flexShrink: 0, alignSelf: "stretch", overflow: "hidden", background: C.bg }}>
                     {post.thumbnail ? (
-                      <img src={post.thumbnail} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      <img src={post.thumbnail} alt="" loading="lazy"
+                        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                        onError={(e) => { e.currentTarget.style.display = "none"; }} />
+                    ) : post.videoUrl ? (
+                      <video src={`${post.videoUrl}#t=0.1`} preload="metadata" muted playsInline
+                        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", pointerEvents: "none" }} />
                     ) : (
                       <div style={{ width: "100%", height: "100%", background: `linear-gradient(135deg, ${C.cardHover} 0%, ${C.bg} 100%)`, display: "flex", alignItems: "center", justifyContent: "center" }}>
                         <FileVideo size={20} color={C.dimmed} />
@@ -4181,17 +4209,17 @@ export default function Dashboard() {
                 </div>
 
                 {/* Fußzeile: Status + Metriken */}
-                <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 14px", borderTop: `1px solid ${C.border}`, flexWrap: "wrap" }}>
-                  <div style={{ display: "inline-flex", alignItems: "center", fontSize: 10.5, fontWeight: 600, color: sc.color, background: sc.color + "18", padding: "3px 9px", borderRadius: 5 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "0 14px", height: 40, borderTop: `1px solid ${C.border}`, flexShrink: 0, overflow: "hidden" }}>
+                  <div style={{ display: "inline-flex", alignItems: "center", fontSize: 10.5, fontWeight: 600, color: sc.color, background: sc.color + "18", padding: "3px 9px", borderRadius: 5, flexShrink: 0 }}>
                     {sc.label}
                   </div>
                   {metrics.map((m) => (
-                    <div key={m.key} title={m.key} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, color: C.muted }}>
+                    <div key={m.key} title={m.key} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, color: C.muted, flexShrink: 0 }}>
                       <m.icon size={11} />
                       {fmtNum(m.value)}
                     </div>
                   ))}
-                  <div style={{ marginLeft: "auto", width: 22, height: 22, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: C.dimmed, fontSize: 15, letterSpacing: 1 }}
+                  <div style={{ marginLeft: "auto", width: 22, height: 22, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: C.dimmed, fontSize: 15, letterSpacing: 1, flexShrink: 0 }}
                     onClick={(e) => { e.stopPropagation(); setSelectedPost(isSelected ? null : post); }}>
                     ⋮
                   </div>
@@ -4200,7 +4228,7 @@ export default function Dashboard() {
 
               {/* ── Post Detail Panel ── */}
               {isSelected && (
-                <div style={{ background: C.card, border: `1px solid ${primaryColor}60`, borderTop: `1px solid ${C.border}`, borderRadius: "0 0 14px 14px", padding: "20px 20px", animation: "fadeIn 0.2s ease" }}>
+                <div style={{ background: C.card, border: `1px solid ${primaryColor}60`, borderTop: `1px solid ${C.border}`, padding: "20px 20px", animation: "fadeIn 0.2s ease" }}>
                   {/* Caption */}
                   <div style={{ fontSize: 11, fontWeight: 700, color: C.dimmed, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Caption</div>
                   <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.7, whiteSpace: "pre-wrap", wordBreak: "break-word", background: C.bg, borderRadius: 10, padding: "12px 14px", border: `1px solid ${C.border}`, maxHeight: 140, overflowY: "auto", marginBottom: 14 }}>
