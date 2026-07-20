@@ -9,7 +9,8 @@ import {
   Globe, SkipForward, SkipBack, Scissors,
   LayoutDashboard, Bell, Settings, UserPlus, AlertCircle, XCircle, UsersRound, Shield, ExternalLink,
   Sun, Moon, FileText, CheckSquare, Square, Download, EyeOff, Sparkles,
-  Kanban, Lightbulb, PenLine, Wand2, Rocket, GripVertical, Pencil
+  Kanban, Lightbulb, PenLine, Wand2, Rocket, GripVertical, Pencil,
+  Bookmark, Copy, List, LayoutGrid, Minus, MousePointerClick, ArrowUpDown, Facebook, Youtube, Linkedin
 } from "lucide-react";
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip,
@@ -383,6 +384,74 @@ const CONTENT_TYPES = [
 ];
 
 // ── Create Post Modal with Media Upload + Thumbnail + Timezone ──
+// ── Zernio-style Filter Dropdown ────────────────────────────────
+function FilterDropdown({ label, value, options, onChange, icon: LeadIcon, searchable = false, width, align = "left" }) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e) => { if (ref.current && !ref.current.contains(e.target)) { setOpen(false); setQ(""); } };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
+
+  const current = options.find((o) => o.key === value);
+  const shown = searchable && q
+    ? options.filter((o) => o.label.toLowerCase().includes(q.toLowerCase()))
+    : options;
+
+  return (
+    <div ref={ref} style={{ position: "relative", flexShrink: 0 }}>
+      <button onClick={() => setOpen(!open)} style={{
+        display: "flex", alignItems: "center", gap: 7, padding: "8px 12px", borderRadius: 8,
+        border: `1px solid ${open ? C.dimmed : C.border}`, background: C.card,
+        color: value && value !== "all" ? C.white : C.muted, fontSize: 12.5, fontWeight: 500,
+        cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap", transition: "border-color 0.15s",
+      }}>
+        {LeadIcon && <LeadIcon size={13} />}
+        {current?.label || label}
+        <ChevronDown size={12} style={{ opacity: 0.6, transform: open ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
+      </button>
+
+      {open && (
+        <div style={{
+          position: "absolute", top: "calc(100% + 6px)", [align]: 0, zIndex: 60,
+          minWidth: width || 200, maxHeight: 380, overflowY: "auto",
+          background: C.card, border: `1px solid ${C.border}`, borderRadius: 10,
+          boxShadow: "0 12px 32px rgba(0,0,0,0.5)", padding: 5,
+        }}>
+          {searchable && (
+            <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Filter..."
+              style={{ width: "100%", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6, padding: "7px 10px", color: C.white, fontSize: 12, fontFamily: "inherit", outline: "none", marginBottom: 5, boxSizing: "border-box" }} />
+          )}
+          {shown.map((o) => (
+            o.divider ? (
+              <div key={o.key} style={{ fontSize: 9.5, fontWeight: 700, color: C.dimmed, textTransform: "uppercase", letterSpacing: "0.08em", padding: "10px 10px 5px" }}>{o.label}</div>
+            ) : (
+              <button key={o.key} onClick={() => { onChange(o.key); setOpen(false); setQ(""); }} style={{
+                display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "8px 10px", borderRadius: 6,
+                border: "none", background: o.key === value ? C.cardHover : "transparent",
+                color: o.key === value ? C.white : C.muted, fontSize: 12.5,
+                fontWeight: o.key === value ? 600 : 400, cursor: "pointer", fontFamily: "inherit", textAlign: "left",
+              }}
+                onMouseOver={(e) => { if (o.key !== value) e.currentTarget.style.background = C.bgSoft; }}
+                onMouseOut={(e) => { if (o.key !== value) e.currentTarget.style.background = "transparent"; }}>
+                {o.dot && <div style={{ width: 7, height: 7, borderRadius: "50%", background: o.dot, flexShrink: 0 }} />}
+                {o.icon && <o.icon size={13} color={o.color || "currentColor"} />}
+                <span style={{ flex: 1 }}>{o.label}</span>
+                {o.key === value && <Check size={13} />}
+              </button>
+            )
+          ))}
+          {shown.length === 0 && <div style={{ padding: "10px", fontSize: 12, color: C.dimmed }}>Keine Treffer</div>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CreatePostModal({ onClose, onSubmit, isSubmitting, accounts, initialDate }) {
   const [content, setContent] = useState("");
   const [platforms, setPlatforms] = useState({ instagram: true, tiktok: true });
@@ -2877,6 +2946,18 @@ export default function Dashboard() {
   const [posts, setPosts] = useState(() => demoPosts.filter((p) => !hiddenPostIds.includes(p.id)));
   const [performance] = useState(demoPerformance);
   const [filter, setFilter] = useState("all");
+  // ── Zernio-Filterleiste ──
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [platformFilter2, setPlatformFilter2] = useState("all");
+  const [profileFilter, setProfileFilter] = useState("all");
+  const [userFilter, setUserFilter] = useState("all");
+  const [dateFilter, setDateFilter] = useState("all");
+  const [sortBy, setSortBy] = useState("scheduled_desc");
+  const [viewMode, setViewMode] = useState("grid");
+  const [gridCols, setGridCols] = useState(4);
+  const [copiedId, setCopiedId] = useState(null);
+  const [page, setPage] = useState(1);
+  const PER_PAGE = 20;
   const [searchQuery, setSearchQuery] = useState("");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [createModalInitialDate, setCreateModalInitialDate] = useState("");
@@ -3055,22 +3136,36 @@ export default function Dashboard() {
         // Also check top-level fields
         if (p.platformPostUrl) urls[plats[0]] = p.platformPostUrl;
         else if (p.postUrl || p.permalink || p.url) urls[plats[0]] = p.postUrl || p.permalink || p.url;
+        const a = p.analytics || {};
+        // Thumbnail: erstes Bild bzw. Video-Cover aus den MediaItems
+        const media = p.mediaItems || p.media || [];
+        const thumb = p.thumbnailUrl || p.thumbnail
+          || media.find((m) => m.thumbnailUrl)?.thumbnailUrl
+          || media.find((m) => m.type === "image")?.url
+          || undefined;
         return {
           id: p._id || p.id || i + 1,
           platforms: plats,
-          type: p.mediaItems?.some((m) => m.type === "video") ? "Video" : "Post",
+          type: media.some((m) => m.type === "video") ? "Video" : "Post",
           title: p.content?.substring(0, 60) + (p.content?.length > 60 ? "..." : "") || "Unbenannt",
           caption: p.content || "",
           date: p.scheduledFor || p.createdAt || new Date().toISOString(),
-          views: p.analytics?.impressions || 0,
-          likes: p.analytics?.likes || 0,
-          comments: p.analytics?.comments || 0,
-          shares: p.analytics?.shares || 0,
+          views: a.views || a.impressions || 0,
+          likes: a.likes || 0,
+          comments: a.comments || 0,
+          shares: a.shares || 0,
+          reach: a.reach || 0,
+          impressions: a.impressions || 0,
+          saves: a.saves || 0,
+          clicks: a.clicks || 0,
+          thumbnail: thumb,
+          profile: p.profile?.name || p.profileName || p.profile || undefined,
+          profileColor: p.profile?.color || undefined,
           done: p.status === "published",
           status: p.status || "draft",
           postUrls: Object.keys(urls).length > 0 ? urls : undefined,
           createdAt: p.createdAt || undefined,
-          createdBy: p.createdBy || undefined,
+          createdBy: p.createdBy || p.user?.name || p.userName || undefined,
           timezone: p.timezone || undefined,
         };
       };
@@ -3137,15 +3232,76 @@ export default function Dashboard() {
 
   const toggle = (id) => setPosts(posts.map((p) => p.id === id ? { ...p, done: !p.done } : p));
 
-  // Filter by month + search + platform/status
+  // ── Dynamische Optionen aus den echten Daten ──
+  const profileOptions = Array.from(new Set(posts.map((p) => p.profile).filter(Boolean)));
+  const userOptions = Array.from(new Set(posts.map((p) => p.createdBy).filter(Boolean)));
+
+  // ── Datumsbereiche für den "All dates"-Filter ──
+  const dateRange = (key) => {
+    const now = new Date();
+    const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const addDays = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+    const today = startOfDay(now);
+    // Woche startet Montag
+    const weekStart = addDays(today, -((today.getDay() + 6) % 7));
+    switch (key) {
+      case "today": return [today, addDays(today, 1)];
+      case "tomorrow": return [addDays(today, 1), addDays(today, 2)];
+      case "this_week": return [weekStart, addDays(weekStart, 7)];
+      case "next_week": return [addDays(weekStart, 7), addDays(weekStart, 14)];
+      case "this_month": return [new Date(now.getFullYear(), now.getMonth(), 1), new Date(now.getFullYear(), now.getMonth() + 1, 1)];
+      default: return null;
+    }
+  };
+
+  // Filter: Status + Plattform + Profil + User + Datum + Suche
   const filtered = posts.filter((p) => {
     const d = new Date(p.date);
-    const matchesMonth = d.getMonth() === selectedMonth && d.getFullYear() === selectedYear;
     const pPlats = p.platforms || [p.platform || "instagram"];
-    const matchesFilter = filter === "all" ? true : filter === "instagram" ? pPlats.includes("instagram") : filter === "tiktok" ? pPlats.includes("tiktok") : filter === "offen" ? (!p.done && p.status !== "failed") : filter === "erledigt" ? p.done : filter === "failed" ? p.status === "failed" : true;
-    const matchesSearch = p.title.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesMonth && matchesFilter && matchesSearch;
+
+    if (statusFilter !== "all" && p.status !== statusFilter) return false;
+    if (platformFilter2 !== "all" && !pPlats.includes(platformFilter2)) return false;
+    if (profileFilter !== "all" && p.profile !== profileFilter) return false;
+    if (userFilter !== "all" && p.createdBy !== userFilter) return false;
+
+    if (dateFilter !== "all") {
+      const r = dateRange(dateFilter);
+      if (r && (d < r[0] || d >= r[1])) return false;
+    }
+
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      if (!(p.title || "").toLowerCase().includes(q) && !(p.caption || "").toLowerCase().includes(q)) return false;
+    }
+    return true;
+  }).sort((a, b) => {
+    const num = (x, k) => x[k] || 0;
+    switch (sortBy) {
+      case "scheduled_asc": return new Date(a.date) - new Date(b.date);
+      case "created_desc": return new Date(b.createdAt || b.date) - new Date(a.createdAt || a.date);
+      case "created_asc": return new Date(a.createdAt || a.date) - new Date(b.createdAt || b.date);
+      case "status": return (a.status || "").localeCompare(b.status || "");
+      case "platform": return (a.platforms?.[0] || "").localeCompare(b.platforms?.[0] || "");
+      case "engagement": return (num(b, "likes") + num(b, "comments") + num(b, "shares") + num(b, "saves")) - (num(a, "likes") + num(a, "comments") + num(a, "shares") + num(a, "saves"));
+      case "likes": return num(b, "likes") - num(a, "likes");
+      case "comments": return num(b, "comments") - num(a, "comments");
+      case "shares": return num(b, "shares") - num(a, "shares");
+      case "views": return num(b, "views") - num(a, "views");
+      case "impressions": return num(b, "impressions") - num(a, "impressions");
+      case "reach": return num(b, "reach") - num(a, "reach");
+      case "saves": return num(b, "saves") - num(a, "saves");
+      case "clicks": return num(b, "clicks") - num(a, "clicks");
+      default: return new Date(b.date) - new Date(a.date);
+    }
   });
+
+  // ── Pagination ──
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
+  const safePage = Math.min(page, totalPages);
+  const pageStart = (safePage - 1) * PER_PAGE;
+  const paged = filtered.slice(pageStart, pageStart + PER_PAGE);
+  // Bei Filterwechsel zurück auf Seite 1
+  useEffect(() => { setPage(1); }, [statusFilter, platformFilter2, profileFilter, userFilter, dateFilter, searchQuery, sortBy]);
 
   const totalViews = filtered.reduce((a, p) => a + p.views, 0);
   const totalLikes = filtered.reduce((a, p) => a + p.likes, 0);
@@ -3770,36 +3926,119 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Filter bar like Zernio */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
-          {[
-            { key: "all", label: "All posts" },
-            { key: "instagram", label: "Instagram", icon: Instagram, color: C.instagram },
-            { key: "tiktok", label: "TikTok", icon: TikTokIcon, color: C.tiktok },
-          ].map((f) => {
-            const active = filter === f.key || (f.key === "all" && filter === "all");
-            return (
-              <button key={f.key} onClick={() => setFilter(f.key)} style={{
-                display: "flex", alignItems: "center", gap: 5, padding: "7px 14px", borderRadius: 8,
-                border: `1px solid ${active ? (f.color || C.white) + "40" : C.border}`,
-                background: active ? (f.color || C.white) + "10" : C.card,
-                color: active ? (f.color || C.white) : C.dimmed, fontSize: 12, fontWeight: 500,
-                cursor: "pointer", fontFamily: "inherit",
-              }}>
-                {f.icon && <f.icon size={13} />} {f.label} <ChevronDown size={10} style={{ opacity: 0.5 }} />
-              </button>
-            );
-          })}
-          <div style={{ display: "flex", alignItems: "center", gap: 8, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "7px 12px", marginLeft: 4 }}>
+        {/* ── Zernio-Filterleiste ── */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
+          <FilterDropdown
+            label="All posts" value={statusFilter} onChange={setStatusFilter} width={180}
+            options={[
+              { key: "all", label: "All posts" },
+              { key: "draft", label: "Draft" },
+              { key: "scheduled", label: "Scheduled" },
+              { key: "queued", label: "Queued" },
+              { key: "published", label: "Published" },
+              { key: "failed", label: "Failed" },
+              { key: "partial", label: "Partial" },
+            ]} />
+
+          <FilterDropdown
+            label="All platforms" value={platformFilter2} onChange={setPlatformFilter2} width={200}
+            options={[
+              { key: "all", label: "All platforms" },
+              { key: "tiktok", label: "TikTok", icon: TikTokIcon, color: C.tiktok },
+              { key: "instagram", label: "Instagram", icon: Instagram, color: C.instagram },
+              { key: "facebook", label: "Facebook", icon: Facebook },
+              { key: "youtube", label: "YouTube", icon: Youtube },
+              { key: "linkedin", label: "LinkedIn", icon: Linkedin },
+            ]} />
+
+          <FilterDropdown
+            label="All profiles" value={profileFilter} onChange={setProfileFilter} searchable width={200}
+            options={[
+              { key: "all", label: "All profiles" },
+              ...profileOptions.map((p) => ({ key: p, label: p, dot: C.red })),
+            ]} />
+
+          <FilterDropdown
+            label="All users" value={userFilter} onChange={setUserFilter} width={180}
+            options={[
+              { key: "all", label: "All users" },
+              ...userOptions.map((u) => ({ key: u, label: u })),
+            ]} />
+
+          <FilterDropdown
+            label="All dates" value={dateFilter} onChange={setDateFilter} icon={Calendar} width={180}
+            options={[
+              { key: "all", label: "All dates" },
+              { key: "today", label: "Today" },
+              { key: "tomorrow", label: "Tomorrow" },
+              { key: "this_week", label: "This week" },
+              { key: "next_week", label: "Next week" },
+              { key: "this_month", label: "This month" },
+            ]} />
+
+          <div style={{ display: "flex", alignItems: "center", gap: 8, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 12px" }}>
             <Search size={14} color={C.dimmed} />
             <input type="text" placeholder="Search..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-              style={{ background: "transparent", border: "none", outline: "none", color: C.white, fontSize: 12, width: 120, fontFamily: "inherit" }} />
+              style={{ background: "transparent", border: "none", outline: "none", color: C.white, fontSize: 12.5, width: 110, fontFamily: "inherit" }} />
           </div>
-          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
-            <button onClick={() => { fetchAccounts(); fetchPosts(); }} style={{ width: 32, height: 32, borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+
+          {/* Rechte Seite: Sortierung, Ansicht, Spaltenanzahl */}
+          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
+            <button onClick={() => { fetchAccounts(); fetchPosts(); }} title="Aktualisieren" style={{ width: 34, height: 34, borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
               <RefreshCw size={14} color={C.muted} style={isLoading ? { animation: "spin 1s linear infinite" } : {}} />
             </button>
-            <MonthPicker selectedMonth={selectedMonth} selectedYear={selectedYear} onSelect={(m, y) => { setSelectedMonth(m); setSelectedYear(y); }} />
+
+            <FilterDropdown
+              label="Scheduled (new)" value={sortBy} onChange={setSortBy} icon={ArrowUpDown} width={330} align="right"
+              options={[
+                { key: "scheduled_desc", label: "Scheduled (newest first)" },
+                { key: "scheduled_asc", label: "Scheduled (oldest first)" },
+                { key: "created_desc", label: "Created (newest first)" },
+                { key: "created_asc", label: "Created (oldest first)" },
+                { key: "status", label: "Status" },
+                { key: "platform", label: "Platform" },
+                { key: "_div", label: "By metric · published only", divider: true },
+                { key: "engagement", label: "Most engagement (likes+comments+shares+saves)" },
+                { key: "likes", label: "Most likes" },
+                { key: "comments", label: "Most comments" },
+                { key: "shares", label: "Most shares" },
+                { key: "views", label: "Most views" },
+                { key: "impressions", label: "Most impressions" },
+                { key: "reach", label: "Most reach" },
+                { key: "saves", label: "Most saves" },
+                { key: "clicks", label: "Most clicks" },
+              ]} />
+
+            {/* Ansichts-Umschalter */}
+            <div style={{ display: "flex", background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 3, gap: 2 }}>
+              {[
+                { key: "grid", icon: LayoutGrid, title: "Kacheln" },
+                { key: "list", icon: List, title: "Liste" },
+                { key: "calendar", icon: Calendar, title: "Kalender" },
+              ].map((v) => (
+                <button key={v.key} onClick={() => v.key === "calendar" ? setActiveTab("calendar") : setViewMode(v.key)} title={v.title} style={{
+                  width: 30, height: 26, borderRadius: 6, border: "none", cursor: "pointer",
+                  background: viewMode === v.key ? C.cardHover : "transparent",
+                  color: viewMode === v.key ? C.white : C.dimmed,
+                  display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s",
+                }}>
+                  <v.icon size={14} />
+                </button>
+              ))}
+            </div>
+
+            {/* Spaltenanzahl */}
+            {viewMode === "grid" && (
+              <div style={{ display: "flex", alignItems: "center", background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 3, gap: 2 }}>
+                <button onClick={() => setGridCols(Math.max(2, gridCols - 1))} disabled={gridCols <= 2} style={{ width: 26, height: 26, borderRadius: 6, border: "none", background: "transparent", color: gridCols <= 2 ? C.border : C.dimmed, cursor: gridCols <= 2 ? "default" : "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <Minus size={13} />
+                </button>
+                <span style={{ fontSize: 12.5, color: C.muted, minWidth: 14, textAlign: "center", fontWeight: 600 }}>{gridCols}</span>
+                <button onClick={() => setGridCols(Math.min(6, gridCols + 1))} disabled={gridCols >= 6} style={{ width: 26, height: 26, borderRadius: 6, border: "none", background: "transparent", color: gridCols >= 6 ? C.border : C.dimmed, cursor: gridCols >= 6 ? "default" : "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <Plus size={13} />
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -3808,92 +4047,153 @@ export default function Dashboard() {
 
         {/* Post Count */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-          <div style={{ fontSize: 12, color: C.dimmed }}>{filtered.length > 0 ? `1–${filtered.length} of ${posts.length}` : "No posts"}</div>
+          <div style={{ fontSize: 12, color: C.dimmed }}>
+            {filtered.length > 0 ? `${pageStart + 1}–${Math.min(pageStart + PER_PAGE, filtered.length)} of ${filtered.length}` : "No posts"}
+          </div>
         </div>
 
-        {/* Zernio-style Post Card Grid (4 columns) */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 14 }}>
+        {/* ── Zernio-style Post Cards ── */}
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: viewMode === "list" ? "1fr" : `repeat(${gridCols}, minmax(0, 1fr))`,
+          gap: 14, alignItems: "start",
+        }}>
           {filtered.length === 0 && (
-            <div style={{ gridColumn: "1 / -1", padding: 40, textAlign: "center", color: C.dimmed, fontSize: 14 }}>Keine Beiträge für {MONTHS_DE[selectedMonth]} {selectedYear} gefunden.</div>
+            <div style={{ gridColumn: "1 / -1", padding: 40, textAlign: "center", color: C.dimmed, fontSize: 14 }}>Keine Beiträge gefunden.</div>
           )}
-          {filtered.map((post) => {
+          {paged.map((post) => {
             const postPlats = post.platforms || [post.platform || "instagram"];
             const primaryColor = postPlats.includes("instagram") ? C.instagram : C.tiktok;
             const isSelected = selectedPost?.id === post.id;
-            const statusConf = { published: { label: "published", color: C.green }, scheduled: { label: "scheduled", color: C.yellow }, draft: { label: "draft", color: C.dimmed }, failed: { label: "failed", color: C.redLight }, partial: { label: "partial", color: "#F59E0B" } };
+            const statusConf = {
+              published: { label: "published", color: C.green },
+              scheduled: { label: "scheduled", color: C.blue },
+              queued: { label: "queued", color: C.purple },
+              draft: { label: "draft", color: C.dimmed },
+              failed: { label: "failed", color: C.redLight },
+              partial: { label: "partial", color: C.yellow },
+            };
             const sc = statusConf[post.status] || statusConf.draft;
+            const pid = String(post.id);
+            const shortId = pid.length > 8 ? pid.substring(0, 7) + "…" : pid;
+
+            // Metriken – nur anzeigen, was tatsächlich Werte hat
+            const metrics = [
+              { key: "likes", icon: Heart, value: post.likes },
+              { key: "comments", icon: MessageCircle, value: post.comments },
+              { key: "shares", icon: Share2, value: post.shares },
+              { key: "views", icon: Eye, value: post.views },
+              { key: "reach", icon: UsersRound, value: post.reach },
+              { key: "saves", icon: Bookmark, value: post.saves },
+              { key: "clicks", icon: MousePointerClick, value: post.clicks },
+            ].filter((m) => m.value > 0);
+
+            const fmtNum = (n) => n >= 1000 ? (n / 1000).toFixed(1).replace(".0", "") + "K" : String(n);
+
             return (
               <div key={post.id}>
               {/* ── Card ── */}
               <div onClick={() => setSelectedPost(isSelected ? null : post)}
                 style={{
-                  background: C.card, borderRadius: 14, border: `1px solid ${isSelected ? primaryColor + "60" : C.border}`,
+                  background: C.card, borderRadius: 12, border: `1px solid ${isSelected ? primaryColor + "60" : C.border}`,
                   cursor: "pointer", transition: "all 0.2s", overflow: "hidden",
-                  borderBottom: isSelected ? "none" : undefined,
-                  borderBottomLeftRadius: isSelected ? 0 : 14, borderBottomRightRadius: isSelected ? 0 : 14,
+                  borderBottomLeftRadius: isSelected ? 0 : 12, borderBottomRightRadius: isSelected ? 0 : 12,
                 }}
-                onMouseOver={(e) => { if (!isSelected) { e.currentTarget.style.borderColor = primaryColor + "40"; e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = `0 8px 24px rgba(0,0,0,0.3)`; } }}
-                onMouseOut={(e) => { if (!isSelected) { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "none"; } }}>
+                onMouseOver={(e) => { if (!isSelected) { e.currentTarget.style.borderColor = C.dimmed + "60"; } }}
+                onMouseOut={(e) => { if (!isSelected) { e.currentTarget.style.borderColor = C.border; } }}>
 
-                {/* Thumbnail area */}
-                <div style={{ position: "relative", height: 160, background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
-                  {post.thumbnail ? (
-                    <img src={post.thumbnail} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                  ) : (
-                    <div style={{ width: "100%", height: "100%", background: `linear-gradient(135deg, ${C.card} 0%, ${C.bg} 100%)`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <FileVideo size={32} color={C.dimmed} />
+                {/* Kopfbereich: Text links, Thumbnail rechts */}
+                <div style={{ display: "flex", gap: 12, padding: 14 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    {/* Titel */}
+                    <div style={{ fontSize: 12.5, fontWeight: 500, color: C.white, lineHeight: 1.45, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", marginBottom: 10 }}>
+                      {post.title}
                     </div>
-                  )}
-                  {/* Play button overlay */}
-                  <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.15)" }}>
-                    <div style={{ width: 40, height: 40, borderRadius: "50%", background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <div style={{ width: 0, height: 0, borderTop: "8px solid transparent", borderBottom: "8px solid transparent", borderLeft: "14px solid #fff", marginLeft: 3 }} />
+
+                    {/* Plattform-Icons */}
+                    <div style={{ display: "flex", gap: 7, marginBottom: 9, alignItems: "center" }}>
+                      {postPlats.map((plat) => {
+                        const Icon = plat === "instagram" ? Instagram : plat === "tiktok" ? TikTokIcon : Globe;
+                        const ic = plat === "instagram" ? C.instagram : plat === "tiktok" ? C.tiktok : C.muted;
+                        const url = post.postUrls?.[plat];
+                        return (
+                          <div key={plat} style={{ position: "relative", display: "flex" }}>
+                            <Icon size={15} color={ic} />
+                            {url && <ExternalLink size={7} color={ic} style={{ position: "absolute", top: -2, right: -5 }} />}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Datum + Uhrzeit */}
+                    <div style={{ fontSize: 11.5, color: C.muted, marginBottom: 5 }}>
+                      {new Date(post.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                      {", "}
+                      {new Date(post.date).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true })}
+                      {" "}{post.timezone || "GMT+2"}
+                    </div>
+
+                    {/* User · Profil · Post-ID */}
+                    <div style={{ fontSize: 10.5, color: C.dimmed, display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap" }}>
+                      {post.createdBy && <span>{post.createdBy}</span>}
+                      {post.profile && (
+                        <>
+                          <span style={{ color: C.border }}>·</span>
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                            <span style={{ width: 6, height: 6, borderRadius: "50%", background: C.red, display: "inline-block" }} />
+                            {post.profile}
+                          </span>
+                        </>
+                      )}
+                      <span style={{ color: C.border }}>·</span>
+                      <span
+                        title={`Post ID: ${pid} (klicken zum Kopieren)`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigator.clipboard?.writeText(pid);
+                          setCopiedId(pid);
+                          setTimeout(() => setCopiedId(null), 1500);
+                        }}
+                        style={{ display: "inline-flex", alignItems: "center", gap: 4, fontFamily: "monospace", cursor: "pointer", color: copiedId === pid ? C.green : C.dimmed }}>
+                        {copiedId === pid ? "kopiert!" : shortId}
+                        {copiedId === pid ? <Check size={9} /> : <Copy size={9} />}
+                      </span>
                     </div>
                   </div>
-                  {/* Checkbox top-left */}
-                  <div onClick={(e) => { e.stopPropagation(); toggle(post.id); }}
-                    style={{ position: "absolute", top: 10, left: 10, width: 24, height: 24, borderRadius: 6, border: post.done ? "none" : `2px solid rgba(255,255,255,0.5)`, background: post.done ? C.red : "rgba(0,0,0,0.4)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", transition: "all 0.2s" }}>
-                    {post.done && <Check size={13} color="#fff" strokeWidth={3} />}
+
+                  {/* Thumbnail rechts */}
+                  <div style={{ position: "relative", width: 74, height: 92, flexShrink: 0, borderRadius: 8, overflow: "hidden", background: C.bg }}>
+                    {post.thumbnail ? (
+                      <img src={post.thumbnail} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    ) : (
+                      <div style={{ width: "100%", height: "100%", background: `linear-gradient(135deg, ${C.cardHover} 0%, ${C.bg} 100%)`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <FileVideo size={20} color={C.dimmed} />
+                      </div>
+                    )}
+                    {post.type === "Video" && (
+                      <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <div style={{ width: 26, height: 26, borderRadius: "50%", background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          <div style={{ width: 0, height: 0, borderTop: "5px solid transparent", borderBottom: "5px solid transparent", borderLeft: "8px solid #fff", marginLeft: 2 }} />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                {/* Card body */}
-                <div style={{ padding: "14px 16px" }}>
-                  {/* Title */}
-                  <div style={{ fontSize: 13, fontWeight: 700, color: C.white, lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", minHeight: 36, marginBottom: 8 }}>
-                    {post.title}
+                {/* Fußzeile: Status + Metriken */}
+                <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 14px", borderTop: `1px solid ${C.border}`, flexWrap: "wrap" }}>
+                  <div style={{ display: "inline-flex", alignItems: "center", fontSize: 10.5, fontWeight: 600, color: sc.color, background: sc.color + "18", padding: "3px 9px", borderRadius: 5 }}>
+                    {sc.label}
                   </div>
-
-                  {/* Platform icons */}
-                  <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
-                    {postPlats.map((plat) => {
-                      const Icon = plat === "instagram" ? Instagram : TikTokIcon;
-                      const ic = plat === "instagram" ? C.instagram : C.tiktok;
-                      return <Icon key={plat} size={16} color={ic} />;
-                    })}
-                  </div>
-
-                  {/* Date + meta */}
-                  <div style={{ fontSize: 11, color: C.muted, marginBottom: 6, lineHeight: 1.5 }}>
-                    {new Date(post.date).toLocaleDateString("de-DE", { month: "short", day: "numeric", year: "numeric" })}{", "}{new Date(post.date).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })} {post.timezone || "GMT+1"}
-                  </div>
-                  <div style={{ fontSize: 10, color: C.dimmed, marginBottom: 12, display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-                    {post.createdBy && <span>{post.createdBy}</span>}
-                    {post.type && <><span style={{ color: C.border }}>·</span><span style={{ color: primaryColor }}>{post.type}</span></>}
-                    <span style={{ color: C.border }}>·</span>
-                    <span style={{ fontFamily: "monospace", fontSize: 9 }}>{String(post.id).substring(0, 7)}...</span>
-                  </div>
-
-                  {/* Status badge + menu */}
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <div style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 700, color: sc.color, background: sc.color + "15", padding: "4px 12px", borderRadius: 6, border: `1px solid ${sc.color}30` }}>
-                      <div style={{ width: 6, height: 6, borderRadius: "50%", background: sc.color, ...(post.status === "published" ? { animation: "livePulse 2s ease-in-out infinite" } : {}) }} />
-                      {sc.label}
+                  {metrics.map((m) => (
+                    <div key={m.key} title={m.key} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, color: C.muted }}>
+                      <m.icon size={11} />
+                      {fmtNum(m.value)}
                     </div>
-                    <div style={{ width: 28, height: 28, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: C.dimmed, fontSize: 18, letterSpacing: 1 }}
-                      onClick={(e) => { e.stopPropagation(); setSelectedPost(isSelected ? null : post); }}>
-                      ⋮
-                    </div>
+                  ))}
+                  <div style={{ marginLeft: "auto", width: 22, height: 22, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: C.dimmed, fontSize: 15, letterSpacing: 1 }}
+                    onClick={(e) => { e.stopPropagation(); setSelectedPost(isSelected ? null : post); }}>
+                    ⋮
                   </div>
                 </div>
               </div>
@@ -3992,6 +4292,40 @@ export default function Dashboard() {
             );
           })}
         </div>
+
+        {/* ── Pagination ── */}
+        {totalPages > 1 && (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 4, marginTop: 24 }}>
+            <button onClick={() => setPage(Math.max(1, safePage - 1))} disabled={safePage === 1} style={{
+              width: 30, height: 30, borderRadius: 7, background: "transparent", border: `1px solid ${C.border}`,
+              color: safePage === 1 ? C.border : C.muted, cursor: safePage === 1 ? "default" : "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              <ChevronLeft size={14} />
+            </button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1)
+              .filter((n) => n === 1 || n === totalPages || Math.abs(n - safePage) <= 2)
+              .map((n, idx, arr) => (
+                <React.Fragment key={n}>
+                  {idx > 0 && arr[idx - 1] !== n - 1 && <span style={{ color: C.dimmed, padding: "0 3px", fontSize: 12 }}>…</span>}
+                  <button onClick={() => setPage(n)} style={{
+                    minWidth: 30, height: 30, padding: "0 8px", borderRadius: 7,
+                    background: n === safePage ? C.cardHover : "transparent",
+                    border: `1px solid ${n === safePage ? C.dimmed + "60" : C.border}`,
+                    color: n === safePage ? C.white : C.muted, fontSize: 12.5,
+                    fontWeight: n === safePage ? 700 : 500, cursor: "pointer", fontFamily: "inherit",
+                  }}>{n}</button>
+                </React.Fragment>
+              ))}
+            <button onClick={() => setPage(Math.min(totalPages, safePage + 1))} disabled={safePage === totalPages} style={{
+              width: 30, height: 30, borderRadius: 7, background: "transparent", border: `1px solid ${C.border}`,
+              color: safePage === totalPages ? C.border : C.muted, cursor: safePage === totalPages ? "default" : "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              <ChevronRight size={14} />
+            </button>
+          </div>
+        )}
 
         {!isConnected && (
           <div style={{ marginTop: 32, padding: 24, background: C.card, borderRadius: 16, border: `1px solid ${C.border}`, display: "flex", gap: 16, alignItems: "flex-start" }}>
