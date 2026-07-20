@@ -429,6 +429,10 @@ function PostDetailPanel({ post, onClose, isConnected, onHide, onDeleteRemote })
   const sum = (k) => plats.reduce((a, p) => a + (p.analytics?.[k] || 0), 0);
   // Engagement Rate = (Likes + Kommentare + Shares + Saves) / Impressions
   const er = (a) => {
+    // Zernio liefert engagementRate direkt mit – sonst selbst rechnen
+    if (typeof a?.engagementRate === "number" && a.engagementRate > 0) {
+      return a.engagementRate.toFixed(2) + "%";
+    }
     const base = a?.impressions || a?.views || 0;
     if (!base) return null;
     const eng = (a.likes || 0) + (a.comments || 0) + (a.shares || 0) + (a.saves || 0);
@@ -3260,102 +3264,76 @@ export default function Dashboard() {
   const showNotif = (text, color) => { setNotification({ text, color }); setTimeout(() => setNotification(null), 5000); };
 
   // ── Post-Analytics nachladen ───────────────────────────────
-  // Zernios /posts-Liste enthält keine Kennzahlen – die holen wir
-  // gebündelt über /analytics/{postId} nach und mergen sie in die Posts.
-  const METRIC_KEYS = ["likes", "comments", "shares", "saves", "clicks", "views", "follows", "impressions", "reach"];
-
-  // Findet Kennzahlen egal wie tief bzw. unter welchem Namen sie stecken
-  const readMetrics = (obj) => {
-    if (!obj || typeof obj !== "object") return null;
-    const alias = {
-      likes: ["likes", "likeCount", "favorites"],
-      comments: ["comments", "commentCount", "replies"],
-      shares: ["shares", "shareCount", "reposts"],
-      saves: ["saves", "saveCount", "bookmarks"],
-      clicks: ["clicks", "clickCount", "linkClicks"],
-      views: ["views", "viewCount", "videoViews", "plays"],
-      follows: ["follows", "newFollowers", "followers", "followerCount"],
-      impressions: ["impressions", "impressionCount"],
-      reach: ["reach", "reachCount", "uniqueViews"],
-    };
-    const out = {};
-    let found = false;
-    for (const key of METRIC_KEYS) {
-      for (const a of alias[key]) {
-        const v = obj[a];
-        if (typeof v === "number" && !Number.isNaN(v)) { out[key] = v; if (v > 0) found = true; break; }
-      }
-      if (out[key] === undefined) out[key] = 0;
-    }
-    return found ? out : null;
-  };
-
-  // Normalisiert die /analytics/{id}-Antwort in { totals, perPlatform }
-  const normalizeAnalytics = (raw) => {
-    if (!raw) return null;
-    const root = raw._raw || raw.data || raw.analytics || raw;
-    const perPlatform = {};
-
-    // Variante A: Array bzw. Objekt mit Plattform-Aufschlüsselung
-    const list = Array.isArray(root) ? root
-      : Array.isArray(root.platforms) ? root.platforms
-      : Array.isArray(root.breakdown) ? root.breakdown
-      : Array.isArray(root.results) ? root.results : null;
-
-    if (list) {
-      for (const entry of list) {
-        const name = entry.platform || entry.platformName || entry.name;
-        const m = readMetrics(entry.analytics || entry.metrics || entry.stats || entry);
-        if (name && m) perPlatform[String(name).toLowerCase()] = m;
-      }
-    } else if (root.platforms && typeof root.platforms === "object") {
-      // Variante B: { platforms: { instagram: {...}, tiktok: {...} } }
-      for (const [name, val] of Object.entries(root.platforms)) {
-        const m = readMetrics(val?.analytics || val?.metrics || val);
-        if (m) perPlatform[name.toLowerCase()] = m;
-      }
-    }
-
-    // Totals: entweder direkt vorhanden oder aus den Plattformen summiert
-    let totals = readMetrics(root.totals || root.total || root.summary || root);
-    if (!totals && Object.keys(perPlatform).length > 0) {
-      totals = Object.fromEntries(METRIC_KEYS.map((k) => [k, Object.values(perPlatform).reduce((a, m) => a + (m[k] || 0), 0)]));
-    }
-    if (!totals && Object.keys(perPlatform).length === 0) return null;
-    return { totals: totals || {}, perPlatform };
-  };
-
-  const fetchPostAnalytics = useCallback(async (postList) => {
-    const ids = postList.filter((p) => p.status === "published" || p.status === "partial").map((p) => p.id);
-    if (ids.length === 0) return;
+  // Zernios /posts-Liste enthaelt keine Kennzahlen. GET /analytics
+  // liefert dagegen eine Liste, in der jeder Eintrag bereits
+  // analytics + platformAnalytics mitbringt (siehe Zernio API-Doku).
+  const fetchPostAnalytics = useCallback(async () => {
     try {
-      const res = await fetch("/api/late", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "posts-analytics", postIds: ids }),
-      });
+      const res = await fetch("/api/late?action=posts-analytics");
       const data = await res.json();
-      const map = data.analytics || {};
+      const items = data.posts || [];
+      if (items.length === 0) return;
+
+      // Nach Post-ID indizieren – Zernio nutzt postId bzw. latePostId
+      const byId = {};
+      for (const it of items) {
+        for (const key of [it.postId, it.latePostId, it._id, it.id]) {
+          if (key) byId[String(key)] = it;
+        }
+      }
+
+      const zero = { impressions: 0, reach: 0, likes: 0, comments: 0, shares: 0, saves: 0, clicks: 0, views: 0, follows: 0 };
+
       setPosts((prev) => prev.map((p) => {
-        const norm = normalizeAnalytics(map[p.id]);
-        if (!norm) return p;
-        const t = norm.totals;
+        const hit = byId[String(p.id)];
+        if (!hit) return p;
+        const a = { ...zero, ...(hit.analytics || {}) };
+
+        // Kennzahlen je Plattform aus platformAnalytics uebernehmen
+        const perPlat = {};
+        for (const pa of hit.platformAnalytics || []) {
+          if (!pa.platform) continue;
+          perPlat[String(pa.platform).toLowerCase()] = {
+            ...zero,
+            ...(pa.analytics || {}),
+            _status: pa.status,
+            _url: pa.platformPostUrl,
+            _username: pa.accountUsername,
+          };
+        }
+
+        const existing = p.platformDetails || [];
+        const merged = Object.keys(perPlat).length > 0
+          ? Object.entries(perPlat).map(([name, m]) => {
+              const old = existing.find((d) => d.platform === name) || {};
+              return {
+                platform: name,
+                status: m._status || old.status || p.status,
+                publishedAt: old.publishedAt || hit.publishedAt,
+                url: m._url || old.url,
+                username: m._username,
+                analytics: m,
+              };
+            })
+          : existing;
+
         return {
           ...p,
-          likes: t.likes ?? p.likes, comments: t.comments ?? p.comments,
-          shares: t.shares ?? p.shares, saves: t.saves ?? p.saves,
-          clicks: t.clicks ?? p.clicks, views: t.views ?? p.views,
-          impressions: t.impressions ?? p.impressions, reach: t.reach ?? p.reach,
-          follows: t.follows ?? 0,
-          platformDetails: (p.platformDetails || []).map((pd) => ({
-            ...pd,
-            analytics: norm.perPlatform[pd.platform] || pd.analytics,
-          })),
+          likes: a.likes, comments: a.comments, shares: a.shares,
+          saves: a.saves, clicks: a.clicks, views: a.views,
+          impressions: a.impressions, reach: a.reach, follows: a.follows,
+          engagementRate: hit.analytics?.engagementRate,
+          analyticsUpdatedAt: hit.analytics?.lastUpdated,
+          publishedAt: p.publishedAt || hit.publishedAt,
+          thumbnail: p.thumbnail || hit.thumbnailUrl,
+          platformDetails: merged,
         };
       }));
     } catch (err) {
       console.error("Post-Analytics konnten nicht geladen werden:", err);
     }
   }, []);
+
 
   // ── Analytics State ────────────────────────────────────────
   const [analyticsData, setAnalyticsData] = useState({ daily: null, bestTime: null, decay: null, frequency: null });
@@ -3544,7 +3522,7 @@ export default function Dashboard() {
         const mapped = postsList.map(mapPost).filter((p) => !hidden.includes(p.id));
         setPosts(mapped);
         // Kennzahlen im Hintergrund nachladen
-        fetchPostAnalytics(mapped);
+        fetchPostAnalytics();
       }
     } catch {
       setIsConnected(false);

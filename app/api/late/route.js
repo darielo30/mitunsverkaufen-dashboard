@@ -79,13 +79,46 @@ export async function GET(request) {
     }
 
     // Fetch analytics for a specific post
+    // Wichtig: Zernio erwartet ?postId=… – NICHT /analytics/{id}
     if (action === "post-analytics") {
       const postId = searchParams.get("postId");
-      const res = await fetch(`${BASE}/analytics/${postId}`, {
+      if (!postId) return Response.json({ error: "postId required" }, { status: 400 });
+      const res = await fetch(`${BASE}/analytics?postId=${encodeURIComponent(postId)}`, {
         headers: authHeaders(),
       });
-      const data = await res.json();
-      return Response.json(data);
+      const rawText = await res.text();
+      let data;
+      try { data = JSON.parse(rawText); } catch { return Response.json({ error: rawText.substring(0, 300) }, { status: 500 }); }
+      return Response.json({ _raw: data, _status: res.status, _ok: res.ok });
+    }
+
+    // ── Kennzahlen für ALLE Posts auf einmal ────────────────
+    // GET /analytics ohne postId liefert eine paginierte Liste, in der
+    // jeder Eintrag bereits analytics + platformAnalytics enthält.
+    if (action === "posts-analytics") {
+      const fromDate = searchParams.get("fromDate")
+        || new Date(Date.now() - 365 * 86400000).toISOString().split("T")[0];
+      const toDate = searchParams.get("toDate") || new Date().toISOString().split("T")[0];
+
+      const collected = [];
+      let lastStatus = 200;
+      // Bis zu 5 Seiten à 100 Einträge einsammeln
+      for (let page = 1; page <= 5; page++) {
+        const params = new URLSearchParams({ limit: "100", page: String(page), fromDate, toDate });
+        const res = await fetch(`${BASE}/analytics?${params}`, { headers: authHeaders() });
+        lastStatus = res.status;
+        if (!res.ok) break;
+        const text = await res.text();
+        let data;
+        try { data = JSON.parse(text); } catch { break; }
+
+        const items = Array.isArray(data) ? data
+          : data.posts || data.data || data.results || [];
+        collected.push(...items);
+        if (items.length < 100) break;
+      }
+
+      return Response.json({ posts: collected, _count: collected.length, _status: lastStatus });
     }
 
     // ── Advanced Analytics Endpoints ─────────────────────────
@@ -318,25 +351,6 @@ export async function POST(request) {
       });
       const data = await res.json();
       return Response.json(data);
-    }
-
-    // ── Analytics für mehrere Posts auf einmal ──────────────
-    // Die /posts-Liste liefert keine Kennzahlen, deshalb holen wir sie
-    // hier gebündelt und parallel nach.
-    if (action === "posts-analytics") {
-      const ids = Array.isArray(body.postIds) ? body.postIds.slice(0, 60) : [];
-      if (ids.length === 0) return Response.json({ analytics: {} });
-
-      const entries = await Promise.all(ids.map(async (id) => {
-        try {
-          const res = await fetch(`${BASE}/analytics/${id}`, { headers: authHeaders() });
-          if (!res.ok) return [id, null];
-          const text = await res.text();
-          try { return [id, JSON.parse(text)]; } catch { return [id, null]; }
-        } catch { return [id, null]; }
-      }));
-
-      return Response.json({ analytics: Object.fromEntries(entries) });
     }
 
     // ── Delete a post ───────────────────────────────────────
