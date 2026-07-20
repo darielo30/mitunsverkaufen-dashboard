@@ -533,7 +533,7 @@ function CreatePostModal({ onClose, onSubmit, isSubmitting, accounts, initialDat
 
   // ── Submit-Voraussetzungen ────────────────────────────────────
   const selectedPlatformKeys = Object.entries(platforms).filter(([, v]) => v).map(([k]) => k);
-  const isUploading = mediaFiles.some((f) => f.uploading);
+  const mediaUploading = isUploading || mediaFiles.some((f) => f.uploading);
   const readyMedia = mediaFiles.filter((f) => f.url && f.url !== "local");
   const hasMedia = readyMedia.length > 0;
 
@@ -541,7 +541,7 @@ function CreatePostModal({ onClose, onSubmit, isSubmitting, accounts, initialDat
   if (isSubmitting) blockReason = null;
   else if (!content.trim()) blockReason = "Caption fehlt";
   else if (selectedPlatformKeys.length === 0) blockReason = "Keine Plattform ausgewählt";
-  else if (isUploading) blockReason = "Video wird noch hochgeladen…";
+  else if (mediaUploading) blockReason = "Video wird noch hochgeladen…";
   else if (!hasMedia) blockReason = "Video oder Bild erforderlich";
   else if (!postNow && (!scheduleDate || !scheduleTime)) blockReason = "Datum & Uhrzeit fehlen";
 
@@ -966,8 +966,8 @@ function CreatePostModal({ onClose, onSubmit, isSubmitting, accounts, initialDat
         {/* Footer */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 10, padding: "16px 24px", borderTop: `1px solid ${C.border}`, flexShrink: 0 }}>
           {blockReason && (
-            <div style={{ display: "flex", alignItems: "center", gap: 6, marginRight: "auto", fontSize: 12, color: isUploading ? C.muted : C.dimmed }}>
-              {isUploading
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginRight: "auto", fontSize: 12, color: mediaUploading ? C.muted : C.dimmed }}>
+              {mediaUploading
                 ? <Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} />
                 : <AlertCircle size={13} />}
               {blockReason}
