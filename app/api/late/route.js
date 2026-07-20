@@ -96,6 +96,40 @@ export async function GET(request) {
     // GET /analytics ohne postId liefert eine paginierte Liste, in der
     // jeder Eintrag bereits analytics + platformAnalytics enthält.
     if (action === "posts-analytics") {
+      // Bevorzugter Weg: Einzelabfrage je Post.
+      // Nur dort löst Zernio eine Zernio-Post-ID automatisch auf die
+      // zugehörigen External-Post-Analytics auf. Die Listenabfrage
+      // liefert stattdessen externe Einträge mit fremden IDs.
+      const idParam = searchParams.get("postIds");
+      if (idParam) {
+        const ids = idParam.split(",").map((s) => s.trim()).filter(Boolean).slice(0, 50);
+
+        const results = await Promise.all(ids.map(async (id) => {
+          try {
+            const res = await fetch(`${BASE}/analytics?postId=${encodeURIComponent(id)}`, { headers: authHeaders() });
+            const text = await res.text();
+            let d;
+            try { d = JSON.parse(text); } catch {
+              return { _requestedId: id, _error: { status: res.status, body: text.substring(0, 200) } };
+            }
+            // 202 = Sync läuft noch, 424 = alle Plattformen fehlgeschlagen
+            if (!res.ok && res.status !== 202) {
+              return { _requestedId: id, _error: { status: res.status, body: d } };
+            }
+            return { ...d, _requestedId: id, _httpStatus: res.status };
+          } catch (e) {
+            return { _requestedId: id, _error: { message: e.message } };
+          }
+        }));
+
+        return Response.json({
+          posts: results,
+          _count: results.length,
+          _mode: "byId",
+          _withAnalytics: results.filter((r) => r.analytics).length,
+        });
+      }
+
       const fromDate = searchParams.get("fromDate")
         || new Date(Date.now() - 365 * 86400000).toISOString().split("T")[0];
       const toDate = searchParams.get("toDate") || new Date().toISOString().split("T")[0];

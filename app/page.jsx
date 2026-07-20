@@ -3399,32 +3399,40 @@ export default function Dashboard() {
   // Zernios /posts-Liste enthaelt keine Kennzahlen. GET /analytics
   // liefert dagegen eine Liste, in der jeder Eintrag bereits
   // analytics + platformAnalytics mitbringt (siehe Zernio API-Doku).
-  const fetchPostAnalytics = useCallback(async () => {
+  const fetchPostAnalytics = useCallback(async (postList) => {
     try {
-      const res = await fetch("/api/late?action=posts-analytics");
+      const ids = (postList || []).map((p) => p.id).filter(Boolean);
+      if (ids.length === 0) return;
+
+      const res = await fetch(`/api/late?action=posts-analytics&postIds=${encodeURIComponent(ids.join(","))}`);
       const data = await res.json();
       const items = data.posts || [];
 
-      // Diagnose in der Konsole – zeigt sofort, woran es hakt
-      console.log("[Analytics]", { count: data._count, status: data._status, keys: data._keys, error: data._error, sample: items[0] });
+      console.log("[Analytics]", { mode: data._mode, count: data._count, withAnalytics: data._withAnalytics, sample: items[0] });
 
-      if (items.length === 0) {
-        const e = data._error;
-        if (e?.status === 402) {
-          addErrorLog({ action: "Analytics laden", error: "Zernio Analytics-Add-on nicht aktiv (HTTP 402)", response: e });
-        } else if (e) {
-          addErrorLog({ action: "Analytics laden", error: `Zernio Analytics HTTP ${e.status}`, response: e });
-        }
-        return;
+      if (items.length === 0) return;
+
+      const failed = items.filter((it) => it._error);
+      if (failed.length > 0) {
+        const first = failed[0]._error;
+        addErrorLog({
+          action: "Analytics laden",
+          error: first?.status === 402
+            ? "Zernio Analytics-Add-on nicht aktiv (HTTP 402)"
+            : `Analytics fuer ${failed.length} Beitrag/Beitraege fehlgeschlagen (HTTP ${first?.status || "?"})`,
+          response: failed.slice(0, 3),
+        });
       }
 
-      // Tages-Snapshot sichern, damit über die Zeit Trendlinien entstehen
-      saveAnalyticsSnapshots(items);
+      const ok = items.filter((it) => !it._error && it.analytics);
 
-      // Nach Post-ID indizieren – Zernio nutzt postId bzw. latePostId
+      // Tages-Snapshot sichern, damit ueber die Zeit Trendlinien entstehen
+      saveAnalyticsSnapshots(ok.map((it) => ({ ...it, postId: it._requestedId || it.postId })));
+
+      // Zuordnung ueber die angefragte ID plus alle IDs aus der Antwort
       const byId = {};
-      for (const it of items) {
-        for (const key of [it.postId, it.latePostId, it._id, it.id]) {
+      for (const it of ok) {
+        for (const key of [it._requestedId, it.postId, it.latePostId, it._id, it.id]) {
           if (key) byId[String(key)] = it;
         }
       }
@@ -3669,7 +3677,7 @@ export default function Dashboard() {
         const mapped = postsList.map(mapPost).filter((p) => !hidden.includes(p.id));
         setPosts(mapped);
         // Kennzahlen im Hintergrund nachladen
-        fetchPostAnalytics();
+        fetchPostAnalytics(mapped);
       }
     } catch {
       setIsConnected(false);
