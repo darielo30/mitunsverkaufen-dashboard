@@ -102,23 +102,59 @@ export async function GET(request) {
 
       const collected = [];
       let lastStatus = 200;
+      let apiError = null;
+      let firstPayloadKeys = null;
+
       // Bis zu 5 Seiten à 100 Einträge einsammeln
       for (let page = 1; page <= 5; page++) {
         const params = new URLSearchParams({ limit: "100", page: String(page), fromDate, toDate });
-        const res = await fetch(`${BASE}/analytics?${params}`, { headers: authHeaders() });
+        const url = `${BASE}/analytics?${params}`;
+        const res = await fetch(url, { headers: authHeaders() });
         lastStatus = res.status;
-        if (!res.ok) break;
         const text = await res.text();
-        let data;
-        try { data = JSON.parse(text); } catch { break; }
 
-        const items = Array.isArray(data) ? data
-          : data.posts || data.data || data.results || [];
+        let data;
+        try { data = JSON.parse(text); } catch {
+          apiError = { stage: "parse", status: res.status, body: text.substring(0, 400), url };
+          break;
+        }
+
+        if (!res.ok) {
+          apiError = { stage: "http", status: res.status, body: data, url };
+          break;
+        }
+
+        // Antwortformat tolerant auslesen – erste Array-Eigenschaft gewinnt
+        let items = Array.isArray(data) ? data
+          : data.posts || data.data || data.results || data.items || data.analytics || null;
+        if (!Array.isArray(items) && data && typeof data === "object") {
+          const arrKey = Object.keys(data).find((k) => Array.isArray(data[k]));
+          items = arrKey ? data[arrKey] : [];
+        }
+        if (!Array.isArray(items)) items = [];
+
+        // Beim ersten Durchlauf die Top-Level-Keys mitgeben – hilft,
+        // ein unerwartetes Antwortformat sofort zu erkennen.
+        if (page === 1) {
+          firstPayloadKeys = Array.isArray(data) ? ["<array>"] : Object.keys(data);
+          if (!Array.isArray(items) || items.length === 0) {
+            apiError = apiError || { stage: "empty", status: res.status, keys: firstPayloadKeys, sample: JSON.stringify(data).substring(0, 400) };
+          }
+        }
+
+        if (!Array.isArray(items)) break;
         collected.push(...items);
         if (items.length < 100) break;
       }
 
-      return Response.json({ posts: collected, _count: collected.length, _status: lastStatus });
+      return Response.json({
+        posts: collected,
+        _count: collected.length,
+        _status: lastStatus,
+        _keys: firstPayloadKeys,
+        _error: apiError,
+        _range: { fromDate, toDate },
+      });
     }
 
     // ── Advanced Analytics Endpoints ─────────────────────────

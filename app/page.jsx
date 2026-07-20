@@ -3404,7 +3404,19 @@ export default function Dashboard() {
       const res = await fetch("/api/late?action=posts-analytics");
       const data = await res.json();
       const items = data.posts || [];
-      if (items.length === 0) return;
+
+      // Diagnose in der Konsole – zeigt sofort, woran es hakt
+      console.log("[Analytics]", { count: data._count, status: data._status, keys: data._keys, error: data._error, sample: items[0] });
+
+      if (items.length === 0) {
+        const e = data._error;
+        if (e?.status === 402) {
+          addErrorLog({ action: "Analytics laden", error: "Zernio Analytics-Add-on nicht aktiv (HTTP 402)", response: e });
+        } else if (e) {
+          addErrorLog({ action: "Analytics laden", error: `Zernio Analytics HTTP ${e.status}`, response: e });
+        }
+        return;
+      }
 
       // Tages-Snapshot sichern, damit über die Zeit Trendlinien entstehen
       saveAnalyticsSnapshots(items);
