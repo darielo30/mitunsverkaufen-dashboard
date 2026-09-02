@@ -74,7 +74,7 @@ const SPACE = {
   none: 0, xxs: 2, xs: 4, sm: 6, md: 8, lg: 10, xl: 12, xxl: 16, xxxl: 20,
 };
 const RADIUS = {
-  sm: 4, md: 6, lg: 8, xl: 10, xxl: 12, xxxl: 14, pill: 10, shell: 16,
+  sm: 4, md: 6, lg: 8, xl: 10, xxl: 16, xxxl: 18, pill: 10, shell: 22,
 };
 
 // ── TikTok Icon (original logo style, outline) ─────────────────
@@ -3402,6 +3402,11 @@ export default function Dashboard() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [accounts, setAccounts] = useState([]);
   const [activeTab, setActiveTab] = useState("home");
+  // The framed app shell scrolls internally (see .app-main in layout.jsx)
+  // instead of the page/window, so tab and pagination changes need to reset
+  // this element's scroll position directly rather than window.scrollTo.
+  const mainScrollRef = useRef(null);
+  useEffect(() => { mainScrollRef.current?.scrollTo({ top: 0, behavior: "auto" }); }, [activeTab]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [notifications, setNotifications] = useState(demoNotifications);
   const [debugInfo, setDebugInfo] = useState(null);
@@ -3886,7 +3891,7 @@ export default function Dashboard() {
 
   // Nach Seitenwechsel an den Anfang der Liste scrollen
   useEffect(() => {
-    if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+    mainScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   }, [page]);
 
   // Kennzahlen fuer die aktuell sichtbare Seite nachladen
@@ -3915,10 +3920,18 @@ export default function Dashboard() {
       + `radial-gradient(900px 500px at 100% 0%, rgba(139,92,246,0.08), transparent 55%),`
       + `radial-gradient(800px 520px at 45% 115%, rgba(249,115,22,0.05), transparent 60%)`
     : "none";
+  // Page backdrop behind the floating shell — deliberately darker/lighter
+  // than the shell's own C.bg so the frame reads as a distinct surface
+  // (only visible >=1024px; below that the shell fills the page exactly).
+  const pageBg = isDarkMode ? "#020304" : "#d8dbe2";
 
   return (
-    <div data-theme={isDarkMode ? "dark" : "light"} style={{ minHeight: "100vh", backgroundImage: atmosphere, backgroundColor: C.bg, backgroundAttachment: "fixed", color: C.white, display: "flex" }}>
+    <div data-theme={isDarkMode ? "dark" : "light"} style={{ minHeight: "100vh", background: pageBg, display: "flex", justifyContent: "center" }}>
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } } @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } } @keyframes livePulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(1.3); } }`}</style>
+
+      {/* Framed app shell — floats as one rounded card on desktop (see
+          layout.jsx), collapses to a plain full-bleed page under 1024px. */}
+      <div className="app-shell" style={{ width: "100%", backgroundImage: atmosphere, backgroundColor: C.bg, color: C.white, display: "flex" }}>
 
       {/* Sidebar */}
       <Sidebar activeTab={activeTab} onTabChange={setActiveTab} unreadCount={unreadCount} errorCount={errorLog.length} isDarkMode={isDarkMode} onToggleTheme={toggleTheme} isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
@@ -3938,7 +3951,7 @@ export default function Dashboard() {
       </button>
 
       {/* Main Content */}
-      <div className="app-main" style={{ flex: 1, marginLeft: 220 }}>
+      <div className="app-main" ref={mainScrollRef} style={{ flex: 1 }}>
 
       {notification && (
         <div style={{ position: "fixed", top: 20, right: 20, zIndex: 200, background: C.card, border: `1px solid ${notification.color === "green" ? C.green : notification.color === "red" ? C.redLight : C.yellow}`, borderRadius: RADIUS.xxl, padding: `${SPACE.xl}px ${SPACE.xxxl}px`, display: "flex", alignItems: "center", gap: SPACE.lg, boxShadow: "0 8px 32px rgba(0,0,0,0.4)", maxWidth: 480 }}>
@@ -5139,6 +5152,8 @@ export default function Dashboard() {
           }}
         />
       )}
+      </div>
+      {/* End of app-shell */}
     </div>
   );
 }
