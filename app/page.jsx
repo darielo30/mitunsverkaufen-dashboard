@@ -21,20 +21,32 @@ import {
 // `accent` = primary brand/CTA color. `red` = errors/destructive actions only.
 // Keeping these separate avoids the primary "Create post" button reading as a
 // danger/error signal (see design critique: semantic color collision).
+//
+// Dark-glass redesign (glass-dark-ui system): slate-toned near-black base
+// instead of neutral gray, translucent hairline borders, and a dedicated
+// `glass`/`glassHover`/`glassBorder` trio used together with the `.glass-panel`
+// / `.glass-border` CSS classes (see layout.jsx) on the large hero surfaces —
+// sidebar, KPI tiles, post cards, modals. Small dense chrome (badges, table
+// rows, dropdown items) stays on the solid `card`/`cardHover` tones so text
+// never sits on stacked translucency.
 const darkTheme = {
-  bg: "#121212", bgSoft: "#151515", card: "#171717", cardHover: "#1E1E1E",
-  border: "#2A2A2A",
+  bg: "#07090d", bgSoft: "#0b0e15", card: "#12151d", cardHover: "#181c26",
+  border: "rgba(255,255,255,0.08)",
+  glass: "rgba(255,255,255,0.045)", glassHover: "rgba(255,255,255,0.075)", glassBorder: "rgba(255,255,255,0.10)",
+  glassStrong: "rgba(15,17,24,0.82)",
   accent: "#F97316", accentGlow: "rgba(249,115,22,0.14)", accentLight: "#FB923C",
   red: "#DC2626", redGlow: "rgba(220,38,38,0.12)",
   redLight: "#EF4444", green: "#22C55E", greenGlow: "rgba(34,197,94,0.12)",
   blue: "#3B82F6", blueGlow: "rgba(59,130,246,0.12)", purple: "#8B5CF6",
   purpleGlow: "rgba(139,92,246,0.12)", yellow: "#EAB308",
-  yellowGlow: "rgba(234,179,8,0.12)", white: "#F9FAFB", muted: "#8B8FA3",
-  dimmed: "#6B7280", instagram: "#E1306C", tiktok: "#00F2EA",
+  yellowGlow: "rgba(234,179,8,0.12)", white: "#F5F7FA", muted: "#94A3B8",
+  dimmed: "#64748B", instagram: "#E1306C", tiktok: "#00F2EA",
 };
 const lightTheme = {
   bg: "#F3F4F6", bgSoft: "#E5E7EB", card: "#FFFFFF", cardHover: "#F9FAFB",
   border: "#D1D5DB",
+  glass: "rgba(255,255,255,0.6)", glassHover: "rgba(255,255,255,0.8)", glassBorder: "rgba(15,23,42,0.08)",
+  glassStrong: "rgba(255,255,255,0.9)",
   accent: "#EA580C", accentGlow: "rgba(234,88,12,0.10)", accentLight: "#F97316",
   red: "#DC2626", redGlow: "rgba(220,38,38,0.08)",
   redLight: "#EF4444", green: "#16A34A", greenGlow: "rgba(22,163,74,0.08)",
@@ -56,7 +68,7 @@ const SPACE = {
   none: 0, xxs: 2, xs: 4, sm: 6, md: 8, lg: 10, xl: 12, xxl: 16, xxxl: 20,
 };
 const RADIUS = {
-  sm: 4, md: 6, lg: 8, xl: 10, xxl: 12, xxxl: 14, pill: 20,
+  sm: 4, md: 6, lg: 8, xl: 10, xxl: 12, xxxl: 14, pill: 20, shell: 22,
 };
 
 // ── TikTok Icon (original logo style, outline) ─────────────────
@@ -592,10 +604,10 @@ function PostDetailPanel({ post, onClose, isConnected, onHide, onDeleteRemote })
       backdropFilter: visible ? "blur(4px)" : "none",
       transition: "background 0.3s, backdrop-filter 0.3s",
     }}>
-      <div onClick={(e) => e.stopPropagation()} style={{
+      <div className="glass-panel" onClick={(e) => e.stopPropagation()} style={{
         position: "absolute", top: 0, right: 0, bottom: 0,
         width: "50vw", minWidth: 520, maxWidth: 760,
-        background: C.card, borderLeft: `1px solid ${C.border}`,
+        background: C.glassStrong, borderLeft: `1px solid ${C.glassBorder}`,
         boxShadow: "-8px 0 40px rgba(0,0,0,0.5)",
         display: "flex", flexDirection: "column",
         transform: visible ? "translateX(0)" : "translateX(100%)",
@@ -1052,9 +1064,9 @@ function CreatePostModal({ onClose, onSubmit, isSubmitting, accounts, initialDat
 
   return (
     <div style={{ position: "fixed", inset: 0, background: panelVisible ? "rgba(0,0,0,0.5)" : "transparent", backdropFilter: panelVisible ? "blur(4px)" : "none", zIndex: 100, transition: "background 0.3s, backdrop-filter 0.3s" }} onClick={handleClose}>
-      <div style={{
+      <div className="glass-panel" style={{
         position: "absolute", top: 0, right: 0, bottom: 0, width: "50vw", minWidth: 520, maxWidth: 720,
-        background: C.card, borderLeft: `1px solid ${C.border}`, boxShadow: "-8px 0 40px rgba(0,0,0,0.5)",
+        background: C.glassStrong, borderLeft: `1px solid ${C.glassBorder}`, boxShadow: "-8px 0 40px rgba(0,0,0,0.5)",
         display: "flex", flexDirection: "column", transform: panelVisible ? "translateX(0)" : "translateX(100%)",
         transition: "transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
       }} onClick={(e) => e.stopPropagation()}>
@@ -1673,15 +1685,16 @@ function ContentPipelinePanel() {
 function Sidebar({ activeTab, onTabChange, unreadCount, errorCount, isDarkMode, onToggleTheme, isOpen, onClose }) {
   const [expandedMenu, setExpandedMenu] = useState(null);
 
-  // Sidebar colors matching neutral dark theme
+  // Sidebar colors — dark-glass: translucent frosted fill + accent-tinted
+  // active state instead of a flat neutral panel.
   const SB = {
-    bg: isDarkMode ? "#171717" : "#F8F9FB",
-    activeBg: isDarkMode ? "#1E1E1E" : "#E8EAFF",
-    hoverBg: isDarkMode ? "#1C1C1C" : "#EEEEFF",
-    text: isDarkMode ? "#8B8FA3" : "#6B7280",
-    activeText: isDarkMode ? "#FFFFFF" : "#111827",
-    border: isDarkMode ? "#2A2A2A" : "#E5E7EB",
-    userBg: isDarkMode ? "#121212" : "#F3F4F6",
+    bg: isDarkMode ? "rgba(18,21,29,0.55)" : "rgba(255,255,255,0.75)",
+    activeBg: isDarkMode ? "rgba(249,115,22,0.14)" : "#E8EAFF",
+    hoverBg: isDarkMode ? "rgba(255,255,255,0.06)" : "#EEEEFF",
+    text: isDarkMode ? "#94A3B8" : "#6B7280",
+    activeText: isDarkMode ? "#F5F7FA" : "#111827",
+    border: isDarkMode ? "rgba(255,255,255,0.08)" : "#E5E7EB",
+    userBg: isDarkMode ? "rgba(255,255,255,0.05)" : "#F3F4F6",
   };
 
   const navItems = [
@@ -1727,7 +1740,7 @@ function Sidebar({ activeTab, onTabChange, unreadCount, errorCount, isDarkMode, 
   const isInboxChild = ["notifications", "comments"].includes(activeTab);
 
   return (
-    <div className={`app-sidebar${isOpen ? " open" : ""}`} style={{
+    <div className={`app-sidebar glass-panel${isOpen ? " open" : ""}`} style={{
       width: 220, minWidth: 220, minHeight: "100vh", background: SB.bg, borderRight: `1px solid ${SB.border}`,
       display: "flex", flexDirection: "column", position: "fixed", left: 0, top: 0, zIndex: 60,
       overflowY: "auto",
@@ -2867,7 +2880,7 @@ function SkriptePanel({ scripts, onRefresh, loading }) {
 
       {/* Empty state */}
       {scripts.length === 0 && !loading && (
-        <div style={{ textAlign: "center", padding: "60px 20px", background: C.card, borderRadius: RADIUS.xxxl, border: `1px solid ${C.border}` }}>
+        <div className="glass-panel glass-border" style={{ textAlign: "center", padding: "60px 20px", background: C.glass, borderRadius: RADIUS.shell, boxShadow: "0 20px 48px rgba(0,0,0,0.3)" }}>
           <FileText size={40} color={C.dimmed} style={{ marginBottom: 16 }} />
           <div style={{ fontSize: TYPE.labelLg, fontWeight: 700, color: C.white, marginBottom: 8 }}>Noch keine Skripte</div>
           <div style={{ fontSize: TYPE.body, color: C.muted, maxWidth: 400, margin: "0 auto", lineHeight: 1.6 }}>
@@ -3265,7 +3278,7 @@ function LogsPanel({ errorLog }) {
           </button>
         </div>
 
-        <div style={{ background: C.card, borderRadius: RADIUS.xxl, border: `1px solid ${C.border}`, overflow: "hidden" }}>
+        <div className="glass-panel glass-border" style={{ background: C.glassStrong, borderRadius: RADIUS.shell, boxShadow: "0 20px 48px rgba(0,0,0,0.3)", overflow: "hidden" }}>
           <div style={{ display: "grid", gridTemplateColumns: "160px 80px 1fr 140px 180px 160px", padding: `${SPACE.xl}px ${SPACE.xxxl}px`, borderBottom: `1px solid ${C.border}`, fontSize: TYPE.small, fontWeight: 600, color: C.dimmed }}>
             <div>Action</div><div>Status</div><div>Endpoint</div><div>Platform</div><div>Account</div>
             <div style={{ display: "flex", alignItems: "center", gap: SPACE.xs }}>Created <ChevronDown size={10} /></div>
@@ -3880,8 +3893,17 @@ export default function Dashboard() {
   const doneCount = filtered.filter((p) => p.done).length;
   const progress = Math.min(100, Math.round((filtered.length / MONTHLY_GOAL) * 100));
 
+  // Restrained atmospheric glow behind the whole app (dark mode only) — the
+  // "glass" panels sit on top of this instead of a flat page background.
+  const atmosphere = isDarkMode
+    ? `radial-gradient(1100px 560px at 12% -8%, rgba(249,115,22,0.10), transparent 60%),`
+      + `radial-gradient(900px 500px at 100% 0%, rgba(139,92,246,0.09), transparent 55%),`
+      + `radial-gradient(800px 520px at 45% 115%, rgba(59,130,246,0.07), transparent 60%),`
+      + `${C.bg}`
+    : C.bg;
+
   return (
-    <div style={{ minHeight: "100vh", background: C.bg, color: C.white, display: "flex" }}>
+    <div data-theme={isDarkMode ? "dark" : "light"} style={{ minHeight: "100vh", background: atmosphere, backgroundAttachment: "fixed", color: C.white, display: "flex" }}>
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } } @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } } @keyframes livePulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(1.3); } }`}</style>
 
       {/* Sidebar */}
@@ -4180,7 +4202,7 @@ export default function Dashboard() {
               { label: "Clicks", icon: ExternalLink, value: fmt(totals.clicks), color: C.green, change: null },
               { label: "Eng. Rate", icon: BarChart3, value: `${engRate}%`, color: C.redLight, change: null },
             ].map((m) => (
-              <div key={m.label} style={{ background: C.card, borderRadius: RADIUS.xxl, border: `1px solid ${C.border}`, padding: "14px 16px", display: "flex", alignItems: "center", gap: SPACE.lg }}>
+              <div key={m.label} className="glass-panel glass-border" style={{ background: C.glass, borderRadius: RADIUS.xxl, boxShadow: "0 12px 28px rgba(0,0,0,0.25)", padding: "14px 16px", display: "flex", alignItems: "center", gap: SPACE.lg }}>
                 <div style={{ color: m.color, display: "flex", alignItems: "center" }}><m.icon size={16} /></div>
                 <div>
                   <div style={{ fontSize: TYPE.caption, color: C.dimmed, fontWeight: 500, marginBottom: 2 }}>{m.label}</div>
@@ -4191,7 +4213,7 @@ export default function Dashboard() {
           </div>
 
           {/* ── Daily Chart ────────────────────────────────────── */}
-          <div style={{ background: C.card, borderRadius: RADIUS.xxxl, border: `1px solid ${C.border}`, padding: 20, marginBottom: 20 }}>
+          <div className="glass-panel glass-border" style={{ background: C.glass, borderRadius: RADIUS.shell, boxShadow: "0 20px 48px rgba(0,0,0,0.35)", padding: 20, marginBottom: 20 }}>
             <div style={{ fontSize: TYPE.bodyLg, fontWeight: 700, marginBottom: 16, color: C.white }}>Tägliche Performance</div>
             {chartData.length > 0 ? (
               <ResponsiveContainer width="100%" height={260}>
@@ -4212,7 +4234,7 @@ export default function Dashboard() {
 
           <div className="two-col-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: SPACE.xxxl, marginBottom: 20 }}>
             {/* ── Best Time to Post (green heatmap like Zernio) ── */}
-            <div style={{ background: C.card, borderRadius: RADIUS.xxxl, border: `1px solid ${C.border}`, padding: 20 }}>
+            <div className="glass-panel glass-border" style={{ background: C.glass, borderRadius: RADIUS.shell, boxShadow: "0 20px 48px rgba(0,0,0,0.35)", padding: 20 }}>
               <div style={{ fontSize: TYPE.bodyLg, fontWeight: 700, marginBottom: 14, color: C.white }}>Best Time to Post</div>
               <div style={{ display: "grid", gridTemplateColumns: `36px repeat(7, 1fr)`, gap: SPACE.xs }}>
                 <div />
@@ -4257,7 +4279,7 @@ export default function Dashboard() {
             </div>
 
             {/* ── Top Performing Posts ──────────────────────────── */}
-            <div style={{ background: C.card, borderRadius: RADIUS.xxxl, border: `1px solid ${C.border}`, padding: 20 }}>
+            <div className="glass-panel glass-border" style={{ background: C.glass, borderRadius: RADIUS.shell, boxShadow: "0 20px 48px rgba(0,0,0,0.35)", padding: 20 }}>
               <div style={{ fontSize: TYPE.bodyLg, fontWeight: 700, marginBottom: 14, color: C.white }}>Top Performing Posts</div>
               <div style={{ display: "flex", flexDirection: "column", gap: SPACE.md }}>
                 {topPosts.length === 0 && <div style={{ color: C.dimmed, fontSize: TYPE.small, padding: 20, textAlign: "center" }}>Keine veröffentlichten Posts</div>}
@@ -4503,7 +4525,7 @@ export default function Dashboard() {
             <div style={{ fontSize: TYPE.body, color: C.muted, marginTop: 2 }}>Manage your scheduled and published content</div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: SPACE.md }}>
-            <button onClick={() => { setCreateModalInitialDate(""); setShowCreateModal(true); }} style={{ display: "flex", alignItems: "center", gap: SPACE.sm, background: C.accent, border: "none", borderRadius: RADIUS.lg, padding: "9px 20px", color: "#fff", fontSize: TYPE.body, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+            <button onClick={() => { setCreateModalInitialDate(""); setShowCreateModal(true); }} style={{ display: "flex", alignItems: "center", gap: SPACE.sm, background: `linear-gradient(135deg, ${C.accentLight}, ${C.accent})`, border: "none", borderRadius: RADIUS.lg, padding: "9px 20px", color: "#fff", fontSize: TYPE.body, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", boxShadow: `0 8px 20px ${C.accentGlow}` }}>
               <Plus size={15} /> Create post
             </button>
           </div>
@@ -4677,14 +4699,15 @@ export default function Dashboard() {
             return (
               <div key={post.id}>
               {/* ── Card ── */}
-              <div onClick={() => setSelectedPost(isSelected ? null : post)}
+              <div className="glass-panel" onClick={() => setSelectedPost(isSelected ? null : post)}
                 style={{
-                  background: C.card, border: `1px solid ${isSelected ? primaryColor + "60" : C.border}`,
-                  cursor: "pointer", transition: "border-color 0.15s", overflow: "hidden",
+                  background: C.glass, border: `1px solid ${isSelected ? primaryColor + "60" : C.glassBorder}`,
+                  borderRadius: RADIUS.xxl, boxShadow: "0 12px 28px rgba(0,0,0,0.22)",
+                  cursor: "pointer", transition: "border-color 0.15s, background 0.15s", overflow: "hidden",
                   height: 186, display: "flex", flexDirection: "column",
                 }}
-                onMouseOver={(e) => { if (!isSelected) { e.currentTarget.style.borderColor = C.dimmed + "60"; } }}
-                onMouseOut={(e) => { if (!isSelected) { e.currentTarget.style.borderColor = C.border; } }}>
+                onMouseOver={(e) => { if (!isSelected) { e.currentTarget.style.borderColor = C.dimmed + "60"; e.currentTarget.style.background = C.glassHover; } }}
+                onMouseOut={(e) => { if (!isSelected) { e.currentTarget.style.borderColor = C.glassBorder; e.currentTarget.style.background = C.glass; } }}>
 
                 {/* Kopfbereich: Text links, Thumbnail rechts */}
                 <div style={{ display: "flex", gap: SPACE.xl, padding: 14, flex: 1, minHeight: 0 }}>

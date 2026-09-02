@@ -12,13 +12,42 @@ export default function RootLayout({ children }) {
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
         <style>{`
           *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-          body { background: #0B0F19; font-family: 'Inter', -apple-system, sans-serif; transition: background 0.3s; }
+          body { background: #07090d; font-family: 'Inter', -apple-system, sans-serif; transition: background 0.3s; }
           ::-webkit-scrollbar { width: 8px; }
           ::-webkit-scrollbar-track { background: transparent; }
           ::-webkit-scrollbar-thumb { background: #1E2A3A; border-radius: 4px; }
 
           /* Visible keyboard focus state (replaces per-input outline:none-only handling) */
           *:focus-visible { outline: 2px solid #F97316; outline-offset: 2px; border-radius: 4px; }
+
+          /* Dark-glass redesign (glass-dark-ui system): frosted panels plus
+             masked gradient border, used on the large hero surfaces
+             (sidebar, KPI tiles, post cards, modals). See the glass /
+             glassHover / glassBorder tokens in page.jsx. */
+          .glass-panel {
+            backdrop-filter: blur(20px) saturate(140%);
+            -webkit-backdrop-filter: blur(20px) saturate(140%);
+          }
+          .glass-border { position: relative; }
+          .glass-border::before {
+            content: "";
+            position: absolute; inset: 0; border-radius: inherit; padding: 1px;
+            background: linear-gradient(145deg,
+              rgba(255,255,255,0.16) 0%,
+              rgba(249,115,22,0.30) 45%,
+              rgba(139,92,246,0.22) 75%,
+              rgba(255,255,255,0.06) 100%);
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor; mask-composite: exclude;
+            pointer-events: none;
+          }
+          [data-theme="light"] .glass-border::before {
+            background: linear-gradient(145deg,
+              rgba(15,23,42,0.10) 0%,
+              rgba(234,88,12,0.20) 45%,
+              rgba(124,58,237,0.14) 75%,
+              rgba(15,23,42,0.04) 100%);
+          }
 
           /* ── Responsive layout: sidebar off-canvas + grid column-drop ── */
           .mobile-menu-btn { display: none; }
