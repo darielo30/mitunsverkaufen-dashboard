@@ -10,7 +10,7 @@ import {
   LayoutDashboard, Bell, Settings, UserPlus, AlertCircle, XCircle, UsersRound, Shield, ExternalLink,
   Sun, Moon, FileText, CheckSquare, Square, Download, EyeOff, Sparkles,
   Kanban, Lightbulb, PenLine, Wand2, Rocket, GripVertical, Pencil,
-  Bookmark, Copy, List, LayoutGrid, Minus, MousePointerClick, ArrowUpDown, Facebook, Youtube, Linkedin
+  Bookmark, Copy, List, LayoutGrid, Minus, MousePointerClick, ArrowUpDown, Facebook, Youtube, Linkedin, Menu
 } from "lucide-react";
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip,
@@ -18,9 +18,14 @@ import {
 } from "recharts";
 
 // ── Brand Colors ────────────────────────────────────────────────
+// `accent` = primary brand/CTA color. `red` = errors/destructive actions only.
+// Keeping these separate avoids the primary "Create post" button reading as a
+// danger/error signal (see design critique: semantic color collision).
 const darkTheme = {
   bg: "#121212", bgSoft: "#151515", card: "#171717", cardHover: "#1E1E1E",
-  border: "#2A2A2A", red: "#DC2626", redGlow: "rgba(220,38,38,0.12)",
+  border: "#2A2A2A",
+  accent: "#F97316", accentGlow: "rgba(249,115,22,0.14)", accentLight: "#FB923C",
+  red: "#DC2626", redGlow: "rgba(220,38,38,0.12)",
   redLight: "#EF4444", green: "#22C55E", greenGlow: "rgba(34,197,94,0.12)",
   blue: "#3B82F6", blueGlow: "rgba(59,130,246,0.12)", purple: "#8B5CF6",
   purpleGlow: "rgba(139,92,246,0.12)", yellow: "#EAB308",
@@ -29,7 +34,9 @@ const darkTheme = {
 };
 const lightTheme = {
   bg: "#F3F4F6", bgSoft: "#E5E7EB", card: "#FFFFFF", cardHover: "#F9FAFB",
-  border: "#D1D5DB", red: "#DC2626", redGlow: "rgba(220,38,38,0.08)",
+  border: "#D1D5DB",
+  accent: "#EA580C", accentGlow: "rgba(234,88,12,0.10)", accentLight: "#F97316",
+  red: "#DC2626", redGlow: "rgba(220,38,38,0.08)",
   redLight: "#EF4444", green: "#16A34A", greenGlow: "rgba(22,163,74,0.08)",
   blue: "#2563EB", blueGlow: "rgba(37,99,235,0.08)", purple: "#7C3AED",
   purpleGlow: "rgba(124,58,237,0.08)", yellow: "#CA8A04",
@@ -37,6 +44,20 @@ const lightTheme = {
   dimmed: "#9CA3AF", instagram: "#E1306C", tiktok: "#00B8A9",
 };
 let C = darkTheme;
+
+// ── Design tokens: type scale, spacing scale, radius scale ───────
+// Consolidated from 14 ad-hoc fontSize values / 15 gap values / 13 radius
+// values down to a named, documented scale (see design critique).
+const TYPE = {
+  micro: 10, caption: 11, small: 12, body: 13, bodyLg: 14,
+  label: 15, labelLg: 16, h4: 18, h3: 20, h2: 22, display: 28,
+};
+const SPACE = {
+  none: 0, xxs: 2, xs: 4, sm: 6, md: 8, lg: 10, xl: 12, xxl: 16, xxxl: 20,
+};
+const RADIUS = {
+  sm: 4, md: 6, lg: 8, xl: 10, xxl: 12, xxxl: 14, pill: 20,
+};
 
 // ── TikTok Icon (original logo style, outline) ─────────────────
 function TikTokIcon({ size = 24, color = "#00F2EA" }) {
@@ -51,6 +72,17 @@ const fmt = (n) => {
   if (n >= 1000000) return (n / 1000000).toFixed(1) + "M";
   if (n >= 1000) return (n / 1000).toFixed(1) + "K";
   return n.toString();
+};
+
+// Translates raw backend/API error strings (env var names, HTTP jargon) into a
+// message end users can act on, instead of surfacing internals verbatim.
+const friendlyApiError = (raw) => {
+  if (!raw) return raw;
+  const msg = String(raw);
+  if (/LATE_API_KEY|not configured/i.test(msg)) {
+    return "Verbindung ist noch nicht eingerichtet. Bitte in den Settings die Zernio-API verbinden.";
+  }
+  return msg;
 };
 
 const MONTHS_DE = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
@@ -100,15 +132,15 @@ const demoPosts = [
 function StatCard({ icon: Icon, label, value, change, color, glowColor }) {
   const isUp = change >= 0;
   return (
-    <div style={{ background: C.card, borderRadius: 16, padding: "20px 24px", border: `1px solid ${C.border}`, flex: 1, minWidth: 170, transition: "all 0.25s", cursor: "default" }}
+    <div style={{ background: C.card, borderRadius: RADIUS.xxxl, padding: "20px 24px", border: `1px solid ${C.border}`, flex: 1, minWidth: 170, transition: "all 0.25s", cursor: "default" }}
       onMouseOver={(e) => { e.currentTarget.style.borderColor = color; e.currentTarget.style.boxShadow = `0 0 24px ${glowColor}`; }}
       onMouseOut={(e) => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.boxShadow = "none"; }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-        <div style={{ width: 42, height: 42, borderRadius: 12, background: glowColor, display: "flex", alignItems: "center", justifyContent: "center" }}><Icon size={20} color={color} /></div>
-        <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13, color: isUp ? C.green : C.redLight, fontWeight: 600 }}>{isUp ? <TrendingUp size={14} /> : <TrendingDown size={14} />}{isUp ? "+" : ""}{change}%</div>
+        <div style={{ width: 42, height: 42, borderRadius: RADIUS.xxl, background: glowColor, display: "flex", alignItems: "center", justifyContent: "center" }}><Icon size={20} color={color} /></div>
+        <div style={{ display: "flex", alignItems: "center", gap: SPACE.xs, fontSize: TYPE.body, color: isUp ? C.green : C.redLight, fontWeight: 600 }}>{isUp ? <TrendingUp size={14} /> : <TrendingDown size={14} />}{isUp ? "+" : ""}{change}%</div>
       </div>
-      <div style={{ fontSize: 28, fontWeight: 800, color: C.white, letterSpacing: "-0.03em" }}>{value}</div>
-      <div style={{ fontSize: 13, color: C.muted, marginTop: 4, fontWeight: 500 }}>{label}</div>
+      <div style={{ fontSize: TYPE.display, fontWeight: 800, color: C.white, letterSpacing: "-0.03em" }}>{value}</div>
+      <div style={{ fontSize: TYPE.body, color: C.muted, marginTop: 4, fontWeight: 500 }}>{label}</div>
     </div>
   );
 }
@@ -116,9 +148,9 @@ function StatCard({ icon: Icon, label, value, change, color, glowColor }) {
 function ChartTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
   return (
-    <div style={{ background: "#1A2035", border: `1px solid ${C.border}`, borderRadius: 12, padding: "12px 16px", boxShadow: "0 12px 40px rgba(0,0,0,0.5)" }}>
-      <div style={{ fontSize: 13, color: C.muted, marginBottom: 8, fontWeight: 600 }}>{label}</div>
-      {payload.map((p, i) => (<div key={i} style={{ fontSize: 13, color: p.color, fontWeight: 600, marginBottom: 2 }}>{p.name}: {fmt(p.value)}</div>))}
+    <div style={{ background: "#1A2035", border: `1px solid ${C.border}`, borderRadius: RADIUS.xxl, padding: `${SPACE.xl}px ${SPACE.xxl}px`, boxShadow: "0 12px 40px rgba(0,0,0,0.5)" }}>
+      <div style={{ fontSize: TYPE.body, color: C.muted, marginBottom: 8, fontWeight: 600 }}>{label}</div>
+      {payload.map((p, i) => (<div key={i} style={{ fontSize: TYPE.body, color: p.color, fontWeight: 600, marginBottom: 2 }}>{p.name}: {fmt(p.value)}</div>))}
     </div>
   );
 }
@@ -132,7 +164,7 @@ function StatusBadge({ status }) {
   };
   const c = config[status] || config.draft;
   const isLive = status === "published";
-  return (<div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 700, color: c.color, background: c.bg, padding: "3px 10px", borderRadius: 6, textTransform: "uppercase", letterSpacing: "0.06em" }}><div style={{ width: 6, height: 6, borderRadius: "50%", background: c.color, ...(isLive ? { animation: "livePulse 2s ease-in-out infinite" } : {}) }} />{c.label}</div>);
+  return (<div style={{ display: "flex", alignItems: "center", gap: SPACE.sm, fontSize: TYPE.caption, fontWeight: 700, color: c.color, background: c.bg, padding: "3px 10px", borderRadius: RADIUS.md, textTransform: "uppercase", letterSpacing: "0.06em" }}><div style={{ width: 6, height: 6, borderRadius: "50%", background: c.color, ...(isLive ? { animation: "livePulse 2s ease-in-out infinite" } : {}) }} />{c.label}</div>);
 }
 
 // ── Month Picker Dropdown ───────────────────────────────────────
@@ -149,23 +181,23 @@ function MonthPicker({ selectedMonth, selectedYear, onSelect }) {
 
   return (
     <div ref={ref} style={{ position: "relative" }}>
-      <button onClick={() => setOpen(!open)} style={{ display: "flex", alignItems: "center", gap: 8, background: C.card, border: `1px solid ${open ? C.red : C.border}`, borderRadius: 10, padding: "8px 14px", color: C.white, fontSize: 13, cursor: "pointer", fontFamily: "inherit", transition: "all 0.2s" }}>
+      <button onClick={() => setOpen(!open)} style={{ display: "flex", alignItems: "center", gap: SPACE.md, background: C.card, border: `1px solid ${open ? C.accent : C.border}`, borderRadius: RADIUS.xl, padding: "8px 14px", color: C.white, fontSize: TYPE.body, cursor: "pointer", fontFamily: "inherit", transition: "all 0.2s" }}>
         <Calendar size={15} color={C.muted} /> {MONTHS_DE[selectedMonth]} {selectedYear} <ChevronDown size={13} color={C.muted} style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform 0.2s" }} />
       </button>
       {open && (
-        <div style={{ position: "absolute", top: "100%", right: 0, marginTop: 6, background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: 16, width: 280, boxShadow: "0 12px 40px rgba(0,0,0,0.5)", zIndex: 60 }}>
+        <div style={{ position: "absolute", top: "100%", right: 0, marginTop: 6, background: C.card, border: `1px solid ${C.border}`, borderRadius: RADIUS.xxxl, padding: 16, width: 280, boxShadow: "0 12px 40px rgba(0,0,0,0.5)", zIndex: 60 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-            <button onClick={() => setYear(year - 1)} style={{ width: 30, height: 30, borderRadius: 8, background: C.bg, border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}><ChevronLeft size={16} color={C.muted} /></button>
-            <div style={{ fontSize: 15, fontWeight: 700, color: C.white }}>{year}</div>
-            <button onClick={() => setYear(year + 1)} style={{ width: 30, height: 30, borderRadius: 8, background: C.bg, border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}><ChevronRight size={16} color={C.muted} /></button>
+            <button onClick={() => setYear(year - 1)} style={{ width: 30, height: 30, borderRadius: RADIUS.lg, background: C.bg, border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}><ChevronLeft size={16} color={C.muted} /></button>
+            <div style={{ fontSize: TYPE.label, fontWeight: 700, color: C.white }}>{year}</div>
+            <button onClick={() => setYear(year + 1)} style={{ width: 30, height: 30, borderRadius: RADIUS.lg, background: C.bg, border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}><ChevronRight size={16} color={C.muted} /></button>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: SPACE.sm }}>
             {SHORT_MONTHS.map((m, i) => {
               const isSelected = i === selectedMonth && year === selectedYear;
               return (
                 <button key={m} onClick={() => { onSelect(i, year); setOpen(false); }} style={{
-                  padding: "8px 4px", borderRadius: 8, border: "none", fontSize: 13, fontWeight: isSelected ? 700 : 500,
-                  background: isSelected ? C.red : "transparent", color: isSelected ? "#fff" : C.muted,
+                  padding: `${SPACE.md}px ${SPACE.xs}px`, borderRadius: RADIUS.lg, border: "none", fontSize: TYPE.body, fontWeight: isSelected ? 700 : 500,
+                  background: isSelected ? C.accent : "transparent", color: isSelected ? "#fff" : C.muted,
                   cursor: "pointer", transition: "all 0.15s", fontFamily: "inherit",
                 }} onMouseOver={(e) => { if (!isSelected) e.currentTarget.style.background = C.bg; }}
                    onMouseOut={(e) => { if (!isSelected) e.currentTarget.style.background = "transparent"; }}>
@@ -195,8 +227,8 @@ function TimezonePicker({ value, onChange }) {
   return (
     <div ref={ref} style={{ position: "relative" }}>
       <button onClick={() => setOpen(!open)} style={{
-        display: "flex", alignItems: "center", gap: 6, background: C.bg, border: `1px solid ${open ? C.red : C.border}`,
-        borderRadius: 8, padding: "8px 12px", color: C.white, fontSize: 13, cursor: "pointer", fontFamily: "inherit",
+        display: "flex", alignItems: "center", gap: SPACE.sm, background: C.bg, border: `1px solid ${open ? C.accent : C.border}`,
+        borderRadius: RADIUS.lg, padding: `${SPACE.md}px ${SPACE.xl}px`, color: C.white, fontSize: TYPE.body, cursor: "pointer", fontFamily: "inherit",
         transition: "all 0.2s", minWidth: 180,
       }}>
         <Globe size={14} color={C.muted} />
@@ -204,12 +236,12 @@ function TimezonePicker({ value, onChange }) {
         <ChevronDown size={12} color={C.muted} style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform 0.2s" }} />
       </button>
       {open && (
-        <div style={{ position: "absolute", bottom: "100%", left: 0, marginBottom: 6, background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 6, width: 260, maxHeight: 240, overflowY: "auto", boxShadow: "0 12px 40px rgba(0,0,0,0.5)", zIndex: 70 }}>
+        <div style={{ position: "absolute", bottom: "100%", left: 0, marginBottom: 6, background: C.card, border: `1px solid ${C.border}`, borderRadius: RADIUS.xxl, padding: 6, width: 260, maxHeight: 240, overflowY: "auto", boxShadow: "0 12px 40px rgba(0,0,0,0.5)", zIndex: 70 }}>
           {TIMEZONES.map((tz) => (
             <button key={tz.value} onClick={() => { onChange(tz.value); setOpen(false); }} style={{
-              display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", padding: "8px 12px",
-              borderRadius: 8, border: "none", background: value === tz.value ? C.redGlow : "transparent",
-              color: value === tz.value ? C.red : C.muted, fontSize: 13, cursor: "pointer", fontFamily: "inherit",
+              display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", padding: `${SPACE.md}px ${SPACE.xl}px`,
+              borderRadius: RADIUS.lg, border: "none", background: value === tz.value ? C.accentGlow : "transparent",
+              color: value === tz.value ? C.accent : C.muted, fontSize: TYPE.body, cursor: "pointer", fontFamily: "inherit",
               fontWeight: value === tz.value ? 600 : 400, transition: "all 0.15s",
             }} onMouseOver={(e) => { if (value !== tz.value) e.currentTarget.style.background = C.bg; }}
                onMouseOut={(e) => { if (value !== tz.value) e.currentTarget.style.background = "transparent"; }}>
@@ -306,16 +338,16 @@ function ThumbnailPicker({ videoFile, onSelect, selectedTimestamp }) {
 
   return (
     <div style={{ marginTop: 12 }}>
-      <div style={{ fontSize: 13, fontWeight: 600, color: C.muted, marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+      <div style={{ fontSize: TYPE.body, fontWeight: 600, color: C.muted, marginBottom: 8, display: "flex", alignItems: "center", gap: SPACE.sm }}>
         <Scissors size={14} /> Thumbnail wählen
       </div>
 
-      <div style={{ background: C.bg, borderRadius: 10, padding: 12, border: `1px solid ${C.border}` }}>
-        <div style={{ fontSize: 12, fontWeight: 600, color: C.dimmed, marginBottom: 8 }}>Video durchscrubben und Frame auswählen:</div>
+      <div style={{ background: C.bg, borderRadius: RADIUS.xl, padding: 12, border: `1px solid ${C.border}` }}>
+        <div style={{ fontSize: TYPE.small, fontWeight: 600, color: C.dimmed, marginBottom: 8 }}>Video durchscrubben und Frame auswählen:</div>
         <video
           ref={videoRef}
           src={videoUrlRef.current}
-          style={{ width: "100%", maxHeight: 220, borderRadius: 8, background: "#000", display: "block" }}
+          style={{ width: "100%", maxHeight: 220, borderRadius: RADIUS.lg, background: "#000", display: "block" }}
           muted
           preload="auto"
           playsInline
@@ -327,9 +359,9 @@ function ThumbnailPicker({ videoFile, onSelect, selectedTimestamp }) {
         <canvas ref={canvasRef} style={{ display: "none" }} />
 
         {/* Scrubber controls */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: SPACE.md, marginTop: 10 }}>
           <button onClick={stepBack}
-            style={{ width: 30, height: 30, borderRadius: 6, background: C.card, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
+            style={{ width: 30, height: 30, borderRadius: RADIUS.md, background: C.card, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
             <SkipBack size={13} color={C.muted} />
           </button>
 
@@ -339,21 +371,21 @@ function ThumbnailPicker({ videoFile, onSelect, selectedTimestamp }) {
             onChange={handleSliderChange}
             onMouseUp={handleSliderEnd}
             onTouchEnd={handleSliderEnd}
-            style={{ flex: 1, accentColor: C.red, cursor: "pointer" }} />
+            style={{ flex: 1, accentColor: C.accent, cursor: "pointer" }} />
 
           <button onClick={stepForward}
-            style={{ width: 30, height: 30, borderRadius: 6, background: C.card, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
+            style={{ width: 30, height: 30, borderRadius: RADIUS.md, background: C.card, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
             <SkipForward size={13} color={C.muted} />
           </button>
 
-          <span style={{ fontSize: 12, color: C.dimmed, fontVariantNumeric: "tabular-nums", minWidth: 48, textAlign: "center" }}>
+          <span style={{ fontSize: TYPE.small, color: C.dimmed, fontVariantNumeric: "tabular-nums", minWidth: 48, textAlign: "center" }}>
             {formatTime(sliderValue)}
           </span>
 
           <button onClick={captureFrame} style={{
-            display: "flex", alignItems: "center", gap: 5, padding: "6px 14px", borderRadius: 8,
-            background: C.red, border: "none", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer",
-            fontFamily: "inherit", boxShadow: `0 2px 8px ${C.redGlow}`, flexShrink: 0,
+            display: "flex", alignItems: "center", gap: SPACE.sm, padding: "6px 14px", borderRadius: RADIUS.lg,
+            background: C.accent, border: "none", color: "#fff", fontSize: TYPE.small, fontWeight: 600, cursor: "pointer",
+            fontFamily: "inherit", boxShadow: `0 2px 8px ${C.accentGlow}`, flexShrink: 0,
           }}>
             <Scissors size={13} /> Frame wählen
           </button>
@@ -361,13 +393,13 @@ function ThumbnailPicker({ videoFile, onSelect, selectedTimestamp }) {
 
         {/* Selected frame preview */}
         {selectedFrame && (
-          <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 10, padding: "8px 10px", background: C.redGlow, borderRadius: 8, border: `1px solid ${C.red}30` }}>
-            <img src={selectedFrame.dataUrl} alt="Gewähltes Thumbnail" style={{ width: 72, height: "auto", borderRadius: 6, objectFit: "cover", border: `1px solid ${C.border}` }} />
+          <div style={{ display: "flex", alignItems: "center", gap: SPACE.xl, marginTop: 10, padding: `${SPACE.md}px ${SPACE.lg}px`, background: C.accentGlow, borderRadius: RADIUS.lg, border: `1px solid ${C.accent}30` }}>
+            <img src={selectedFrame.dataUrl} alt="Gewähltes Thumbnail" style={{ width: 72, height: "auto", borderRadius: RADIUS.md, objectFit: "cover", border: `1px solid ${C.border}` }} />
             <div>
-              <div style={{ fontSize: 12, color: C.red, fontWeight: 700 }}>Thumbnail ausgewählt</div>
-              <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Frame bei {formatTime(selectedFrame.time)}</div>
+              <div style={{ fontSize: TYPE.small, color: C.accent, fontWeight: 700 }}>Thumbnail ausgewählt</div>
+              <div style={{ fontSize: TYPE.caption, color: C.muted, marginTop: 2 }}>Frame bei {formatTime(selectedFrame.time)}</div>
             </div>
-            <Check size={16} color={C.red} style={{ marginLeft: "auto" }} />
+            <Check size={16} color={C.accent} style={{ marginLeft: "auto" }} />
           </div>
         )}
       </div>
@@ -443,13 +475,13 @@ function loadAnalyticsSnapshots(postId, publishedAt) {
 // ── Verlaufs-Diagramm mit zwei Y-Achsen ─────────────────────────
 function ChartCard({ title, hint, data, left, right }) {
   const fmtDay = (d) => new Date(d).toLocaleDateString("de-DE", { day: "numeric", month: "short" });
-  const axis = { stroke: C.dimmed, fontSize: 10, tickLine: false, axisLine: false };
+  const axis = { stroke: C.dimmed, fontSize: TYPE.micro, tickLine: false, axisLine: false };
 
   return (
-    <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: "14px 14px 8px", marginBottom: 14 }}>
-      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
-        <div style={{ fontSize: 12.5, fontWeight: 700, color: C.white }}>{title}</div>
-        <div style={{ fontSize: 10.5, color: C.dimmed }}>{hint}</div>
+    <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: RADIUS.lg, padding: "14px 14px 8px", marginBottom: 14 }}>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: SPACE.lg, marginBottom: 10, flexWrap: "wrap" }}>
+        <div style={{ fontSize: TYPE.body, fontWeight: 700, color: C.white }}>{title}</div>
+        <div style={{ fontSize: TYPE.caption, color: C.dimmed }}>{hint}</div>
       </div>
       <div style={{ height: 190 }}>
         <ResponsiveContainer width="100%" height="100%">
@@ -459,7 +491,7 @@ function ChartCard({ title, hint, data, left, right }) {
             <YAxis yAxisId="l" {...axis} width={38} allowDecimals={false} />
             <YAxis yAxisId="r" orientation="right" {...axis} width={38} allowDecimals={false} />
             <Tooltip
-              contentStyle={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 12 }}
+              contentStyle={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: RADIUS.lg, fontSize: TYPE.small }}
               labelStyle={{ color: C.white, fontWeight: 600, marginBottom: 4 }}
               labelFormatter={fmtDay}
             />
@@ -475,10 +507,10 @@ function ChartCard({ title, hint, data, left, right }) {
         </ResponsiveContainer>
       </div>
       {/* Legende */}
-      <div style={{ display: "flex", justifyContent: "center", gap: 14, flexWrap: "wrap", paddingTop: 6 }}>
+      <div style={{ display: "flex", justifyContent: "center", gap: SPACE.xxl, flexWrap: "wrap", paddingTop: 6 }}>
         {[...left, ...right].map((s) => (
-          <span key={s.key} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 10.5, color: s.color }}>
-            <span style={{ width: 12, height: 2, background: s.color, display: "inline-block", borderRadius: 1 }} />
+          <span key={s.key} style={{ display: "inline-flex", alignItems: "center", gap: SPACE.sm, fontSize: TYPE.caption, color: s.color }}>
+            <span style={{ width: 12, height: 2, background: s.color, display: "inline-block", borderRadius: RADIUS.sm }} />
             {s.label}
           </span>
         ))}
@@ -547,7 +579,7 @@ function PostDetailPanel({ post, onClose, isConnected, onHide, onDeleteRemote })
   const history = loadAnalyticsSnapshots(post.id, post.publishedAt || post.date);
 
   const dash = (v) => (v > 0 ? v.toLocaleString("de-DE") : "–");
-  const cell = { padding: "10px 12px", fontSize: 12, textAlign: "right", whiteSpace: "nowrap" };
+  const cell = { padding: `${SPACE.lg}px ${SPACE.xl}px`, fontSize: TYPE.small, textAlign: "right", whiteSpace: "nowrap" };
 
   const headline = post.status === "published" ? "Published" : post.status === "scheduled" ? "Scheduled for" : "Created";
   const headlineDate = new Date(post.publishedAt || post.date).toLocaleDateString("de-DE", { day: "numeric", month: "long", year: "numeric" });
@@ -573,10 +605,10 @@ function PostDetailPanel({ post, onClose, isConnected, onHide, onDeleteRemote })
         {/* Kopfzeile */}
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", padding: "20px 24px", borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
           <div>
-            <div style={{ fontSize: 19, fontWeight: 800, color: C.white, letterSpacing: "-0.02em" }}>Post Details</div>
-            <div style={{ fontSize: 12.5, color: C.dimmed, marginTop: 3 }}>{headline} {headlineDate} um {headlineTime}</div>
+            <div style={{ fontSize: TYPE.h4, fontWeight: 800, color: C.white, letterSpacing: "-0.02em" }}>Post Details</div>
+            <div style={{ fontSize: TYPE.body, color: C.dimmed, marginTop: 3 }}>{headline} {headlineDate} um {headlineTime}</div>
           </div>
-          <button onClick={close} style={{ width: 34, height: 34, borderRadius: 8, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
+          <button onClick={close} style={{ width: 34, height: 34, borderRadius: RADIUS.lg, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
             onMouseOver={(e) => { e.currentTarget.style.borderColor = C.red; e.currentTarget.style.color = C.redLight; }}
             onMouseOut={(e) => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.muted; }}>
             <X size={17} />
@@ -587,14 +619,14 @@ function PostDetailPanel({ post, onClose, isConnected, onHide, onDeleteRemote })
         <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px 28px" }}>
 
           {/* Content */}
-          <div style={{ fontSize: 14, fontWeight: 700, color: C.white, marginBottom: 10 }}>Content</div>
-          <div style={{ fontSize: 12.5, color: C.muted, lineHeight: 1.75, whiteSpace: "pre-wrap", wordBreak: "break-word", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: "14px 16px", marginBottom: 16 }}>
+          <div style={{ fontSize: TYPE.bodyLg, fontWeight: 700, color: C.white, marginBottom: 10 }}>Content</div>
+          <div style={{ fontSize: TYPE.body, color: C.muted, lineHeight: 1.75, whiteSpace: "pre-wrap", wordBreak: "break-word", background: C.bg, border: `1px solid ${C.border}`, borderRadius: RADIUS.lg, padding: "14px 16px", marginBottom: 16 }}>
             {post.caption || post.title || "–"}
           </div>
 
           {/* Medien */}
           {(post.videoUrl || post.thumbnail) && (
-            <div style={{ marginBottom: 16, borderRadius: 8, overflow: "hidden", background: C.bg, border: `1px solid ${C.border}`, width: "fit-content", maxWidth: "100%" }}>
+            <div style={{ marginBottom: 16, borderRadius: RADIUS.lg, overflow: "hidden", background: C.bg, border: `1px solid ${C.border}`, width: "fit-content", maxWidth: "100%" }}>
               {post.videoUrl ? (
                 <video src={post.videoUrl} controls preload="metadata" style={{ display: "block", maxWidth: 340, maxHeight: 260, background: "#000" }} />
               ) : (
@@ -604,23 +636,23 @@ function PostDetailPanel({ post, onClose, isConnected, onHide, onDeleteRemote })
           )}
 
           {/* Plattform-Zeilen */}
-          <div style={{ border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden", marginBottom: 22 }}>
+          <div style={{ border: `1px solid ${C.border}`, borderRadius: RADIUS.lg, overflow: "hidden", marginBottom: 22 }}>
             {plats.map((pd, i) => {
               const m = meta(pd.platform);
               const stColor = statusColors[pd.status] || C.dimmed;
               return (
-                <div key={pd.platform} style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 14px", background: C.bg, borderTop: i > 0 ? `1px solid ${C.border}` : "none" }}>
+                <div key={pd.platform} style={{ display: "flex", alignItems: "center", gap: SPACE.lg, padding: "11px 14px", background: C.bg, borderTop: i > 0 ? `1px solid ${C.border}` : "none" }}>
                   <m.Icon size={16} color={C.white} />
-                  <span style={{ fontSize: 13, fontWeight: 600, color: C.white }}>{m.label}</span>
-                  <span style={{ fontSize: 10.5, fontWeight: 600, color: stColor, background: stColor + "18", padding: "2px 8px", borderRadius: 5 }}>{pd.status}</span>
-                  <span style={{ fontSize: 12, color: C.dimmed }}>
+                  <span style={{ fontSize: TYPE.body, fontWeight: 600, color: C.white }}>{m.label}</span>
+                  <span style={{ fontSize: TYPE.caption, fontWeight: 600, color: stColor, background: stColor + "18", padding: `${SPACE.xxs}px ${SPACE.md}px`, borderRadius: RADIUS.md }}>{pd.status}</span>
+                  <span style={{ fontSize: TYPE.small, color: C.dimmed }}>
                     {pd.publishedAt
                       ? new Date(pd.publishedAt).toLocaleString("de-DE", { day: "numeric", month: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" })
                       : new Date(post.date).toLocaleString("de-DE", { day: "numeric", month: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" })}
                   </span>
                   {pd.url && (
                     <a href={pd.url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}
-                      style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, color: C.muted, textDecoration: "none" }}>
+                      style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: SPACE.xs, fontSize: TYPE.small, color: C.muted, textDecoration: "none" }}>
                       View <ExternalLink size={11} />
                     </a>
                   )}
@@ -630,22 +662,22 @@ function PostDetailPanel({ post, onClose, isConnected, onHide, onDeleteRemote })
           </div>
 
           {/* Analytics */}
-          <div style={{ fontSize: 14, fontWeight: 700, color: C.white, marginBottom: 10 }}>Analytics</div>
+          <div style={{ fontSize: TYPE.bodyLg, fontWeight: 700, color: C.white, marginBottom: 10 }}>Analytics</div>
           {hasAnalytics ? (
             <>
-              <div style={{ border: `1px solid ${C.border}`, borderRadius: 8, overflowX: "auto", marginBottom: 14 }}>
+              <div style={{ border: `1px solid ${C.border}`, borderRadius: RADIUS.lg, overflowX: "auto", marginBottom: 14 }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 640 }}>
                   <thead>
                     <tr style={{ background: C.bg }}>
-                      <th style={{ padding: "10px 12px", fontSize: 11.5, color: C.dimmed, fontWeight: 600, textAlign: "left", whiteSpace: "nowrap" }}>Platform</th>
+                      <th style={{ padding: `${SPACE.lg}px ${SPACE.xl}px`, fontSize: TYPE.small, color: C.dimmed, fontWeight: 600, textAlign: "left", whiteSpace: "nowrap" }}>Platform</th>
                       {cols.map((c) => (
-                        <th key={c.key} style={{ padding: "10px 12px", fontSize: 11.5, color: C.dimmed, fontWeight: 600, textAlign: "right", whiteSpace: "nowrap" }}>
-                          <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                        <th key={c.key} style={{ padding: `${SPACE.lg}px ${SPACE.xl}px`, fontSize: TYPE.small, color: C.dimmed, fontWeight: 600, textAlign: "right", whiteSpace: "nowrap" }}>
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: SPACE.sm }}>
                             <c.icon size={12} color={c.color} /> {c.label}
                           </span>
                         </th>
                       ))}
-                      <th style={{ padding: "10px 12px", fontSize: 11.5, color: C.dimmed, fontWeight: 600, textAlign: "right" }}>ER</th>
+                      <th style={{ padding: `${SPACE.lg}px ${SPACE.xl}px`, fontSize: TYPE.small, color: C.dimmed, fontWeight: 600, textAlign: "right" }}>ER</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -653,8 +685,8 @@ function PostDetailPanel({ post, onClose, isConnected, onHide, onDeleteRemote })
                       const m = meta(pd.platform);
                       return (
                         <tr key={pd.platform} style={{ borderTop: `1px solid ${C.border}` }}>
-                          <td style={{ padding: "10px 12px", whiteSpace: "nowrap" }}>
-                            <span style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 12.5, color: C.white }}>
+                          <td style={{ padding: `${SPACE.lg}px ${SPACE.xl}px`, whiteSpace: "nowrap" }}>
+                            <span style={{ display: "inline-flex", alignItems: "center", gap: SPACE.md, fontSize: TYPE.body, color: C.white }}>
                               <m.Icon size={13} color={C.white} /> {m.label}
                             </span>
                           </td>
@@ -668,7 +700,7 @@ function PostDetailPanel({ post, onClose, isConnected, onHide, onDeleteRemote })
                       );
                     })}
                     <tr style={{ borderTop: `1px solid ${C.border}`, background: C.bg }}>
-                      <td style={{ padding: "10px 12px", fontSize: 12.5, fontWeight: 700, color: C.white }}>Total</td>
+                      <td style={{ padding: `${SPACE.lg}px ${SPACE.xl}px`, fontSize: TYPE.body, fontWeight: 700, color: C.white }}>Total</td>
                       {cols.map((c) => (
                         <td key={c.key} style={{ ...cell, fontWeight: 700, color: totalAnalytics[c.key] > 0 ? C.white : C.dimmed }}>
                           {dash(totalAnalytics[c.key])}
@@ -705,21 +737,21 @@ function PostDetailPanel({ post, onClose, isConnected, onHide, onDeleteRemote })
                   />
                 </>
               ) : (
-                <div style={{ padding: "14px 16px", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 12.5, color: C.dimmed, textAlign: "center", marginBottom: 20 }}>
+                <div style={{ padding: "14px 16px", background: C.bg, border: `1px solid ${C.border}`, borderRadius: RADIUS.lg, fontSize: TYPE.body, color: C.dimmed, textAlign: "center", marginBottom: 20 }}>
                   Erst ein Snapshot vorhanden – ab morgen entstehen hier Trendlinien.
                 </div>
               )}
             </>
           ) : (
-            <div style={{ padding: "18px 16px", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 12.5, color: C.dimmed, textAlign: "center", marginBottom: 20 }}>
+            <div style={{ padding: "18px 16px", background: C.bg, border: `1px solid ${C.border}`, borderRadius: RADIUS.lg, fontSize: TYPE.body, color: C.dimmed, textAlign: "center", marginBottom: 20 }}>
               Noch keine Analytics für diesen Beitrag verfügbar.
             </div>
           )}
 
           {/* Aktionen */}
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", paddingTop: 18, borderTop: `1px solid ${C.border}`, marginBottom: 16 }}>
+          <div style={{ display: "flex", gap: SPACE.md, flexWrap: "wrap", paddingTop: 18, borderTop: `1px solid ${C.border}`, marginBottom: 16 }}>
             <button onClick={() => { if (window.confirm("Beitrag aus dem Dashboard entfernen?\n(Bleibt auf den Plattformen online)")) { onHide(post); close(); } }}
-              style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 8, background: C.redGlow, border: `1px solid ${C.red}25`, color: C.redLight, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+              style={{ display: "flex", alignItems: "center", gap: SPACE.sm, padding: "7px 14px", borderRadius: RADIUS.lg, background: C.redGlow, border: `1px solid ${C.red}25`, color: C.redLight, fontSize: TYPE.small, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
               <EyeOff size={12} /> Ausblenden
             </button>
             {isConnected && (post.status === "scheduled" || post.status === "draft") && (
@@ -728,14 +760,14 @@ function PostDetailPanel({ post, onClose, isConnected, onHide, onDeleteRemote })
                 const ok = await onDeleteRemote(post);
                 if (ok) close();
               }}
-                style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 8, background: C.red + "15", border: `1px solid ${C.red}50`, color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+                style={{ display: "flex", alignItems: "center", gap: SPACE.sm, padding: "7px 14px", borderRadius: RADIUS.lg, background: C.red + "15", border: `1px solid ${C.red}50`, color: "#fff", fontSize: TYPE.small, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
                 <Trash2 size={12} /> Bei Zernio löschen
               </button>
             )}
           </div>
 
           {/* Post ID */}
-          <div style={{ fontSize: 12, color: C.dimmed, fontFamily: "monospace", display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ fontSize: TYPE.small, color: C.dimmed, fontFamily: "monospace", display: "flex", alignItems: "center", gap: SPACE.md }}>
             Post ID: {String(post.id)}
             <button onClick={() => navigator.clipboard?.writeText(String(post.id))} title="Kopieren"
               style={{ background: "transparent", border: "none", color: C.dimmed, cursor: "pointer", display: "flex", padding: 2 }}>
@@ -769,9 +801,9 @@ function FilterDropdown({ label, value, options, onChange, icon: LeadIcon, searc
   return (
     <div ref={ref} style={{ position: "relative", flexShrink: 0 }}>
       <button onClick={() => setOpen(!open)} style={{
-        display: "flex", alignItems: "center", gap: 7, padding: "8px 12px", borderRadius: 8,
+        display: "flex", alignItems: "center", gap: SPACE.md, padding: `${SPACE.md}px ${SPACE.xl}px`, borderRadius: RADIUS.lg,
         border: `1px solid ${open ? C.dimmed : C.border}`, background: C.card,
-        color: value && value !== "all" ? C.white : C.muted, fontSize: 12.5, fontWeight: 500,
+        color: value && value !== "all" ? C.white : C.muted, fontSize: TYPE.body, fontWeight: 500,
         cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap", transition: "border-color 0.15s",
       }}>
         {LeadIcon && <LeadIcon size={13} />}
@@ -783,21 +815,21 @@ function FilterDropdown({ label, value, options, onChange, icon: LeadIcon, searc
         <div style={{
           position: "absolute", top: "calc(100% + 6px)", [align]: 0, zIndex: 60,
           minWidth: width || 200, maxHeight: 380, overflowY: "auto",
-          background: C.card, border: `1px solid ${C.border}`, borderRadius: 10,
+          background: C.card, border: `1px solid ${C.border}`, borderRadius: RADIUS.xl,
           boxShadow: "0 12px 32px rgba(0,0,0,0.5)", padding: 5,
         }}>
           {searchable && (
             <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Filter..."
-              style={{ width: "100%", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6, padding: "7px 10px", color: C.white, fontSize: 12, fontFamily: "inherit", outline: "none", marginBottom: 5, boxSizing: "border-box" }} />
+              style={{ width: "100%", background: C.bg, border: `1px solid ${C.border}`, borderRadius: RADIUS.md, padding: "7px 10px", color: C.white, fontSize: TYPE.small, fontFamily: "inherit", outline: "none", marginBottom: 5, boxSizing: "border-box" }} />
           )}
           {shown.map((o) => (
             o.divider ? (
-              <div key={o.key} style={{ fontSize: 9.5, fontWeight: 700, color: C.dimmed, textTransform: "uppercase", letterSpacing: "0.08em", padding: "10px 10px 5px" }}>{o.label}</div>
+              <div key={o.key} style={{ fontSize: TYPE.micro, fontWeight: 700, color: C.dimmed, textTransform: "uppercase", letterSpacing: "0.08em", padding: "10px 10px 5px" }}>{o.label}</div>
             ) : (
               <button key={o.key} onClick={() => { onChange(o.key); setOpen(false); setQ(""); }} style={{
-                display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "8px 10px", borderRadius: 6,
+                display: "flex", alignItems: "center", gap: SPACE.md, width: "100%", padding: `${SPACE.md}px ${SPACE.lg}px`, borderRadius: RADIUS.md,
                 border: "none", background: o.key === value ? C.cardHover : "transparent",
-                color: o.key === value ? C.white : C.muted, fontSize: 12.5,
+                color: o.key === value ? C.white : C.muted, fontSize: TYPE.body,
                 fontWeight: o.key === value ? 600 : 400, cursor: "pointer", fontFamily: "inherit", textAlign: "left",
               }}
                 onMouseOver={(e) => { if (o.key !== value) e.currentTarget.style.background = C.bgSoft; }}
@@ -809,7 +841,7 @@ function FilterDropdown({ label, value, options, onChange, icon: LeadIcon, searc
               </button>
             )
           ))}
-          {shown.length === 0 && <div style={{ padding: "10px", fontSize: 12, color: C.dimmed }}>Keine Treffer</div>}
+          {shown.length === 0 && <div style={{ padding: `${SPACE.lg}px`, fontSize: TYPE.small, color: C.dimmed }}>Keine Treffer</div>}
         </div>
       )}
     </div>
@@ -1029,41 +1061,41 @@ function CreatePostModal({ onClose, onSubmit, isSubmitting, accounts, initialDat
 
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "20px 24px", borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
           <div>
-            <div style={{ fontSize: 17, fontWeight: 700, color: C.white }}>Neuer Beitrag</div>
-            <div style={{ fontSize: 12, color: C.dimmed, marginTop: 2 }}>Erstelle & veröffentliche Content</div>
+            <div style={{ fontSize: TYPE.labelLg, fontWeight: 700, color: C.white }}>Neuer Beitrag</div>
+            <div style={{ fontSize: TYPE.small, color: C.dimmed, marginTop: 2 }}>Erstelle & veröffentliche Content</div>
           </div>
-          <button onClick={handleClose} style={{ width: 32, height: 32, borderRadius: 8, background: C.bg, border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}><X size={16} color={C.muted} /></button>
+          <button onClick={handleClose} style={{ width: 32, height: 32, borderRadius: RADIUS.lg, background: C.bg, border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}><X size={16} color={C.muted} /></button>
         </div>
 
-        <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20, flex: 1, overflowY: "auto" }}>
+        <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: SPACE.xxxl, flex: 1, overflowY: "auto" }}>
 
           {/* Platform Selection */}
           <div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: C.muted, marginBottom: 8 }}>Plattformen</div>
-            <div style={{ display: "flex", gap: 10 }}>
+            <div style={{ fontSize: TYPE.body, fontWeight: 600, color: C.muted, marginBottom: 8 }}>Plattformen</div>
+            <div style={{ display: "flex", gap: SPACE.lg }}>
               {[{ key: "instagram", label: "Instagram", icon: Instagram, color: C.instagram }, { key: "tiktok", label: "TikTok", icon: TikTokIcon, color: C.tiktok }].map((p) => {
                 const account = accounts.find((a) => a.platform === p.key);
                 return (
                   <div key={p.key} style={{ position: "relative" }}>
                     <button onClick={() => setPlatforms({ ...platforms, [p.key]: !platforms[p.key] })} style={{
-                      display: "flex", alignItems: "center", gap: 8, padding: "10px 18px", borderRadius: 10,
+                      display: "flex", alignItems: "center", gap: SPACE.md, padding: "10px 18px", borderRadius: RADIUS.xl,
                       border: `1.5px solid ${platforms[p.key] ? p.color : C.border}`,
                       background: platforms[p.key] ? p.color + "15" : "transparent",
                       color: platforms[p.key] ? p.color : C.dimmed,
-                      fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "all 0.2s", fontFamily: "inherit",
+                      fontSize: TYPE.body, fontWeight: 600, cursor: "pointer", transition: "all 0.2s", fontFamily: "inherit",
                       opacity: account ? 1 : 0.5,
                     }}>
                       <p.icon size={16} />{p.label}
                       {account && platforms[p.key] && <Check size={14} />}
                       {!account && (
                         <span title={`${p.label}-Account nicht verbunden`}
-                          style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 18, height: 18, borderRadius: "50%", background: C.yellowGlow, color: C.yellow, fontSize: 11, fontWeight: 800, cursor: "help" }}>!</span>
+                          style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 18, height: 18, borderRadius: "50%", background: C.yellowGlow, color: C.yellow, fontSize: TYPE.caption, fontWeight: 800, cursor: "help" }}>!</span>
                       )}
                     </button>
                     {!account && platforms[p.key] && (
-                      <div style={{ position: "absolute", top: "100%", left: 0, marginTop: 6, background: C.card, border: `1px solid ${C.yellow}40`, borderRadius: 10, padding: "8px 12px", width: 240, boxShadow: "0 8px 24px rgba(0,0,0,0.4)", zIndex: 10 }}>
-                        <div style={{ fontSize: 12, color: C.yellow, fontWeight: 600, marginBottom: 4 }}>{p.label}-Account nicht verbunden</div>
-                        <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.5 }}>Verbinde deinen {p.label}-Account in deinem Late Dashboard unter Settings.</div>
+                      <div style={{ position: "absolute", top: "100%", left: 0, marginTop: 6, background: C.card, border: `1px solid ${C.yellow}40`, borderRadius: RADIUS.xl, padding: `${SPACE.md}px ${SPACE.xl}px`, width: 240, boxShadow: "0 8px 24px rgba(0,0,0,0.4)", zIndex: 10 }}>
+                        <div style={{ fontSize: TYPE.small, color: C.yellow, fontWeight: 600, marginBottom: 4 }}>{p.label}-Account nicht verbunden</div>
+                        <div style={{ fontSize: TYPE.caption, color: C.muted, lineHeight: 1.5 }}>Verbinde deinen {p.label}-Account in deinem Late Dashboard unter Settings.</div>
                       </div>
                     )}
                   </div>
@@ -1071,38 +1103,38 @@ function CreatePostModal({ onClose, onSubmit, isSubmitting, accounts, initialDat
               })}
             </div>
             {accounts.length === 0 && (
-              <div style={{ fontSize: 12, color: C.yellow, marginTop: 6, lineHeight: 1.5 }}>Keine Accounts verbunden. Verbinde Instagram/TikTok unter zernio.com → Settings.</div>
+              <div style={{ fontSize: TYPE.small, color: C.yellow, marginTop: 6, lineHeight: 1.5 }}>Keine Accounts verbunden. Verbinde Instagram/TikTok unter zernio.com → Settings.</div>
             )}
           </div>
 
           {/* Content Type Selection – 2 per row */}
           <div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: C.muted, marginBottom: 8 }}>Content-Typ</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            <div style={{ fontSize: TYPE.body, fontWeight: 600, color: C.muted, marginBottom: 8 }}>Content-Typ</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: SPACE.md }}>
               {CONTENT_TYPES.map((ct) => {
                 const isActive = contentType === ct.key;
                 const isDisabled = (ct.needsVideo && hasOnlyImages) || (ct.key === "carousel" && hasVideo) || (ct.key === "story" && hasVideo && mediaFiles.length > 1);
                 return (
                   <button key={ct.key} onClick={() => { if (!isDisabled) setContentType(ct.key); }}
                     style={{
-                      display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 12,
-                      border: `1.5px solid ${isActive ? C.red : isDisabled ? C.border + "60" : C.border}`,
-                      background: isActive ? C.redGlow : "transparent",
+                      display: "flex", alignItems: "center", gap: SPACE.lg, padding: "12px 14px", borderRadius: RADIUS.xxl,
+                      border: `1.5px solid ${isActive ? C.accent : isDisabled ? C.border + "60" : C.border}`,
+                      background: isActive ? C.accentGlow : "transparent",
                       opacity: isDisabled ? 0.35 : 1,
                       cursor: isDisabled ? "not-allowed" : "pointer", transition: "all 0.2s", fontFamily: "inherit", textAlign: "left",
                     }}>
-                    <div style={{ fontSize: 22, lineHeight: 1, flexShrink: 0 }}>{ct.icon}</div>
+                    <div style={{ fontSize: TYPE.h2, lineHeight: 1, flexShrink: 0 }}>{ct.icon}</div>
                     <div>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: isActive ? C.red : isDisabled ? C.dimmed : C.white }}>{ct.label}</div>
-                      <div style={{ fontSize: 11, color: isDisabled ? C.dimmed + "80" : C.dimmed, marginTop: 2, lineHeight: 1.4 }}>{ct.desc}</div>
+                      <div style={{ fontSize: TYPE.body, fontWeight: 700, color: isActive ? C.accent : isDisabled ? C.dimmed : C.white }}>{ct.label}</div>
+                      <div style={{ fontSize: TYPE.caption, color: isDisabled ? C.dimmed + "80" : C.dimmed, marginTop: 2, lineHeight: 1.4 }}>{ct.desc}</div>
                     </div>
-                    {isActive && <Check size={14} color={C.red} style={{ marginLeft: "auto", flexShrink: 0 }} />}
+                    {isActive && <Check size={14} color={C.accent} style={{ marginLeft: "auto", flexShrink: 0 }} />}
                   </button>
                 );
               })}
             </div>
             {contentType === "reel" && (
-              <div style={{ fontSize: 11, color: C.blue, marginTop: 8, padding: "6px 10px", background: C.blueGlow, borderRadius: 8, lineHeight: 1.5 }}>
+              <div style={{ fontSize: TYPE.caption, color: C.blue, marginTop: 8, padding: `${SPACE.sm}px ${SPACE.lg}px`, background: C.blueGlow, borderRadius: RADIUS.lg, lineHeight: 1.5 }}>
                 💡 Tipp: Videos werden standardmäßig als Reels und auf dem Feed angezeigt, um maximale Reichweite zu gewähren.
               </div>
             )}
@@ -1111,12 +1143,12 @@ function CreatePostModal({ onClose, onSubmit, isSubmitting, accounts, initialDat
           {/* Caption */}
           <div>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: C.muted }}>Caption</div>
+              <div style={{ fontSize: TYPE.body, fontWeight: 600, color: C.muted }}>Caption</div>
               <button onClick={() => setShowAiCaption(!showAiCaption)} style={{
-                display: "flex", alignItems: "center", gap: 6, padding: "5px 12px", borderRadius: 8,
+                display: "flex", alignItems: "center", gap: SPACE.sm, padding: "5px 12px", borderRadius: RADIUS.lg,
                 background: showAiCaption ? C.purpleGlow : "transparent",
                 border: `1px solid ${showAiCaption ? C.purple + "60" : C.border}`,
-                color: showAiCaption ? C.purple : C.dimmed, fontSize: 12, fontWeight: 600,
+                color: showAiCaption ? C.purple : C.dimmed, fontSize: TYPE.small, fontWeight: 600,
                 cursor: "pointer", fontFamily: "inherit", transition: "all 0.2s",
               }}>
                 <Sparkles size={13} /> Mit KI generieren
@@ -1125,12 +1157,12 @@ function CreatePostModal({ onClose, onSubmit, isSubmitting, accounts, initialDat
 
             {/* AI Caption Generator Dialog */}
             {showAiCaption && (
-              <div style={{ background: C.bg, border: `1px solid ${C.purple}30`, borderRadius: 12, padding: 16, marginBottom: 12 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+              <div style={{ background: C.bg, border: `1px solid ${C.purple}30`, borderRadius: RADIUS.xxl, padding: 16, marginBottom: 12 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: SPACE.md, marginBottom: 10 }}>
                   <Sparkles size={16} color={C.purple} />
-                  <div style={{ fontSize: 13, fontWeight: 700, color: C.white }}>Caption aus Transkript generieren</div>
+                  <div style={{ fontSize: TYPE.body, fontWeight: 700, color: C.white }}>Caption aus Transkript generieren</div>
                 </div>
-                <div style={{ fontSize: 11, color: C.dimmed, marginBottom: 10, lineHeight: 1.5 }}>
+                <div style={{ fontSize: TYPE.caption, color: C.dimmed, marginBottom: 10, lineHeight: 1.5 }}>
                   Kopiere das Transkript deines Reels hier rein. Es werden automatisch Captions für Instagram & TikTok generiert.
                 </div>
 
@@ -1138,66 +1170,66 @@ function CreatePostModal({ onClose, onSubmit, isSubmitting, accounts, initialDat
                   <React.Fragment>
                     <textarea value={aiTranscript} onChange={(e) => setAiTranscript(e.target.value)}
                       placeholder="Transkript hier einfügen..." rows={5}
-                      style={{ width: "100%", background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 12, color: C.white, fontSize: 13, fontFamily: "inherit", resize: "vertical", outline: "none", lineHeight: 1.6, boxSizing: "border-box", marginBottom: 10 }}
+                      style={{ width: "100%", background: C.card, border: `1px solid ${C.border}`, borderRadius: RADIUS.xl, padding: 12, color: C.white, fontSize: TYPE.body, fontFamily: "inherit", resize: "vertical", outline: "none", lineHeight: 1.6, boxSizing: "border-box", marginBottom: 10 }}
                       onFocus={(e) => e.target.style.borderColor = C.purple} onBlur={(e) => e.target.style.borderColor = C.border} />
 
                     {/* Hashtag Toggle */}
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: SPACE.md, marginBottom: 12 }}>
                       <button onClick={() => setIncludeHashtags(!includeHashtags)} style={{
-                        width: 36, height: 20, borderRadius: 10, border: "none", cursor: "pointer",
+                        width: 36, height: 20, borderRadius: RADIUS.xl, border: "none", cursor: "pointer",
                         background: includeHashtags ? C.purple : C.border, position: "relative", transition: "background 0.2s",
                       }}>
-                        <div style={{ width: 16, height: 16, borderRadius: 8, background: "#fff", position: "absolute", top: 2, left: includeHashtags ? 18 : 2, transition: "left 0.2s" }} />
+                        <div style={{ width: 16, height: 16, borderRadius: RADIUS.lg, background: "#fff", position: "absolute", top: 2, left: includeHashtags ? 18 : 2, transition: "left 0.2s" }} />
                       </button>
-                      <span style={{ fontSize: 12, color: C.muted }}>Hashtags einfügen</span>
+                      <span style={{ fontSize: TYPE.small, color: C.muted }}>Hashtags einfügen</span>
                     </div>
                   </React.Fragment>
                 )}
 
                 {aiError && (
-                  <div style={{ fontSize: 12, color: C.redLight, marginBottom: 8, padding: "6px 10px", background: C.redGlow, borderRadius: 6 }}>{aiError}</div>
+                  <div style={{ fontSize: TYPE.small, color: C.redLight, marginBottom: 8, padding: `${SPACE.sm}px ${SPACE.lg}px`, background: C.redGlow, borderRadius: RADIUS.md }}>{aiError}</div>
                 )}
 
                 {/* Results: Show both captions */}
                 {aiResults && (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 12 }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: SPACE.xl, marginBottom: 12 }}>
                     {[
                       { key: "instagram", label: "Instagram", icon: Instagram, color: C.instagram, text: aiResults.instagram, limit: "2.200" },
                       { key: "tiktok", label: "TikTok", icon: TikTokIcon, color: C.tiktok, text: aiResults.tiktok, limit: "4.000" },
                     ].map((p) => (
-                      <div key={p.key} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden" }}>
+                      <div key={p.key} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: RADIUS.xl, overflow: "hidden" }}>
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderBottom: `1px solid ${C.border}` }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: SPACE.md }}>
                             <p.icon size={14} color={p.color} />
-                            <span style={{ fontSize: 12, fontWeight: 700, color: p.color }}>{p.label}</span>
-                            <span style={{ fontSize: 10, color: C.dimmed }}>{p.text.length} / {p.limit} Zeichen</span>
+                            <span style={{ fontSize: TYPE.small, fontWeight: 700, color: p.color }}>{p.label}</span>
+                            <span style={{ fontSize: TYPE.micro, color: C.dimmed }}>{p.text.length} / {p.limit} Zeichen</span>
                           </div>
                           <button onClick={() => selectAiCaption(p.text)} style={{
-                            display: "flex", alignItems: "center", gap: 5, padding: "5px 12px", borderRadius: 6,
+                            display: "flex", alignItems: "center", gap: SPACE.sm, padding: "5px 12px", borderRadius: RADIUS.md,
                             background: p.color + "15", border: `1px solid ${p.color}40`, color: p.color,
-                            fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+                            fontSize: TYPE.caption, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
                           }}>
                             <Check size={11} /> Übernehmen
                           </button>
                         </div>
-                        <div style={{ padding: 14, fontSize: 12, color: C.white, lineHeight: 1.7, whiteSpace: "pre-wrap", maxHeight: 180, overflowY: "auto" }}>
+                        <div style={{ padding: 14, fontSize: TYPE.small, color: C.white, lineHeight: 1.7, whiteSpace: "pre-wrap", maxHeight: 180, overflowY: "auto" }}>
                           {p.text}
                         </div>
                       </div>
                     ))}
-                    <button onClick={() => { setAiResults(null); }} style={{ padding: "6px 14px", borderRadius: 8, background: "transparent", border: `1px solid ${C.border}`, color: C.dimmed, fontSize: 12, cursor: "pointer", fontFamily: "inherit", alignSelf: "flex-start" }}>
+                    <button onClick={() => { setAiResults(null); }} style={{ padding: "6px 14px", borderRadius: RADIUS.lg, background: "transparent", border: `1px solid ${C.border}`, color: C.dimmed, fontSize: TYPE.small, cursor: "pointer", fontFamily: "inherit", alignSelf: "flex-start" }}>
                       Neu generieren
                     </button>
                   </div>
                 )}
 
                 {!aiResults && (
-                  <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                    <button onClick={() => { setShowAiCaption(false); setAiTranscript(""); setAiError(null); setAiResults(null); }} style={{ padding: "7px 14px", borderRadius: 8, background: "transparent", border: `1px solid ${C.border}`, color: C.dimmed, fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>Abbrechen</button>
+                  <div style={{ display: "flex", gap: SPACE.md, justifyContent: "flex-end" }}>
+                    <button onClick={() => { setShowAiCaption(false); setAiTranscript(""); setAiError(null); setAiResults(null); }} style={{ padding: "7px 14px", borderRadius: RADIUS.lg, background: "transparent", border: `1px solid ${C.border}`, color: C.dimmed, fontSize: TYPE.small, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>Abbrechen</button>
                     <button onClick={generateCaption} disabled={aiGenerating || !aiTranscript.trim()} style={{
-                      display: "flex", alignItems: "center", gap: 6, padding: "7px 16px", borderRadius: 8,
+                      display: "flex", alignItems: "center", gap: SPACE.sm, padding: "7px 16px", borderRadius: RADIUS.lg,
                       background: !aiTranscript.trim() ? C.border : C.purple, border: "none",
-                      color: "#fff", fontSize: 12, fontWeight: 700, cursor: !aiTranscript.trim() ? "not-allowed" : "pointer",
+                      color: "#fff", fontSize: TYPE.small, fontWeight: 700, cursor: !aiTranscript.trim() ? "not-allowed" : "pointer",
                       fontFamily: "inherit", opacity: aiGenerating ? 0.7 : 1,
                     }}>
                       {aiGenerating ? <Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} /> : <Sparkles size={13} />}
@@ -1210,27 +1242,27 @@ function CreatePostModal({ onClose, onSubmit, isSubmitting, accounts, initialDat
 
             <textarea value={content} onChange={(e) => setContent(e.target.value)}
               placeholder="Caption hier eingeben oder mit KI generieren..." rows={4}
-              style={{ width: "100%", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, color: C.white, fontSize: 14, fontFamily: "inherit", resize: "vertical", outline: "none", lineHeight: 1.6, boxSizing: "border-box" }}
-              onFocus={(e) => e.target.style.borderColor = C.red} onBlur={(e) => e.target.style.borderColor = C.border} />
+              style={{ width: "100%", background: C.bg, border: `1px solid ${C.border}`, borderRadius: RADIUS.xxl, padding: 14, color: C.white, fontSize: TYPE.bodyLg, fontFamily: "inherit", resize: "vertical", outline: "none", lineHeight: 1.6, boxSizing: "border-box" }}
+              onFocus={(e) => e.target.style.borderColor = C.accent} onBlur={(e) => e.target.style.borderColor = C.border} />
             <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}>
-              <div style={{ fontSize: 12, color: content.length > 2200 ? C.redLight : C.dimmed }}>{content.length} / 2.200</div>
+              <div style={{ fontSize: TYPE.small, color: content.length > 2200 ? C.redLight : C.dimmed }}>{content.length} / 2.200</div>
             </div>
           </div>
 
           {/* Collab Partner */}
           <div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: C.muted, marginBottom: 8 }}>Collab Partner</div>
+            <div style={{ fontSize: TYPE.body, fontWeight: 600, color: C.muted, marginBottom: 8 }}>Collab Partner</div>
 
             {/* Quick-select default partners */}
-            <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+            <div style={{ display: "flex", gap: SPACE.md, marginBottom: 10 }}>
               {DEFAULT_PARTNERS.map((partner) => {
                 const isActive = collabs.some((c) => c.trim().replace(/^@/, "") === partner);
                 return (
                   <button key={partner} onClick={() => toggleDefaultPartner(partner)} style={{
-                    display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 20,
+                    display: "flex", alignItems: "center", gap: SPACE.sm, padding: "6px 14px", borderRadius: RADIUS.pill,
                     border: `1.5px solid ${isActive ? C.green : C.border}`,
                     background: isActive ? C.greenGlow : "transparent",
-                    color: isActive ? C.green : C.dimmed, fontSize: 12, fontWeight: 600,
+                    color: isActive ? C.green : C.dimmed, fontSize: TYPE.small, fontWeight: 600,
                     cursor: "pointer", fontFamily: "inherit", transition: "all 0.2s",
                   }}>
                     {isActive ? <Check size={12} /> : <Plus size={12} />}
@@ -1240,18 +1272,18 @@ function CreatePostModal({ onClose, onSubmit, isSubmitting, accounts, initialDat
               })}
             </div>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: SPACE.sm }}>
               {collabs.map((c, i) => (
-                <div key={i} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: SPACE.md }}>
                   <div style={{ position: "relative", flex: 1 }}>
-                    <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", fontSize: 13, color: C.dimmed, fontWeight: 600, pointerEvents: "none" }}>@</span>
+                    <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", fontSize: TYPE.body, color: C.dimmed, fontWeight: 600, pointerEvents: "none" }}>@</span>
                     <input type="text" value={c} onChange={(e) => updateCollab(i, e.target.value)}
                       placeholder="username"
-                      style={{ width: "100%", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 12px 8px 26px", color: C.white, fontSize: 13, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }}
-                      onFocus={(e) => e.target.style.borderColor = C.red} onBlur={(e) => e.target.style.borderColor = C.border} />
+                      style={{ width: "100%", background: C.bg, border: `1px solid ${C.border}`, borderRadius: RADIUS.lg, padding: "8px 12px 8px 26px", color: C.white, fontSize: TYPE.body, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }}
+                      onFocus={(e) => e.target.style.borderColor = C.accent} onBlur={(e) => e.target.style.borderColor = C.border} />
                   </div>
                   {(collabs.length > 1 || c.trim()) && (
-                    <button onClick={() => removeCollab(i)} style={{ width: 28, height: 28, borderRadius: 6, background: "transparent", border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
+                    <button onClick={() => removeCollab(i)} style={{ width: 28, height: 28, borderRadius: RADIUS.md, background: "transparent", border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
                       <X size={12} color={C.dimmed} />
                     </button>
                   )}
@@ -1262,7 +1294,7 @@ function CreatePostModal({ onClose, onSubmit, isSubmitting, accounts, initialDat
 
           {/* Media Upload */}
           <div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: C.muted, marginBottom: 8 }}>Medien</div>
+            <div style={{ fontSize: TYPE.body, fontWeight: 600, color: C.muted, marginBottom: 8 }}>Medien</div>
             <input type="file" ref={fileInputRef} accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime,video/webm" multiple
               style={{ display: "none" }} onChange={(e) => handleFiles(Array.from(e.target.files))} />
 
@@ -1272,34 +1304,34 @@ function CreatePostModal({ onClose, onSubmit, isSubmitting, accounts, initialDat
               onDrop={(e) => { e.preventDefault(); setIsDragging(false); handleFiles(Array.from(e.dataTransfer.files)); }}
               onClick={() => fileInputRef.current?.click()}
               style={{
-                border: `2px dashed ${isDragging ? C.red : C.border}`, borderRadius: 12, padding: "24px 16px",
-                display: "flex", flexDirection: "column", alignItems: "center", gap: 8, cursor: "pointer",
-                background: isDragging ? C.redGlow : "transparent", transition: "all 0.2s",
+                border: `2px dashed ${isDragging ? C.accent : C.border}`, borderRadius: RADIUS.xxl, padding: "24px 16px",
+                display: "flex", flexDirection: "column", alignItems: "center", gap: SPACE.md, cursor: "pointer",
+                background: isDragging ? C.accentGlow : "transparent", transition: "all 0.2s",
               }}>
-              <Upload size={24} color={isDragging ? C.red : C.dimmed} />
-              <div style={{ fontSize: 13, fontWeight: 600, color: isDragging ? C.red : C.muted }}>Bilder oder Videos hierher ziehen</div>
-              <div style={{ fontSize: 12, color: C.dimmed }}>oder klicken zum Durchsuchen · JPG, PNG, MP4, MOV</div>
+              <Upload size={24} color={isDragging ? C.accent : C.dimmed} />
+              <div style={{ fontSize: TYPE.body, fontWeight: 600, color: isDragging ? C.accent : C.muted }}>Bilder oder Videos hierher ziehen</div>
+              <div style={{ fontSize: TYPE.small, color: C.dimmed }}>oder klicken zum Durchsuchen · JPG, PNG, MP4, MOV</div>
             </div>
 
             {mediaFiles.length > 0 && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: SPACE.md, marginTop: 12 }}>
                 {mediaFiles.map((f) => (
-                  <div key={f.name} style={{ display: "flex", alignItems: "center", gap: 12, background: C.bg, borderRadius: 10, padding: "8px 12px", border: `1px solid ${C.border}` }}>
+                  <div key={f.name} style={{ display: "flex", alignItems: "center", gap: SPACE.xl, background: C.bg, borderRadius: RADIUS.xl, padding: `${SPACE.md}px ${SPACE.xl}px`, border: `1px solid ${C.border}` }}>
                     {f.preview ? (
-                      <img src={f.preview} alt="" style={{ width: 40, height: 40, borderRadius: 8, objectFit: "cover" }} />
+                      <img src={f.preview} alt="" style={{ width: 40, height: 40, borderRadius: RADIUS.lg, objectFit: "cover" }} />
                     ) : (
-                      <div style={{ width: 40, height: 40, borderRadius: 8, background: C.purpleGlow, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <div style={{ width: 40, height: 40, borderRadius: RADIUS.lg, background: C.purpleGlow, display: "flex", alignItems: "center", justifyContent: "center" }}>
                         <FileVideo size={18} color={C.purple} />
                       </div>
                     )}
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: C.white, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.name}</div>
-                      <div style={{ fontSize: 11, color: C.dimmed }}>{fmtSize(f.size)} · {f.type === "video" ? "Video" : "Bild"}{f.uploading ? " · Wird hochgeladen..." : ""}</div>
+                      <div style={{ fontSize: TYPE.body, fontWeight: 600, color: C.white, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.name}</div>
+                      <div style={{ fontSize: TYPE.caption, color: C.dimmed }}>{fmtSize(f.size)} · {f.type === "video" ? "Video" : "Bild"}{f.uploading ? " · Wird hochgeladen..." : ""}</div>
                     </div>
                     {f.uploading && <Loader2 size={16} color={C.muted} style={{ animation: "spin 1s linear infinite" }} />}
-                    {f.url === "local" && <div style={{ fontSize: 10, color: C.yellow, fontWeight: 600, padding: "2px 6px", background: C.yellowGlow, borderRadius: 4 }}>Lokal</div>}
+                    {f.url === "local" && <div style={{ fontSize: TYPE.micro, color: C.yellow, fontWeight: 600, padding: `${SPACE.xxs}px ${SPACE.sm}px`, background: C.yellowGlow, borderRadius: RADIUS.sm }}>Lokal</div>}
                     {f.url && f.url !== "local" && <Check size={16} color={C.green} />}
-                    <button onClick={(e) => { e.stopPropagation(); removeFile(f.name); }} style={{ width: 28, height: 28, borderRadius: 6, background: "transparent", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+                    <button onClick={(e) => { e.stopPropagation(); removeFile(f.name); }} style={{ width: 28, height: 28, borderRadius: RADIUS.md, background: "transparent", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
                       <Trash2 size={14} color={C.dimmed} />
                     </button>
                   </div>
@@ -1310,23 +1342,23 @@ function CreatePostModal({ onClose, onSubmit, isSubmitting, accounts, initialDat
             {/* Thumbnail Options for Video */}
             {videoFile && (
               <div style={{ marginTop: 12 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: C.muted, marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+                <div style={{ fontSize: TYPE.body, fontWeight: 600, color: C.muted, marginBottom: 8, display: "flex", alignItems: "center", gap: SPACE.sm }}>
                   <Scissors size={14} /> Thumbnail
                 </div>
                 {/* Mode Toggle */}
-                <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+                <div style={{ display: "flex", gap: SPACE.md, marginBottom: 10 }}>
                   <button onClick={() => setThumbnailMode("scrub")} style={{
-                    display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 8,
-                    border: `1px solid ${thumbnailMode === "scrub" ? C.red : C.border}`,
-                    background: thumbnailMode === "scrub" ? C.redGlow : "transparent",
-                    color: thumbnailMode === "scrub" ? C.red : C.dimmed, fontSize: 12, fontWeight: 600,
+                    display: "flex", alignItems: "center", gap: SPACE.sm, padding: "6px 14px", borderRadius: RADIUS.lg,
+                    border: `1px solid ${thumbnailMode === "scrub" ? C.accent : C.border}`,
+                    background: thumbnailMode === "scrub" ? C.accentGlow : "transparent",
+                    color: thumbnailMode === "scrub" ? C.accent : C.dimmed, fontSize: TYPE.small, fontWeight: 600,
                     cursor: "pointer", fontFamily: "inherit",
                   }}><Scissors size={12} /> Frame aus Video</button>
                   <button onClick={() => { setThumbnailMode("upload"); }} style={{
-                    display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 8,
-                    border: `1px solid ${thumbnailMode === "upload" ? C.red : C.border}`,
-                    background: thumbnailMode === "upload" ? C.redGlow : "transparent",
-                    color: thumbnailMode === "upload" ? C.red : C.dimmed, fontSize: 12, fontWeight: 600,
+                    display: "flex", alignItems: "center", gap: SPACE.sm, padding: "6px 14px", borderRadius: RADIUS.lg,
+                    border: `1px solid ${thumbnailMode === "upload" ? C.accent : C.border}`,
+                    background: thumbnailMode === "upload" ? C.accentGlow : "transparent",
+                    color: thumbnailMode === "upload" ? C.accent : C.dimmed, fontSize: TYPE.small, fontWeight: 600,
                     cursor: "pointer", fontFamily: "inherit",
                   }}><Upload size={12} /> Eigenes Bild</button>
                 </div>
@@ -1336,24 +1368,24 @@ function CreatePostModal({ onClose, onSubmit, isSubmitting, accounts, initialDat
                 )}
 
                 {thumbnailMode === "upload" && (
-                  <div style={{ background: C.bg, borderRadius: 10, padding: 12, border: `1px solid ${C.border}` }}>
+                  <div style={{ background: C.bg, borderRadius: RADIUS.xl, padding: 12, border: `1px solid ${C.border}` }}>
                     <input type="file" ref={thumbInputRef} accept="image/jpeg,image/png,image/webp"
                       style={{ display: "none" }} onChange={handleThumbnailUpload} />
                     {!customThumbnail ? (
                       <div onClick={() => thumbInputRef.current?.click()}
-                        style={{ border: `2px dashed ${C.border}`, borderRadius: 10, padding: "20px 16px", display: "flex", flexDirection: "column", alignItems: "center", gap: 6, cursor: "pointer" }}>
+                        style={{ border: `2px dashed ${C.border}`, borderRadius: RADIUS.xl, padding: `${SPACE.xxxl}px ${SPACE.xxl}px`, display: "flex", flexDirection: "column", alignItems: "center", gap: SPACE.sm, cursor: "pointer" }}>
                         <Upload size={20} color={C.dimmed} />
-                        <div style={{ fontSize: 12, fontWeight: 600, color: C.muted }}>Thumbnail-Bild hochladen</div>
-                        <div style={{ fontSize: 11, color: C.dimmed }}>JPG, PNG oder WebP</div>
+                        <div style={{ fontSize: TYPE.small, fontWeight: 600, color: C.muted }}>Thumbnail-Bild hochladen</div>
+                        <div style={{ fontSize: TYPE.caption, color: C.dimmed }}>JPG, PNG oder WebP</div>
                       </div>
                     ) : (
-                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                        <img src={customThumbnail.preview} alt="Thumbnail" style={{ width: 80, height: "auto", borderRadius: 8, border: `1px solid ${C.border}` }} />
+                      <div style={{ display: "flex", alignItems: "center", gap: SPACE.xl }}>
+                        <img src={customThumbnail.preview} alt="Thumbnail" style={{ width: 80, height: "auto", borderRadius: RADIUS.lg, border: `1px solid ${C.border}` }} />
                         <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: 12, color: C.green, fontWeight: 700 }}>Thumbnail hochgeladen</div>
-                          <div style={{ fontSize: 11, color: C.dimmed, marginTop: 2 }}>{customThumbnail.name}</div>
+                          <div style={{ fontSize: TYPE.small, color: C.green, fontWeight: 700 }}>Thumbnail hochgeladen</div>
+                          <div style={{ fontSize: TYPE.caption, color: C.dimmed, marginTop: 2 }}>{customThumbnail.name}</div>
                         </div>
-                        <button onClick={() => { setCustomThumbnail(null); }} style={{ width: 28, height: 28, borderRadius: 6, background: "transparent", border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+                        <button onClick={() => { setCustomThumbnail(null); }} style={{ width: 28, height: 28, borderRadius: RADIUS.md, background: "transparent", border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
                           <X size={12} color={C.dimmed} />
                         </button>
                       </div>
@@ -1366,29 +1398,29 @@ function CreatePostModal({ onClose, onSubmit, isSubmitting, accounts, initialDat
 
           {/* Scheduling */}
           <div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: C.muted, marginBottom: 8 }}>Zeitplanung</div>
-            <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
+            <div style={{ fontSize: TYPE.body, fontWeight: 600, color: C.muted, marginBottom: 8 }}>Zeitplanung</div>
+            <div style={{ display: "flex", gap: SPACE.lg, marginBottom: 12 }}>
               <button onClick={() => setPostNow(true)} style={{
-                display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 8,
+                display: "flex", alignItems: "center", gap: SPACE.sm, padding: `${SPACE.md}px ${SPACE.xxl}px`, borderRadius: RADIUS.lg,
                 border: `1px solid ${postNow ? C.green : C.border}`, background: postNow ? C.greenGlow : "transparent",
-                color: postNow ? C.green : C.dimmed, fontSize: 13, fontWeight: 500, cursor: "pointer", fontFamily: "inherit",
+                color: postNow ? C.green : C.dimmed, fontSize: TYPE.body, fontWeight: 500, cursor: "pointer", fontFamily: "inherit",
               }}><Send size={14} /> Sofort posten</button>
               <button onClick={() => setPostNow(false)} style={{
-                display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 8,
+                display: "flex", alignItems: "center", gap: SPACE.sm, padding: `${SPACE.md}px ${SPACE.xxl}px`, borderRadius: RADIUS.lg,
                 border: `1px solid ${!postNow ? C.blue : C.border}`, background: !postNow ? C.blueGlow : "transparent",
-                color: !postNow ? C.blue : C.dimmed, fontSize: 13, fontWeight: 500, cursor: "pointer", fontFamily: "inherit",
+                color: !postNow ? C.blue : C.dimmed, fontSize: TYPE.body, fontWeight: 500, cursor: "pointer", fontFamily: "inherit",
               }}><Clock size={14} /> Planen</button>
             </div>
             {!postNow && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                <div style={{ display: "flex", gap: 10 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: SPACE.lg }}>
+                <div style={{ display: "flex", gap: SPACE.lg }}>
                   <input type="date" value={scheduleDate} onChange={(e) => setScheduleDate(e.target.value)}
-                    style={{ flex: 1, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 12px", color: C.white, fontSize: 13, fontFamily: "inherit", outline: "none", colorScheme: "dark" }} />
+                    style={{ flex: 1, background: C.bg, border: `1px solid ${C.border}`, borderRadius: RADIUS.lg, padding: `${SPACE.md}px ${SPACE.xl}px`, color: C.white, fontSize: TYPE.body, fontFamily: "inherit", outline: "none", colorScheme: "dark" }} />
                   <input type="time" value={scheduleTime} onChange={(e) => setScheduleTime(e.target.value)}
-                    style={{ width: 120, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 12px", color: C.white, fontSize: 13, fontFamily: "inherit", outline: "none", colorScheme: "dark" }} />
+                    style={{ width: 120, background: C.bg, border: `1px solid ${C.border}`, borderRadius: RADIUS.lg, padding: `${SPACE.md}px ${SPACE.xl}px`, color: C.white, fontSize: TYPE.body, fontFamily: "inherit", outline: "none", colorScheme: "dark" }} />
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <div style={{ fontSize: 12, color: C.dimmed, fontWeight: 500 }}>Zeitzone:</div>
+                <div style={{ display: "flex", alignItems: "center", gap: SPACE.md }}>
+                  <div style={{ fontSize: TYPE.small, color: C.dimmed, fontWeight: 500 }}>Zeitzone:</div>
                   <TimezonePicker value={timezone} onChange={setTimezone} />
                 </div>
               </div>
@@ -1397,22 +1429,22 @@ function CreatePostModal({ onClose, onSubmit, isSubmitting, accounts, initialDat
         </div>
 
         {/* Footer */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 10, padding: "16px 24px", borderTop: `1px solid ${C.border}`, flexShrink: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: SPACE.lg, padding: "16px 24px", borderTop: `1px solid ${C.border}`, flexShrink: 0 }}>
           {blockReason && (
-            <div style={{ display: "flex", alignItems: "center", gap: 6, marginRight: "auto", fontSize: 12, color: mediaUploading ? C.muted : C.dimmed }}>
+            <div style={{ display: "flex", alignItems: "center", gap: SPACE.sm, marginRight: "auto", fontSize: TYPE.small, color: mediaUploading ? C.muted : C.dimmed }}>
               {mediaUploading
                 ? <Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} />
                 : <AlertCircle size={13} />}
               {blockReason}
             </div>
           )}
-          <button onClick={handleClose} style={{ padding: "10px 20px", borderRadius: 10, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Abbrechen</button>
+          <button onClick={handleClose} style={{ padding: `${SPACE.lg}px ${SPACE.xxxl}px`, borderRadius: RADIUS.xl, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, fontSize: TYPE.body, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Abbrechen</button>
           <button onClick={handleSubmit} disabled={!canSubmit} title={blockReason || ""} style={{
-            display: "flex", alignItems: "center", gap: 6, padding: "10px 24px", borderRadius: 10,
-            background: canSubmit ? C.red : C.border, border: "none",
-            color: canSubmit ? "#fff" : C.dimmed, fontSize: 13, fontWeight: 700,
+            display: "flex", alignItems: "center", gap: SPACE.sm, padding: "10px 24px", borderRadius: RADIUS.xl,
+            background: canSubmit ? C.accent : C.border, border: "none",
+            color: canSubmit ? "#fff" : C.dimmed, fontSize: TYPE.body, fontWeight: 700,
             cursor: canSubmit ? "pointer" : "not-allowed",
-            fontFamily: "inherit", boxShadow: canSubmit ? `0 4px 16px ${C.redGlow}` : "none",
+            fontFamily: "inherit", boxShadow: canSubmit ? `0 4px 16px ${C.accentGlow}` : "none",
             opacity: isSubmitting ? 0.7 : 1, transition: "background 0.2s, color 0.2s, box-shadow 0.2s",
           }}>
             {isSubmitting ? <Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} /> : postNow ? <Send size={15} /> : <Clock size={15} />}
@@ -1495,18 +1527,18 @@ function ContentPipelinePanel() {
       {/* Header */}
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 24 }}>
         <div>
-          <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.02em", color: C.white, display: "flex", alignItems: "center", gap: 10 }}>
-            <Kanban size={22} color={C.red} /> Content-Pipeline
+          <div style={{ fontSize: TYPE.h2, fontWeight: 800, letterSpacing: "-0.02em", color: C.white, display: "flex", alignItems: "center", gap: SPACE.lg }}>
+            <Kanban size={22} color={C.accent} /> Content-Pipeline
           </div>
-          <div style={{ fontSize: 13, color: C.muted, marginTop: 2 }}>Von der Idee bis zur Produktion – Karten per Drag & Drop verschieben</div>
+          <div style={{ fontSize: TYPE.body, color: C.muted, marginTop: 2 }}>Von der Idee bis zur Produktion – Karten per Drag & Drop verschieben</div>
         </div>
-        <div style={{ fontSize: 12, color: C.dimmed, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 14px" }}>
+        <div style={{ fontSize: TYPE.small, color: C.dimmed, background: C.card, border: `1px solid ${C.border}`, borderRadius: RADIUS.lg, padding: "8px 14px" }}>
           {cards.length} Karte{cards.length !== 1 ? "n" : ""} insgesamt
         </div>
       </div>
 
       {/* Board */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, alignItems: "start" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: SPACE.xxl, alignItems: "start" }}>
         {PIPELINE_COLUMNS.map((col, colIdx) => {
           const color = C[col.colorKey];
           const glow = C[col.glowKey];
@@ -1519,31 +1551,31 @@ function ContentPipelinePanel() {
               onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setDragOverCol(null); }}
               onDrop={(e) => { e.preventDefault(); if (dragId !== null) moveCard(dragId, col.key); setDragId(null); setDragOverCol(null); }}
               style={{
-                background: C.bgSoft, borderRadius: 16, border: `1px solid ${isDragTarget ? color : C.border}`,
+                background: C.bgSoft, borderRadius: RADIUS.xxxl, border: `1px solid ${isDragTarget ? color : C.border}`,
                 borderTop: `3px solid ${color}`, minHeight: 320, display: "flex", flexDirection: "column",
                 boxShadow: isDragTarget ? `0 0 24px ${glow}` : "none", transition: "border-color 0.2s, box-shadow 0.2s",
               }}>
               {/* Column header */}
-              <div style={{ padding: "14px 16px 10px", display: "flex", alignItems: "center", gap: 8 }}>
-                <div style={{ width: 30, height: 30, borderRadius: 9, background: glow, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <div style={{ padding: "14px 16px 10px", display: "flex", alignItems: "center", gap: SPACE.md }}>
+                <div style={{ width: 30, height: 30, borderRadius: RADIUS.xl, background: glow, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                   <col.icon size={15} color={color} />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: C.white, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{col.label}</div>
-                  <div style={{ fontSize: 10.5, color: C.dimmed, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{col.desc}</div>
+                  <div style={{ fontSize: TYPE.body, fontWeight: 700, color: C.white, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{col.label}</div>
+                  <div style={{ fontSize: TYPE.caption, color: C.dimmed, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{col.desc}</div>
                 </div>
-                <span style={{ fontSize: 11, fontWeight: 700, color, background: glow, padding: "2px 8px", borderRadius: 10, flexShrink: 0 }}>{colCards.length}</span>
+                <span style={{ fontSize: TYPE.caption, fontWeight: 700, color, background: glow, padding: `${SPACE.xxs}px ${SPACE.md}px`, borderRadius: RADIUS.xl, flexShrink: 0 }}>{colCards.length}</span>
               </div>
 
               {/* Cards */}
-              <div style={{ padding: "4px 10px 10px", display: "flex", flexDirection: "column", gap: 8, flex: 1 }}>
+              <div style={{ padding: "4px 10px 10px", display: "flex", flexDirection: "column", gap: SPACE.md, flex: 1 }}>
                 {colCards.length === 0 && !isDragTarget && (
-                  <div style={{ border: `1.5px dashed ${C.border}`, borderRadius: 10, padding: "18px 12px", textAlign: "center", fontSize: 11.5, color: C.dimmed }}>
+                  <div style={{ border: `1.5px dashed ${C.border}`, borderRadius: RADIUS.xl, padding: "18px 12px", textAlign: "center", fontSize: TYPE.small, color: C.dimmed }}>
                     Noch keine Karten
                   </div>
                 )}
                 {isDragTarget && (
-                  <div style={{ border: `1.5px dashed ${color}`, background: glow, borderRadius: 10, padding: "14px 12px", textAlign: "center", fontSize: 11.5, fontWeight: 600, color }}>
+                  <div style={{ border: `1.5px dashed ${color}`, background: glow, borderRadius: RADIUS.xl, padding: "14px 12px", textAlign: "center", fontSize: TYPE.small, fontWeight: 600, color }}>
                     Hier ablegen
                   </div>
                 )}
@@ -1557,7 +1589,7 @@ function ContentPipelinePanel() {
                       onDragEnd={() => { setDragId(null); setDragOverCol(null); }}
                       style={{
                         background: C.card, border: `1px solid ${C.border}`, borderLeft: `3px solid ${color}`,
-                        borderRadius: 10, padding: "10px 12px", cursor: isEditing ? "default" : "grab",
+                        borderRadius: RADIUS.xl, padding: `${SPACE.lg}px ${SPACE.xl}px`, cursor: isEditing ? "default" : "grab",
                         opacity: isDragging ? 0.4 : 1, transition: "opacity 0.15s, border-color 0.2s, box-shadow 0.2s",
                       }}
                       onMouseOver={(e) => { if (!isEditing) { e.currentTarget.style.borderColor = color; e.currentTarget.style.boxShadow = `0 4px 16px ${glow}`; e.currentTarget.style.borderLeftColor = color; } }}
@@ -1566,39 +1598,39 @@ function ContentPipelinePanel() {
                         <div>
                           <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} autoFocus
                             onKeyDown={(e) => { if (e.key === "Enter") saveEdit(); if (e.key === "Escape") setEditingId(null); }}
-                            style={{ width: "100%", background: C.bg, border: `1px solid ${color}`, borderRadius: 8, padding: "7px 10px", color: C.white, fontSize: 13, fontWeight: 600, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }} />
+                            style={{ width: "100%", background: C.bg, border: `1px solid ${color}`, borderRadius: RADIUS.lg, padding: "7px 10px", color: C.white, fontSize: TYPE.body, fontWeight: 600, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }} />
                           <textarea value={editNotes} onChange={(e) => setEditNotes(e.target.value)} rows={3} placeholder="Notizen / Skript-Text..."
-                            style={{ width: "100%", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: "7px 10px", color: C.white, fontSize: 12, fontFamily: "inherit", outline: "none", resize: "vertical", lineHeight: 1.5, marginTop: 6, boxSizing: "border-box" }} />
-                          <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", marginTop: 6 }}>
-                            <button onClick={() => setEditingId(null)} style={{ padding: "5px 10px", borderRadius: 6, background: "transparent", border: `1px solid ${C.border}`, color: C.dimmed, fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>Abbrechen</button>
-                            <button onClick={saveEdit} style={{ padding: "5px 12px", borderRadius: 6, background: color, border: "none", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Speichern</button>
+                            style={{ width: "100%", background: C.bg, border: `1px solid ${C.border}`, borderRadius: RADIUS.lg, padding: "7px 10px", color: C.white, fontSize: TYPE.small, fontFamily: "inherit", outline: "none", resize: "vertical", lineHeight: 1.5, marginTop: 6, boxSizing: "border-box" }} />
+                          <div style={{ display: "flex", gap: SPACE.sm, justifyContent: "flex-end", marginTop: 6 }}>
+                            <button onClick={() => setEditingId(null)} style={{ padding: "5px 10px", borderRadius: RADIUS.md, background: "transparent", border: `1px solid ${C.border}`, color: C.dimmed, fontSize: TYPE.caption, cursor: "pointer", fontFamily: "inherit" }}>Abbrechen</button>
+                            <button onClick={saveEdit} style={{ padding: "5px 12px", borderRadius: RADIUS.md, background: color, border: "none", color: "#fff", fontSize: TYPE.caption, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Speichern</button>
                           </div>
                         </div>
                       ) : (
                         <div>
-                          <div style={{ display: "flex", alignItems: "flex-start", gap: 6 }}>
+                          <div style={{ display: "flex", alignItems: "flex-start", gap: SPACE.sm }}>
                             <GripVertical size={13} color={C.dimmed} style={{ marginTop: 2, flexShrink: 0, opacity: 0.6 }} />
-                            <div style={{ fontSize: 13, fontWeight: 600, color: C.white, lineHeight: 1.4, flex: 1, wordBreak: "break-word" }}>{card.title}</div>
+                            <div style={{ fontSize: TYPE.body, fontWeight: 600, color: C.white, lineHeight: 1.4, flex: 1, wordBreak: "break-word" }}>{card.title}</div>
                           </div>
                           {card.notes && (
-                            <div style={{ fontSize: 11.5, color: C.muted, lineHeight: 1.5, marginTop: 5, marginLeft: 19, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden", whiteSpace: "pre-wrap" }}>{card.notes}</div>
+                            <div style={{ fontSize: TYPE.small, color: C.muted, lineHeight: 1.5, marginTop: 5, marginLeft: 19, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden", whiteSpace: "pre-wrap" }}>{card.notes}</div>
                           )}
-                          <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 8, marginLeft: 19 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: SPACE.xs, marginTop: 8, marginLeft: 19 }}>
                             <button onClick={() => moveStep(card.id, -1)} disabled={colIdx === 0} title="Schritt zurück"
-                              style={{ width: 24, height: 24, borderRadius: 6, background: C.bg, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: colIdx === 0 ? "default" : "pointer", opacity: colIdx === 0 ? 0.3 : 1 }}>
+                              style={{ width: 24, height: 24, borderRadius: RADIUS.md, background: C.bg, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: colIdx === 0 ? "default" : "pointer", opacity: colIdx === 0 ? 0.3 : 1 }}>
                               <ChevronLeft size={12} color={C.muted} />
                             </button>
                             <button onClick={() => moveStep(card.id, 1)} disabled={colIdx === PIPELINE_COLUMNS.length - 1} title="Nächster Schritt"
-                              style={{ width: 24, height: 24, borderRadius: 6, background: C.bg, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: colIdx === PIPELINE_COLUMNS.length - 1 ? "default" : "pointer", opacity: colIdx === PIPELINE_COLUMNS.length - 1 ? 0.3 : 1 }}>
+                              style={{ width: 24, height: 24, borderRadius: RADIUS.md, background: C.bg, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: colIdx === PIPELINE_COLUMNS.length - 1 ? "default" : "pointer", opacity: colIdx === PIPELINE_COLUMNS.length - 1 ? 0.3 : 1 }}>
                               <ChevronRight size={12} color={C.muted} />
                             </button>
                             <div style={{ flex: 1 }} />
                             <button onClick={() => startEdit(card)} title="Bearbeiten"
-                              style={{ width: 24, height: 24, borderRadius: 6, background: "transparent", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+                              style={{ width: 24, height: 24, borderRadius: RADIUS.md, background: "transparent", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
                               <Pencil size={12} color={C.dimmed} />
                             </button>
                             <button onClick={() => deleteCard(card.id)} title="Löschen"
-                              style={{ width: 24, height: 24, borderRadius: 6, background: "transparent", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+                              style={{ width: 24, height: 24, borderRadius: RADIUS.md, background: "transparent", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
                               <Trash2 size={12} color={C.dimmed} />
                             </button>
                           </div>
@@ -1612,18 +1644,18 @@ function ContentPipelinePanel() {
               {/* Add card */}
               <div style={{ padding: "0 10px 12px" }}>
                 {addingCol === col.key ? (
-                  <div style={{ background: C.card, border: `1px solid ${color}`, borderRadius: 10, padding: 10 }}>
+                  <div style={{ background: C.card, border: `1px solid ${color}`, borderRadius: RADIUS.xl, padding: 10 }}>
                     <input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} autoFocus placeholder="Titel der Karte..."
                       onKeyDown={(e) => { if (e.key === "Enter") addCard(col.key); if (e.key === "Escape") { setAddingCol(null); setNewTitle(""); } }}
-                      style={{ width: "100%", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: "7px 10px", color: C.white, fontSize: 13, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }} />
-                    <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", marginTop: 8 }}>
-                      <button onClick={() => { setAddingCol(null); setNewTitle(""); }} style={{ padding: "5px 10px", borderRadius: 6, background: "transparent", border: `1px solid ${C.border}`, color: C.dimmed, fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>Abbrechen</button>
-                      <button onClick={() => addCard(col.key)} style={{ padding: "5px 12px", borderRadius: 6, background: color, border: "none", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Hinzufügen</button>
+                      style={{ width: "100%", background: C.bg, border: `1px solid ${C.border}`, borderRadius: RADIUS.lg, padding: "7px 10px", color: C.white, fontSize: TYPE.body, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }} />
+                    <div style={{ display: "flex", gap: SPACE.sm, justifyContent: "flex-end", marginTop: 8 }}>
+                      <button onClick={() => { setAddingCol(null); setNewTitle(""); }} style={{ padding: "5px 10px", borderRadius: RADIUS.md, background: "transparent", border: `1px solid ${C.border}`, color: C.dimmed, fontSize: TYPE.caption, cursor: "pointer", fontFamily: "inherit" }}>Abbrechen</button>
+                      <button onClick={() => addCard(col.key)} style={{ padding: "5px 12px", borderRadius: RADIUS.md, background: color, border: "none", color: "#fff", fontSize: TYPE.caption, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Hinzufügen</button>
                     </div>
                   </div>
                 ) : (
                   <button onClick={() => { setAddingCol(col.key); setNewTitle(""); }}
-                    style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, width: "100%", padding: "8px 0", borderRadius: 10, background: "transparent", border: `1.5px dashed ${C.border}`, color: C.dimmed, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", transition: "all 0.2s" }}
+                    style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: SPACE.sm, width: "100%", padding: `${SPACE.md}px 0`, borderRadius: RADIUS.xl, background: "transparent", border: `1.5px dashed ${C.border}`, color: C.dimmed, fontSize: TYPE.small, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", transition: "all 0.2s" }}
                     onMouseOver={(e) => { e.currentTarget.style.borderColor = color; e.currentTarget.style.color = color; e.currentTarget.style.background = glow; }}
                     onMouseOut={(e) => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.dimmed; e.currentTarget.style.background = "transparent"; }}>
                     <Plus size={13} /> Karte hinzufügen
@@ -1638,7 +1670,7 @@ function ContentPipelinePanel() {
   );
 }
 
-function Sidebar({ activeTab, onTabChange, unreadCount, errorCount, isDarkMode, onToggleTheme }) {
+function Sidebar({ activeTab, onTabChange, unreadCount, errorCount, isDarkMode, onToggleTheme, isOpen, onClose }) {
   const [expandedMenu, setExpandedMenu] = useState(null);
 
   // Sidebar colors matching neutral dark theme
@@ -1678,16 +1710,16 @@ function Sidebar({ activeTab, onTabChange, unreadCount, errorCount, isDarkMode, 
   ];
 
   const navItemStyle = (isActive, disabled) => ({
-    display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "9px 16px", borderRadius: 8,
+    display: "flex", alignItems: "center", gap: SPACE.lg, width: "100%", padding: "9px 16px", borderRadius: RADIUS.lg,
     border: "none", background: isActive ? SB.activeBg : "transparent", color: isActive ? SB.activeText : disabled ? SB.text + "60" : SB.text,
-    fontSize: 13, fontWeight: isActive ? 600 : 500, cursor: disabled ? "default" : "pointer",
+    fontSize: TYPE.body, fontWeight: isActive ? 600 : 500, cursor: disabled ? "default" : "pointer",
     fontFamily: "inherit", transition: "all 0.15s", textAlign: "left", opacity: disabled ? 0.5 : 1,
   });
 
   const subItemStyle = (isActive) => ({
-    display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "7px 16px 7px 42px", borderRadius: 8,
+    display: "flex", alignItems: "center", gap: SPACE.md, width: "100%", padding: "7px 16px 7px 42px", borderRadius: RADIUS.lg,
     border: "none", background: isActive ? SB.activeBg : "transparent", color: isActive ? SB.activeText : SB.text,
-    fontSize: 12.5, fontWeight: isActive ? 600 : 400, cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s", textAlign: "left",
+    fontSize: TYPE.body, fontWeight: isActive ? 600 : 400, cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s", textAlign: "left",
   });
 
   // Auto-expand parent menus based on active tab
@@ -1695,22 +1727,28 @@ function Sidebar({ activeTab, onTabChange, unreadCount, errorCount, isDarkMode, 
   const isInboxChild = ["notifications", "comments"].includes(activeTab);
 
   return (
-    <div style={{
+    <div className={`app-sidebar${isOpen ? " open" : ""}`} style={{
       width: 220, minWidth: 220, minHeight: "100vh", background: SB.bg, borderRight: `1px solid ${SB.border}`,
-      display: "flex", flexDirection: "column", position: "fixed", left: 0, top: 0, zIndex: 40,
+      display: "flex", flexDirection: "column", position: "fixed", left: 0, top: 0, zIndex: 60,
       overflowY: "auto",
     }}>
       {/* User Profile */}
-      <div style={{ padding: "20px 16px 16px", display: "flex", alignItems: "center", gap: 10 }}>
-        <div style={{ width: 38, height: 38, borderRadius: "50%", background: `linear-gradient(135deg, ${C.red}, #991B1B)`, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 15, color: "#fff", flexShrink: 0 }}>D</div>
+      <div style={{ padding: "20px 16px 16px", display: "flex", alignItems: "center", gap: SPACE.lg }}>
+        <div style={{ width: 38, height: 38, borderRadius: "50%", background: `linear-gradient(135deg, ${C.accent}, #9A3412)`, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: TYPE.label, color: "#fff", flexShrink: 0 }}>D</div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: SB.activeText, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>Dariel</div>
-          <div style={{ fontSize: 10, color: SB.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>darielo30@live.de</div>
+          <div style={{ fontSize: TYPE.body, fontWeight: 700, color: SB.activeText, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>Dariel</div>
+          <div style={{ fontSize: TYPE.micro, color: SB.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>darielo30@live.de</div>
         </div>
+        <button onClick={onClose} aria-label="Menü schließen" className="mobile-menu-btn" style={{
+          width: 32, height: 32, borderRadius: RADIUS.lg, border: `1px solid ${SB.border}`, background: "transparent",
+          color: SB.text, cursor: "pointer", alignItems: "center", justifyContent: "center", flexShrink: 0,
+        }}>
+          <X size={16} />
+        </button>
       </div>
 
       {/* Navigation */}
-      <nav style={{ padding: "4px 8px", flex: 1, display: "flex", flexDirection: "column", gap: 1 }}>
+      <nav style={{ padding: `${SPACE.xs}px ${SPACE.md}px`, flex: 1, display: "flex", flexDirection: "column", gap: SPACE.xxs }}>
         {navItems.map((item) => {
           const isParentActive = item.expandable
             ? item.children.some((c) => c.key === activeTab)
@@ -1730,10 +1768,12 @@ function Sidebar({ activeTab, onTabChange, unreadCount, errorCount, isDarkMode, 
                     // Navigate to first child if not already in this group
                     if (!item.children.some((c) => c.key === activeTab)) {
                       onTabChange(item.children[0].key);
+                      onClose?.();
                     }
                   } else {
                     onTabChange(item.key);
                     setExpandedMenu(null);
+                    onClose?.();
                   }
                 }}
                 style={navItemStyle(isParentActive && !item.expandable, item.disabled)}
@@ -1743,7 +1783,7 @@ function Sidebar({ activeTab, onTabChange, unreadCount, errorCount, isDarkMode, 
                 <item.icon size={16} />
                 <span style={{ flex: 1 }}>{item.label}</span>
                 {item.badge > 0 && (
-                  <span style={{ fontSize: 10, fontWeight: 700, color: "#fff", background: C.red, padding: "1px 6px", borderRadius: 8, minWidth: 18, textAlign: "center" }}>{item.badge > 99 ? "99+" : item.badge}</span>
+                  <span style={{ fontSize: TYPE.micro, fontWeight: 700, color: "#fff", background: C.accent, padding: "1px 6px", borderRadius: RADIUS.lg, minWidth: 18, textAlign: "center" }}>{item.badge > 99 ? "99+" : item.badge}</span>
                 )}
                 {item.expandable && (
                   <ChevronDown size={13} style={{ transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s", opacity: 0.5 }} />
@@ -1755,7 +1795,7 @@ function Sidebar({ activeTab, onTabChange, unreadCount, errorCount, isDarkMode, 
                   {item.children.map((child) => {
                     const childActive = activeTab === child.key;
                     return (
-                      <button key={child.key} onClick={() => onTabChange(child.key)} style={subItemStyle(childActive)}
+                      <button key={child.key} onClick={() => { onTabChange(child.key); onClose?.(); }} style={subItemStyle(childActive)}
                         onMouseOver={(e) => { if (!childActive) e.currentTarget.style.background = SB.hoverBg; }}
                         onMouseOut={(e) => { if (!childActive) e.currentTarget.style.background = "transparent"; }}>
                         {child.label}
@@ -1770,10 +1810,10 @@ function Sidebar({ activeTab, onTabChange, unreadCount, errorCount, isDarkMode, 
       </nav>
 
       {/* Bottom: Theme Toggle */}
-      <div style={{ padding: "12px 16px", borderTop: `1px solid ${SB.border}` }}>
+      <div style={{ padding: `${SPACE.xl}px ${SPACE.xxl}px`, borderTop: `1px solid ${SB.border}` }}>
         <button onClick={onToggleTheme} style={{
-          display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "8px 12px", borderRadius: 8,
-          background: "transparent", border: "none", color: SB.text, fontSize: 12, cursor: "pointer", fontFamily: "inherit",
+          display: "flex", alignItems: "center", gap: SPACE.md, width: "100%", padding: `${SPACE.md}px ${SPACE.xl}px`, borderRadius: RADIUS.lg,
+          background: "transparent", border: "none", color: SB.text, fontSize: TYPE.small, cursor: "pointer", fontFamily: "inherit",
         }}
         onMouseOver={(e) => e.currentTarget.style.background = SB.hoverBg}
         onMouseOut={(e) => e.currentTarget.style.background = "transparent"}>
@@ -1891,9 +1931,9 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
   const listPanelStyle = { width: 360, minWidth: 360, borderRight: `1px solid ${C.border}`, height: "calc(100vh - 140px)", overflowY: "auto", flexShrink: 0 };
   const detailPanelStyle = { flex: 1, height: "calc(100vh - 140px)", overflowY: "auto", display: "flex", flexDirection: "column" };
   const listItemStyle = (active) => ({
-    display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", cursor: "pointer", transition: "all 0.15s",
+    display: "flex", alignItems: "center", gap: SPACE.xl, padding: "14px 16px", cursor: "pointer", transition: "all 0.15s",
     background: active ? C.card : "transparent", borderBottom: `1px solid ${C.border}08`,
-    borderLeft: active ? `3px solid ${C.red}` : "3px solid transparent",
+    borderLeft: active ? `3px solid ${C.accent}` : "3px solid transparent",
   });
 
   const formatTime = (t) => {
@@ -1914,7 +1954,7 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
     const p = (platform || "instagram").toLowerCase();
     const col = p === "instagram" ? C.instagram : C.tiktok;
     return (
-      <div style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 6, background: col + "15", fontSize: 10, fontWeight: 600, color: col }}>
+      <div style={{ display: "inline-flex", alignItems: "center", gap: SPACE.xs, padding: `${SPACE.xxs}px ${SPACE.md}px`, borderRadius: RADIUS.md, background: col + "15", fontSize: TYPE.micro, fontWeight: 600, color: col }}>
         {p === "instagram" ? <Instagram size={10} /> : <TikTokIcon size={10} />}
         {p === "instagram" ? "IG" : "TT"}
       </div>
@@ -1926,8 +1966,8 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
       {/* Top Bar */}
       <div style={{ padding: "20px 24px 0", borderBottom: `1px solid ${C.border}` }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-          <div style={{ fontSize: 20, fontWeight: 800, letterSpacing: "-0.02em" }}>Inbox</div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ fontSize: TYPE.h3, fontWeight: 800, letterSpacing: "-0.02em" }}>Inbox</div>
+          <div style={{ display: "flex", alignItems: "center", gap: SPACE.md }}>
             {loadingComments && <Loader2 size={14} color={C.dimmed} style={{ animation: "spin 1s linear infinite" }} />}
             {/* Platform pills */}
             {[
@@ -1938,10 +1978,10 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
               const active = platformFilter === f.key;
               return (
                 <button key={f.key} onClick={() => setPlatformFilter(f.key)} style={{
-                  display: "flex", alignItems: "center", gap: 5, padding: "5px 12px", borderRadius: 8,
-                  border: `1px solid ${active ? (f.color || C.red) : C.border}`,
-                  background: active ? (f.color || C.red) + "15" : "transparent",
-                  color: active ? (f.color || C.red) : C.dimmed, fontSize: 12, fontWeight: 600,
+                  display: "flex", alignItems: "center", gap: SPACE.sm, padding: "5px 12px", borderRadius: RADIUS.lg,
+                  border: `1px solid ${active ? (f.color || C.accent) : C.border}`,
+                  background: active ? (f.color || C.accent) + "15" : "transparent",
+                  color: active ? (f.color || C.accent) : C.dimmed, fontSize: TYPE.small, fontWeight: 600,
                   cursor: "pointer", fontFamily: "inherit",
                 }}>
                   {f.icon && <f.icon size={12} />}{f.label}
@@ -1951,7 +1991,7 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
           </div>
         </div>
         {/* View Toggle Tabs — Zernio style */}
-        <div style={{ display: "flex", gap: 0 }}>
+        <div style={{ display: "flex", gap: SPACE.none }}>
           {[
             { key: "comments", label: "Kommentare", icon: MessageCircle, count: filtered.length },
             { key: "dms", label: "Nachrichten", icon: Send, count: conversations.length },
@@ -1959,13 +1999,13 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
             const active = inboxView === v.key;
             return (
               <button key={v.key} onClick={() => { setInboxView(v.key); setSelectedComment(null); setSelectedConvo(null); }} style={{
-                display: "flex", alignItems: "center", gap: 6, padding: "10px 20px", fontSize: 13, fontWeight: 600,
+                display: "flex", alignItems: "center", gap: SPACE.sm, padding: `${SPACE.lg}px ${SPACE.xxxl}px`, fontSize: TYPE.body, fontWeight: 600,
                 color: active ? C.white : C.dimmed, background: "transparent", border: "none",
-                borderBottom: active ? `2px solid ${C.red}` : "2px solid transparent",
+                borderBottom: active ? `2px solid ${C.accent}` : "2px solid transparent",
                 cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s",
               }}>
                 <v.icon size={14} /> {v.label}
-                {v.count > 0 && <span style={{ fontSize: 10, background: active ? C.red + "20" : C.border, color: active ? C.red : C.dimmed, padding: "1px 6px", borderRadius: 10, fontWeight: 700 }}>{v.count}</span>}
+                {v.count > 0 && <span style={{ fontSize: TYPE.micro, background: active ? C.accent + "20" : C.border, color: active ? C.accent : C.dimmed, padding: "1px 6px", borderRadius: RADIUS.xl, fontWeight: 700 }}>{v.count}</span>}
               </button>
             );
           })}
@@ -1973,9 +2013,9 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
       </div>
 
       {apiError && (
-        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 24px", background: C.redGlow, borderBottom: `1px solid ${C.redLight}20` }}>
+        <div style={{ display: "flex", alignItems: "center", gap: SPACE.md, padding: "8px 24px", background: C.redGlow, borderBottom: `1px solid ${C.redLight}20` }}>
           <XCircle size={13} color={C.redLight} />
-          <div style={{ fontSize: 12, color: C.redLight }}>{apiError}</div>
+          <div style={{ fontSize: TYPE.small, color: C.redLight }}>{friendlyApiError(apiError)}</div>
           <button onClick={() => setApiError(null)} style={{ marginLeft: "auto", background: "none", border: "none", color: C.redLight, cursor: "pointer", padding: 2 }}><X size={12} /></button>
         </div>
       )}
@@ -1991,7 +2031,7 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
             {/* Left: Comment List */}
             <div style={listPanelStyle}>
               {filtered.length === 0 && !loadingComments && (
-                <div style={{ padding: 40, textAlign: "center", color: C.dimmed, fontSize: 13 }}>
+                <div style={{ padding: 40, textAlign: "center", color: C.dimmed, fontSize: TYPE.body }}>
                   <MessageCircle size={32} color={C.border} style={{ marginBottom: 12 }} />
                   <div>Keine Kommentare vorhanden.</div>
                 </div>
@@ -2007,20 +2047,20 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
                     <div style={{ width: 38, height: 38, borderRadius: "50%", background: pc + "20", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, position: "relative" }}>
                       {n.avatar
                         ? <img src={n.avatar} alt="" style={{ width: 38, height: 38, borderRadius: "50%", objectFit: "cover" }} />
-                        : <span style={{ fontSize: 15, fontWeight: 700, color: pc }}>{(n.user || "?")[0].toUpperCase()}</span>
+                        : <span style={{ fontSize: TYPE.label, fontWeight: 700, color: pc }}>{(n.user || "?")[0].toUpperCase()}</span>
                       }
-                      {!n.read && <div style={{ position: "absolute", top: -1, right: -1, width: 10, height: 10, borderRadius: "50%", background: C.red, border: `2px solid ${C.bg}` }} />}
+                      {!n.read && <div style={{ position: "absolute", top: -1, right: -1, width: 10, height: 10, borderRadius: "50%", background: C.accent, border: `2px solid ${C.bg}` }} />}
                     </div>
                     {/* Content */}
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: C.white }}>{n.user}</span>
+                      <div style={{ display: "flex", alignItems: "center", gap: SPACE.sm, marginBottom: 2 }}>
+                        <span style={{ fontSize: TYPE.body, fontWeight: 700, color: C.white }}>{n.user}</span>
                         <PlatformBadge platform={n.platform} />
                       </div>
-                      <div style={{ fontSize: 12, color: C.muted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      <div style={{ fontSize: TYPE.small, color: C.muted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                         {n.text || n.fullText || "Kommentar"}
                       </div>
-                      <div style={{ fontSize: 10, color: C.dimmed, marginTop: 3 }}>
+                      <div style={{ fontSize: TYPE.micro, color: C.dimmed, marginTop: 3 }}>
                         {formatTime(n.time)} {n.post ? `· ${n.post}` : ""}
                       </div>
                     </div>
@@ -2032,34 +2072,34 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
             {/* Right: Comment Detail */}
             <div style={detailPanelStyle}>
               {!selectedComment ? (
-                <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: C.dimmed, gap: 12 }}>
+                <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: C.dimmed, gap: SPACE.xl }}>
                   <MessageCircle size={40} color={C.border} />
-                  <div style={{ fontSize: 14, fontWeight: 600 }}>Kommentar auswählen</div>
-                  <div style={{ fontSize: 12 }}>Wähle einen Kommentar aus der Liste, um Details zu sehen.</div>
+                  <div style={{ fontSize: TYPE.bodyLg, fontWeight: 600 }}>Kommentar auswählen</div>
+                  <div style={{ fontSize: TYPE.small }}>Wähle einen Kommentar aus der Liste, um Details zu sehen.</div>
                 </div>
               ) : (
                 <div style={{ padding: 24, flex: 1, display: "flex", flexDirection: "column" }}>
                   {/* Comment header */}
-                  <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 20, paddingBottom: 16, borderBottom: `1px solid ${C.border}` }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: SPACE.xxl, marginBottom: 20, paddingBottom: 16, borderBottom: `1px solid ${C.border}` }}>
                     <div style={{ width: 44, height: 44, borderRadius: "50%", background: (selectedComment.platform === "instagram" ? C.instagram : C.tiktok) + "20", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                       {selectedComment.avatar
                         ? <img src={selectedComment.avatar} alt="" style={{ width: 44, height: 44, borderRadius: "50%", objectFit: "cover" }} />
-                        : <span style={{ fontSize: 18, fontWeight: 700, color: selectedComment.platform === "instagram" ? C.instagram : C.tiktok }}>{(selectedComment.user || "?")[0].toUpperCase()}</span>
+                        : <span style={{ fontSize: TYPE.h4, fontWeight: 700, color: selectedComment.platform === "instagram" ? C.instagram : C.tiktok }}>{(selectedComment.user || "?")[0].toUpperCase()}</span>
                       }
                     </div>
                     <div style={{ flex: 1 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <span style={{ fontSize: 16, fontWeight: 700, color: C.white }}>{selectedComment.user}</span>
+                      <div style={{ display: "flex", alignItems: "center", gap: SPACE.md }}>
+                        <span style={{ fontSize: TYPE.labelLg, fontWeight: 700, color: C.white }}>{selectedComment.user}</span>
                         <PlatformBadge platform={selectedComment.platform} />
                       </div>
-                      <div style={{ fontSize: 12, color: C.dimmed, marginTop: 2 }}>{formatTime(selectedComment.time)}</div>
+                      <div style={{ fontSize: TYPE.small, color: C.dimmed, marginTop: 2 }}>{formatTime(selectedComment.time)}</div>
                     </div>
                     {selectedComment.postId && selectedComment.commentId && (
                       <button onClick={async () => {
                         try {
                           await fetch("/api/late", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "hide-comment", postId: selectedComment.postId, commentId: selectedComment.commentId }) });
                         } catch {}
-                      }} style={{ padding: "6px 12px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, color: C.dimmed, fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 4 }}>
+                      }} style={{ padding: `${SPACE.sm}px ${SPACE.xl}px`, borderRadius: RADIUS.lg, background: C.card, border: `1px solid ${C.border}`, color: C.dimmed, fontSize: TYPE.caption, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: SPACE.xs }}>
                         <EyeOff size={12} /> Ausblenden
                       </button>
                     )}
@@ -2067,15 +2107,15 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
 
                   {/* Post reference */}
                   {selectedComment.post && (
-                    <div style={{ padding: "12px 16px", borderRadius: 10, background: C.card, border: `1px solid ${C.border}`, marginBottom: 16, fontSize: 12, color: C.muted }}>
-                      <div style={{ fontSize: 10, fontWeight: 700, color: C.dimmed, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Beitrag</div>
+                    <div style={{ padding: `${SPACE.xl}px ${SPACE.xxl}px`, borderRadius: RADIUS.xl, background: C.card, border: `1px solid ${C.border}`, marginBottom: 16, fontSize: TYPE.small, color: C.muted }}>
+                      <div style={{ fontSize: TYPE.micro, fontWeight: 700, color: C.dimmed, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Beitrag</div>
                       {selectedComment.post}
                     </div>
                   )}
 
                   {/* Comment text */}
-                  <div style={{ padding: "16px 20px", borderRadius: 14, background: C.card, border: `1px solid ${C.border}`, marginBottom: 16 }}>
-                    <div style={{ fontSize: 14, color: C.white, lineHeight: 1.7 }}>
+                  <div style={{ padding: `${SPACE.xxl}px ${SPACE.xxxl}px`, borderRadius: RADIUS.xxxl, background: C.card, border: `1px solid ${C.border}`, marginBottom: 16 }}>
+                    <div style={{ fontSize: TYPE.bodyLg, color: C.white, lineHeight: 1.7 }}>
                       {selectedComment.text || selectedComment.fullText || "Kein Text"}
                     </div>
                   </div>
@@ -2083,15 +2123,15 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
                   {/* Replies thread */}
                   {selectedComment.replies && selectedComment.replies.length > 0 && (
                     <div style={{ marginBottom: 16 }}>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: C.dimmed, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Antworten ({selectedComment.replies.length})</div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 8, paddingLeft: 16, borderLeft: `2px solid ${C.border}` }}>
+                      <div style={{ fontSize: TYPE.caption, fontWeight: 700, color: C.dimmed, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Antworten ({selectedComment.replies.length})</div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: SPACE.md, paddingLeft: 16, borderLeft: `2px solid ${C.border}` }}>
                         {selectedComment.replies.map((r, ri) => (
-                          <div key={ri} style={{ padding: "10px 14px", borderRadius: 10, background: C.bg, border: `1px solid ${C.border}` }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                              <span style={{ fontSize: 12, fontWeight: 700, color: C.white }}>{r.author?.username || r.username || "Unbekannt"}</span>
-                              <span style={{ fontSize: 10, color: C.dimmed }}>{formatTime(r.createdAt)}</span>
+                          <div key={ri} style={{ padding: "10px 14px", borderRadius: RADIUS.xl, background: C.bg, border: `1px solid ${C.border}` }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: SPACE.sm, marginBottom: 4 }}>
+                              <span style={{ fontSize: TYPE.small, fontWeight: 700, color: C.white }}>{r.author?.username || r.username || "Unbekannt"}</span>
+                              <span style={{ fontSize: TYPE.micro, color: C.dimmed }}>{formatTime(r.createdAt)}</span>
                             </div>
-                            <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.5 }}>{r.text || r.content || r.message || ""}</div>
+                            <div style={{ fontSize: TYPE.body, color: C.muted, lineHeight: 1.5 }}>{r.text || r.content || r.message || ""}</div>
                           </div>
                         ))}
                       </div>
@@ -2100,11 +2140,11 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
 
                   {/* Reply input at bottom */}
                   <div style={{ marginTop: "auto", paddingTop: 16, borderTop: `1px solid ${C.border}` }}>
-                    <div style={{ display: "flex", gap: 8 }}>
+                    <div style={{ display: "flex", gap: SPACE.md }}>
                       <input type="text" value={replyText} onChange={(e) => setReplyText(e.target.value)}
                         placeholder="Antwort schreiben..."
-                        style={{ flex: 1, padding: "10px 14px", borderRadius: 10, background: C.card, border: `1px solid ${C.border}`, color: C.white, fontSize: 13, fontFamily: "inherit", outline: "none" }} />
-                      <button style={{ padding: "10px 18px", borderRadius: 10, background: C.red, border: "none", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 6, opacity: !replyText.trim() ? 0.5 : 1 }}>
+                        style={{ flex: 1, padding: "10px 14px", borderRadius: RADIUS.xl, background: C.card, border: `1px solid ${C.border}`, color: C.white, fontSize: TYPE.body, fontFamily: "inherit", outline: "none" }} />
+                      <button style={{ padding: "10px 18px", borderRadius: RADIUS.xl, background: C.accent, border: "none", color: "#fff", fontSize: TYPE.body, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: SPACE.sm, opacity: !replyText.trim() ? 0.5 : 1 }}>
                         <Send size={14} /> Antworten
                       </button>
                     </div>
@@ -2121,12 +2161,12 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
             {/* Left: Conversations List */}
             <div style={listPanelStyle}>
               {loadingDMs && (
-                <div style={{ padding: 30, textAlign: "center", color: C.dimmed, fontSize: 13 }}>
+                <div style={{ padding: 30, textAlign: "center", color: C.dimmed, fontSize: TYPE.body }}>
                   <Loader2 size={16} style={{ animation: "spin 1s linear infinite", display: "inline-block", marginRight: 6 }} /> Wird geladen...
                 </div>
               )}
               {!loadingDMs && conversations.length === 0 && (
-                <div style={{ padding: 40, textAlign: "center", color: C.dimmed, fontSize: 13 }}>
+                <div style={{ padding: 40, textAlign: "center", color: C.dimmed, fontSize: TYPE.body }}>
                   <Send size={32} color={C.border} style={{ marginBottom: 12 }} />
                   <div>{isConnected ? "Keine Nachrichten vorhanden." : "Verbinde die API, um Nachrichten zu laden."}</div>
                 </div>
@@ -2144,21 +2184,21 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
                     <div style={{ width: 38, height: 38, borderRadius: "50%", background: pc + "20", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                       {convo.participant?.profilePicture
                         ? <img src={convo.participant.profilePicture} alt="" style={{ width: 38, height: 38, borderRadius: "50%", objectFit: "cover" }} />
-                        : <span style={{ fontSize: 15, fontWeight: 700, color: pc }}>{name[0].toUpperCase()}</span>
+                        : <span style={{ fontSize: TYPE.label, fontWeight: 700, color: pc }}>{name[0].toUpperCase()}</span>
                       }
                     </div>
                     {/* Content */}
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 2 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          <span style={{ fontSize: 13, fontWeight: 700, color: C.white }}>{name}</span>
+                        <div style={{ display: "flex", alignItems: "center", gap: SPACE.sm }}>
+                          <span style={{ fontSize: TYPE.body, fontWeight: 700, color: C.white }}>{name}</span>
                           <PlatformBadge platform={convo.platform} />
                         </div>
-                        <span style={{ fontSize: 10, color: C.dimmed, flexShrink: 0 }}>
+                        <span style={{ fontSize: TYPE.micro, color: C.dimmed, flexShrink: 0 }}>
                           {formatTime(lastMsg.createdAt || convo.updatedAt)}
                         </span>
                       </div>
-                      <div style={{ fontSize: 12, color: C.muted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      <div style={{ fontSize: TYPE.small, color: C.muted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                         {lastMsg.text || lastMsg.content || lastMsg.message || "Keine Nachricht"}
                       </div>
                     </div>
@@ -2170,34 +2210,34 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
             {/* Right: Chat Detail */}
             <div style={detailPanelStyle}>
               {!selectedConvo ? (
-                <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: C.dimmed, gap: 12 }}>
+                <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: C.dimmed, gap: SPACE.xl }}>
                   <Send size={40} color={C.border} />
-                  <div style={{ fontSize: 14, fontWeight: 600 }}>Konversation auswählen</div>
-                  <div style={{ fontSize: 12 }}>Wähle eine Konversation, um den Chat zu öffnen.</div>
+                  <div style={{ fontSize: TYPE.bodyLg, fontWeight: 600 }}>Konversation auswählen</div>
+                  <div style={{ fontSize: TYPE.small }}>Wähle eine Konversation, um den Chat zu öffnen.</div>
                 </div>
               ) : (
                 <React.Fragment>
                   {/* Chat header */}
-                  <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "16px 24px", borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: SPACE.xxl, padding: "16px 24px", borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
                     <div style={{ width: 38, height: 38, borderRadius: "50%", background: ((selectedConvo.platform || "instagram") === "instagram" ? C.instagram : C.tiktok) + "20", display: "flex", alignItems: "center", justifyContent: "center" }}>
                       {selectedConvo.participant?.profilePicture
                         ? <img src={selectedConvo.participant.profilePicture} alt="" style={{ width: 38, height: 38, borderRadius: "50%", objectFit: "cover" }} />
-                        : <span style={{ fontSize: 15, fontWeight: 700, color: (selectedConvo.platform || "instagram") === "instagram" ? C.instagram : C.tiktok }}>{(selectedConvo.participant?.username || selectedConvo.name || "U")[0].toUpperCase()}</span>
+                        : <span style={{ fontSize: TYPE.label, fontWeight: 700, color: (selectedConvo.platform || "instagram") === "instagram" ? C.instagram : C.tiktok }}>{(selectedConvo.participant?.username || selectedConvo.name || "U")[0].toUpperCase()}</span>
                       }
                     </div>
                     <div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <span style={{ fontSize: 15, fontWeight: 700, color: C.white }}>{selectedConvo.participant?.username || selectedConvo.name || "Unbekannt"}</span>
+                      <div style={{ display: "flex", alignItems: "center", gap: SPACE.md }}>
+                        <span style={{ fontSize: TYPE.label, fontWeight: 700, color: C.white }}>{selectedConvo.participant?.username || selectedConvo.name || "Unbekannt"}</span>
                         <PlatformBadge platform={selectedConvo.platform} />
                       </div>
-                      <div style={{ fontSize: 11, color: C.dimmed, marginTop: 1 }}>Konversation</div>
+                      <div style={{ fontSize: TYPE.caption, color: C.dimmed, marginTop: 1 }}>Konversation</div>
                     </div>
                   </div>
 
                   {/* Messages area */}
-                  <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px", display: "flex", flexDirection: "column", gap: 10 }}>
+                  <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px", display: "flex", flexDirection: "column", gap: SPACE.lg }}>
                     {(selectedConvo.messages || []).length === 0 && (
-                      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: C.dimmed, fontSize: 12 }}>Keine Nachrichten in dieser Konversation.</div>
+                      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: C.dimmed, fontSize: TYPE.small }}>Keine Nachrichten in dieser Konversation.</div>
                     )}
                     {(selectedConvo.messages || []).map((msg, mi) => {
                       const isOwn = msg.isOwn || msg.direction === "outgoing" || msg.from === "self";
@@ -2206,13 +2246,13 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
                           <div style={{
                             maxWidth: "65%", padding: "10px 14px",
                             borderRadius: isOwn ? "14px 14px 4px 14px" : "14px 14px 14px 4px",
-                            background: isOwn ? C.red : C.card,
+                            background: isOwn ? C.accent : C.card,
                             border: isOwn ? "none" : `1px solid ${C.border}`,
                           }}>
-                            <div style={{ fontSize: 13, color: isOwn ? "#fff" : C.white, lineHeight: 1.5 }}>
+                            <div style={{ fontSize: TYPE.body, color: isOwn ? "#fff" : C.white, lineHeight: 1.5 }}>
                               {msg.text || msg.content || msg.message}
                             </div>
-                            <div style={{ fontSize: 10, color: isOwn ? "rgba(255,255,255,0.6)" : C.dimmed, marginTop: 4, textAlign: isOwn ? "right" : "left" }}>
+                            <div style={{ fontSize: TYPE.micro, color: isOwn ? "rgba(255,255,255,0.6)" : C.dimmed, marginTop: 4, textAlign: isOwn ? "right" : "left" }}>
                               {formatTime(msg.createdAt)}
                             </div>
                           </div>
@@ -2223,13 +2263,13 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
 
                   {/* Reply input */}
                   <div style={{ padding: "12px 24px 16px", borderTop: `1px solid ${C.border}`, flexShrink: 0 }}>
-                    <div style={{ display: "flex", gap: 8 }}>
+                    <div style={{ display: "flex", gap: SPACE.md }}>
                       <input type="text" value={replyText} onChange={(e) => setReplyText(e.target.value)}
                         onKeyDown={(e) => { if (e.key === "Enter" && !sendingReply) handleReply(selectedConvo.id); }}
                         placeholder="Nachricht schreiben..."
-                        style={{ flex: 1, padding: "11px 16px", borderRadius: 12, background: C.card, border: `1px solid ${C.border}`, color: C.white, fontSize: 13, fontFamily: "inherit", outline: "none" }} />
+                        style={{ flex: 1, padding: "11px 16px", borderRadius: RADIUS.xxl, background: C.card, border: `1px solid ${C.border}`, color: C.white, fontSize: TYPE.body, fontFamily: "inherit", outline: "none" }} />
                       <button onClick={() => handleReply(selectedConvo.id)} disabled={sendingReply || !replyText.trim()}
-                        style={{ padding: "11px 20px", borderRadius: 12, background: C.red, border: "none", color: "#fff", fontSize: 13, fontWeight: 600, cursor: sendingReply ? "wait" : "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 6, opacity: !replyText.trim() ? 0.5 : 1 }}>
+                        style={{ padding: "11px 20px", borderRadius: RADIUS.xxl, background: C.accent, border: "none", color: "#fff", fontSize: TYPE.body, fontWeight: 600, cursor: sendingReply ? "wait" : "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: SPACE.sm, opacity: !replyText.trim() ? 0.5 : 1 }}>
                         {sendingReply ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <Send size={14} />}
                       </button>
                     </div>
@@ -2284,45 +2324,45 @@ function CalendarPanel({ posts, onSelectPost, onNewPost }) {
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
         <div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: C.white }}>Content-Kalender</div>
-          <div style={{ fontSize: 13, color: C.muted, marginTop: 4 }}>Alle Beiträge auf einen Blick</div>
+          <div style={{ fontSize: TYPE.h2, fontWeight: 800, color: C.white }}>Content-Kalender</div>
+          <div style={{ fontSize: TYPE.body, color: C.muted, marginTop: 4 }}>Alle Beiträge auf einen Blick</div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: SPACE.md }}>
           <button onClick={() => { if (calMonth === 0) { setCalMonth(11); setCalYear(calYear - 1); } else setCalMonth(calMonth - 1); }}
-            style={{ width: 36, height: 36, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", background: C.card, border: `1px solid ${C.border}`, cursor: "pointer", color: C.muted, fontSize: 18 }}>
+            style={{ width: 36, height: 36, borderRadius: RADIUS.xl, display: "flex", alignItems: "center", justifyContent: "center", background: C.card, border: `1px solid ${C.border}`, cursor: "pointer", color: C.muted, fontSize: TYPE.h4 }}>
             <ChevronLeft size={18} />
           </button>
-          <div style={{ fontSize: 16, fontWeight: 700, color: C.white, minWidth: 160, textAlign: "center" }}>
+          <div style={{ fontSize: TYPE.labelLg, fontWeight: 700, color: C.white, minWidth: 160, textAlign: "center" }}>
             {MONTHS_DE[calMonth]} {calYear}
           </div>
           <button onClick={() => { if (calMonth === 11) { setCalMonth(0); setCalYear(calYear + 1); } else setCalMonth(calMonth + 1); }}
-            style={{ width: 36, height: 36, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", background: C.card, border: `1px solid ${C.border}`, cursor: "pointer", color: C.muted, fontSize: 18 }}>
+            style={{ width: 36, height: 36, borderRadius: RADIUS.xl, display: "flex", alignItems: "center", justifyContent: "center", background: C.card, border: `1px solid ${C.border}`, cursor: "pointer", color: C.muted, fontSize: TYPE.h4 }}>
             <ChevronRight size={18} />
           </button>
         </div>
       </div>
 
       {/* Legend */}
-      <div style={{ display: "flex", gap: 16, marginBottom: 16 }}>
+      <div style={{ display: "flex", gap: SPACE.xxl, marginBottom: 16 }}>
         {[{ label: "Live", color: C.green }, { label: "Geplant", color: C.yellow }, { label: "Entwurf", color: C.dimmed }, { label: "Fehler", color: C.redLight }].map((l) => (
-          <div key={l.label} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: C.muted }}>
+          <div key={l.label} style={{ display: "flex", alignItems: "center", gap: SPACE.sm, fontSize: TYPE.caption, color: C.muted }}>
             <div style={{ width: 8, height: 8, borderRadius: "50%", background: l.color }} />{l.label}
           </div>
         ))}
       </div>
 
       {/* Weekday headers */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 1, marginBottom: 1 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: SPACE.xxs, marginBottom: 1 }}>
         {WEEKDAYS.map((wd) => (
-          <div key={wd} style={{ padding: "8px 0", textAlign: "center", fontSize: 11, fontWeight: 700, color: C.dimmed, textTransform: "uppercase", letterSpacing: "0.08em" }}>{wd}</div>
+          <div key={wd} style={{ padding: `${SPACE.md}px 0`, textAlign: "center", fontSize: TYPE.caption, fontWeight: 700, color: C.dimmed, textTransform: "uppercase", letterSpacing: "0.08em" }}>{wd}</div>
         ))}
       </div>
 
       {/* Calendar grid */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 1 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: SPACE.xxs }}>
         {/* Empty cells before first day */}
         {Array.from({ length: firstDay }, (_, i) => (
-          <div key={`e${i}`} style={{ minHeight: 100, background: C.bg, borderRadius: 8 }} />
+          <div key={`e${i}`} style={{ minHeight: 100, background: C.bg, borderRadius: RADIUS.lg }} />
         ))}
 
         {/* Day cells */}
@@ -2337,7 +2377,7 @@ function CalendarPanel({ posts, onSelectPost, onNewPost }) {
               onMouseOut={() => setHoveredDay(null)}
               style={{
                 minHeight: 100, padding: 6, background: isHovered ? C.cardHover : C.card,
-                borderRadius: 8, border: `1px solid ${isTodayCell ? C.red + "60" : C.border}`,
+                borderRadius: RADIUS.lg, border: `1px solid ${isTodayCell ? C.accent + "60" : C.border}`,
                 transition: "all 0.15s", cursor: "default", position: "relative",
                 display: "flex", flexDirection: "column",
               }}>
@@ -2345,29 +2385,29 @@ function CalendarPanel({ posts, onSelectPost, onNewPost }) {
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
                 <div style={{
                   width: 24, height: 24, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 12, fontWeight: isTodayCell ? 800 : 600,
+                  fontSize: TYPE.small, fontWeight: isTodayCell ? 800 : 600,
                   color: isTodayCell ? "#fff" : dayPosts.length > 0 ? C.white : C.dimmed,
-                  background: isTodayCell ? C.red : "transparent",
+                  background: isTodayCell ? C.accent : "transparent",
                 }}>
                   {day}
                 </div>
                 {/* Add button on hover */}
                 {isHovered && onNewPost && (
                   <button onClick={() => onNewPost(new Date(calYear, calMonth, day))}
-                    style={{ width: 20, height: 20, borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", background: C.red + "20", border: "none", cursor: "pointer", color: C.red, fontSize: 14 }}>
+                    style={{ width: 20, height: 20, borderRadius: RADIUS.sm, display: "flex", alignItems: "center", justifyContent: "center", background: C.accent + "20", border: "none", cursor: "pointer", color: C.accent, fontSize: TYPE.bodyLg }}>
                     <Plus size={12} />
                   </button>
                 )}
               </div>
 
               {/* Posts for this day */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 3, flex: 1 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: SPACE.xs, flex: 1 }}>
                 {dayPosts.slice(0, 3).map((p) => {
                   const plats = p.platforms || [p.platform || "instagram"];
                   return (
                     <div key={p.id} onClick={() => onSelectPost && onSelectPost(p)}
                       style={{
-                        padding: "3px 6px", borderRadius: 5, fontSize: 10, fontWeight: 600,
+                        padding: "3px 6px", borderRadius: RADIUS.md, fontSize: TYPE.micro, fontWeight: 600,
                         background: statusColor(p.status) + "15", color: statusColor(p.status),
                         cursor: "pointer", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
                         borderLeft: `3px solid ${statusColor(p.status)}`,
@@ -2375,7 +2415,7 @@ function CalendarPanel({ posts, onSelectPost, onNewPost }) {
                       }}
                       onMouseOver={(e) => { e.currentTarget.style.background = statusColor(p.status) + "30"; showTooltip(e, p); }}
                       onMouseOut={(e) => { e.currentTarget.style.background = statusColor(p.status) + "15"; hideTooltip(); }}>
-                      <span style={{ display: "inline-flex", gap: 3, alignItems: "center" }}>
+                      <span style={{ display: "inline-flex", gap: SPACE.xs, alignItems: "center" }}>
                         {plats.map((pl) => pl === "instagram" ? <Instagram key={pl} size={9} /> : <TikTokIcon key={pl} size={9} color={statusColor(p.status)} />)}
                       </span>{" "}
                       {p.title?.substring(0, 20) || "Post"}
@@ -2383,7 +2423,7 @@ function CalendarPanel({ posts, onSelectPost, onNewPost }) {
                   );
                 })}
                 {dayPosts.length > 3 && (
-                  <div style={{ fontSize: 9, color: C.dimmed, fontWeight: 600, paddingLeft: 6 }}>+{dayPosts.length - 3} mehr</div>
+                  <div style={{ fontSize: TYPE.micro, color: C.dimmed, fontWeight: 600, paddingLeft: 6 }}>+{dayPosts.length - 3} mehr</div>
                 )}
               </div>
             </div>
@@ -2392,16 +2432,16 @@ function CalendarPanel({ posts, onSelectPost, onNewPost }) {
       </div>
 
       {/* Monthly stats summary */}
-      <div style={{ display: "flex", gap: 12, marginTop: 20 }}>
+      <div style={{ display: "flex", gap: SPACE.xl, marginTop: 20 }}>
         {[
           { label: "Gesamt", count: Object.values(postsByDay).flat().length, color: C.white },
           { label: "Live", count: Object.values(postsByDay).flat().filter((p) => p.status === "published").length, color: C.green },
           { label: "Geplant", count: Object.values(postsByDay).flat().filter((p) => p.status === "scheduled").length, color: C.yellow },
           { label: "Entwurf", count: Object.values(postsByDay).flat().filter((p) => p.status === "draft").length, color: C.dimmed },
         ].map((s) => (
-          <div key={s.label} style={{ flex: 1, padding: "14px 16px", background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, textAlign: "center" }}>
-            <div style={{ fontSize: 22, fontWeight: 800, color: s.color }}>{s.count}</div>
-            <div style={{ fontSize: 11, color: C.muted, fontWeight: 600, marginTop: 2 }}>{s.label}</div>
+          <div key={s.label} style={{ flex: 1, padding: "14px 16px", background: C.card, borderRadius: RADIUS.xxl, border: `1px solid ${C.border}`, textAlign: "center" }}>
+            <div style={{ fontSize: TYPE.h2, fontWeight: 800, color: s.color }}>{s.count}</div>
+            <div style={{ fontSize: TYPE.caption, color: C.muted, fontWeight: 600, marginTop: 2 }}>{s.label}</div>
           </div>
         ))}
       </div>
@@ -2422,24 +2462,24 @@ function CalendarPanel({ posts, onSelectPost, onNewPost }) {
         return (
           <div style={{
             position: "fixed", left: tooltip.x, top: tooltip.y,
-            background: C.card, border: `1px solid ${C.border}`, borderRadius: 10,
-            padding: "12px 16px", minWidth: 200, zIndex: 9999,
+            background: C.card, border: `1px solid ${C.border}`, borderRadius: RADIUS.xl,
+            padding: `${SPACE.xl}px ${SPACE.xxl}px`, minWidth: 200, zIndex: 9999,
             boxShadow: "0 8px 32px rgba(0,0,0,0.5)", pointerEvents: "none",
             animation: "fadeIn 0.15s ease",
           }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: C.white, marginBottom: 8, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 220 }}>
+            <div style={{ fontSize: TYPE.small, fontWeight: 700, color: C.white, marginBottom: 8, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 220 }}>
               {tp.title || "Post"}
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: SPACE.sm }}>
               {rows.map((r, i) => (
-                <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: 16, fontSize: 11 }}>
+                <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: SPACE.xxl, fontSize: TYPE.caption }}>
                   <span style={{ color: C.dimmed, fontWeight: 600 }}>{r.label}</span>
                   <span style={{ color: r.color || C.muted, fontWeight: 600, textAlign: "right" }}>{r.value}</span>
                 </div>
               ))}
             </div>
             {tPlats.length > 0 && (
-              <div style={{ display: "flex", gap: 6, marginTop: 8, paddingTop: 8, borderTop: `1px solid ${C.border}` }}>
+              <div style={{ display: "flex", gap: SPACE.sm, marginTop: 8, paddingTop: 8, borderTop: `1px solid ${C.border}` }}>
                 {tPlats.map((pl) => pl === "instagram"
                   ? <Instagram key={pl} size={13} color={C.instagram} />
                   : <TikTokIcon key={pl} size={13} color={C.tiktok} />
@@ -2462,7 +2502,7 @@ function _TeamPanelRemoved() { /* removed – demo only */
   const [inviteRole, setInviteRole] = useState("editor");
 
   const roles = {
-    owner: { label: "Inhaber", color: C.red, bg: C.redGlow },
+    owner: { label: "Inhaber", color: C.accent, bg: C.accentGlow },
     admin: { label: "Admin", color: C.purple, bg: C.purpleGlow },
     editor: { label: "Redakteur", color: C.blue, bg: C.blueGlow },
     viewer: { label: "Betrachter", color: C.dimmed, bg: "rgba(107,114,128,0.12)" },
@@ -2491,13 +2531,13 @@ function _TeamPanelRemoved() { /* removed – demo only */
     <div style={{ padding: "28px 32px", maxWidth: 800, margin: "0 auto" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
         <div>
-          <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.02em" }}>Team</div>
-          <div style={{ fontSize: 13, color: C.muted, marginTop: 4 }}>{members.length} Mitglied{members.length !== 1 ? "er" : ""}</div>
+          <div style={{ fontSize: TYPE.h2, fontWeight: 800, letterSpacing: "-0.02em" }}>Team</div>
+          <div style={{ fontSize: TYPE.body, color: C.muted, marginTop: 4 }}>{members.length} Mitglied{members.length !== 1 ? "er" : ""}</div>
         </div>
         <button onClick={() => setShowInvite(!showInvite)} style={{
-          display: "flex", alignItems: "center", gap: 6, padding: "10px 20px", borderRadius: 10,
-          background: C.red, border: "none", color: "#fff", fontSize: 13, fontWeight: 700,
-          cursor: "pointer", fontFamily: "inherit", boxShadow: `0 4px 16px ${C.redGlow}`,
+          display: "flex", alignItems: "center", gap: SPACE.sm, padding: `${SPACE.lg}px ${SPACE.xxxl}px`, borderRadius: RADIUS.xl,
+          background: C.accent, border: "none", color: "#fff", fontSize: TYPE.body, fontWeight: 700,
+          cursor: "pointer", fontFamily: "inherit", boxShadow: `0 4px 16px ${C.accentGlow}`,
         }}>
           <UserPlus size={15} /> Einladen
         </button>
@@ -2505,27 +2545,27 @@ function _TeamPanelRemoved() { /* removed – demo only */
 
       {/* Invite Form */}
       {showInvite && (
-        <div style={{ background: C.card, borderRadius: 14, border: `1px solid ${C.red}30`, padding: 20, marginBottom: 20 }}>
-          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 14 }}>Teammitglied einladen</div>
-          <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
+        <div style={{ background: C.card, borderRadius: RADIUS.xxxl, border: `1px solid ${C.accent}30`, padding: 20, marginBottom: 20 }}>
+          <div style={{ fontSize: TYPE.bodyLg, fontWeight: 700, marginBottom: 14 }}>Teammitglied einladen</div>
+          <div style={{ display: "flex", gap: SPACE.lg, marginBottom: 12 }}>
             <input type="email" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)}
               placeholder="E-Mail-Adresse eingeben..."
-              style={{ flex: 1, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 14px", color: C.white, fontSize: 13, fontFamily: "inherit", outline: "none" }}
-              onFocus={(e) => e.target.style.borderColor = C.red} onBlur={(e) => e.target.style.borderColor = C.border}
+              style={{ flex: 1, background: C.bg, border: `1px solid ${C.border}`, borderRadius: RADIUS.xl, padding: "10px 14px", color: C.white, fontSize: TYPE.body, fontFamily: "inherit", outline: "none" }}
+              onFocus={(e) => e.target.style.borderColor = C.accent} onBlur={(e) => e.target.style.borderColor = C.border}
               onKeyDown={(e) => { if (e.key === "Enter") handleInvite(); }}
             />
             <select value={inviteRole} onChange={(e) => setInviteRole(e.target.value)}
-              style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 14px", color: C.white, fontSize: 13, fontFamily: "inherit", outline: "none", cursor: "pointer" }}>
+              style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: RADIUS.xl, padding: "10px 14px", color: C.white, fontSize: TYPE.body, fontFamily: "inherit", outline: "none", cursor: "pointer" }}>
               <option value="admin">Admin</option>
               <option value="editor">Redakteur</option>
               <option value="viewer">Betrachter</option>
             </select>
           </div>
-          <div style={{ display: "flex", gap: 10 }}>
-            <button onClick={handleInvite} style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 18px", borderRadius: 8, background: C.red, border: "none", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+          <div style={{ display: "flex", gap: SPACE.lg }}>
+            <button onClick={handleInvite} style={{ display: "flex", alignItems: "center", gap: SPACE.sm, padding: "8px 18px", borderRadius: RADIUS.lg, background: C.accent, border: "none", color: "#fff", fontSize: TYPE.body, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
               <Send size={13} /> Einladung senden
             </button>
-            <button onClick={() => setShowInvite(false)} style={{ padding: "8px 16px", borderRadius: 8, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>
+            <button onClick={() => setShowInvite(false)} style={{ padding: `${SPACE.md}px ${SPACE.xxl}px`, borderRadius: RADIUS.lg, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, fontSize: TYPE.body, cursor: "pointer", fontFamily: "inherit" }}>
               Abbrechen
             </button>
           </div>
@@ -2533,9 +2573,9 @@ function _TeamPanelRemoved() { /* removed – demo only */
       )}
 
       {/* Role Legend */}
-      <div style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: SPACE.xl, marginBottom: 20, flexWrap: "wrap" }}>
         {Object.entries(roles).map(([key, r]) => (
-          <div key={key} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: C.dimmed }}>
+          <div key={key} style={{ display: "flex", alignItems: "center", gap: SPACE.sm, fontSize: TYPE.small, color: C.dimmed }}>
             <div style={{ width: 8, height: 8, borderRadius: "50%", background: r.color }} />
             <span style={{ color: r.color, fontWeight: 600 }}>{r.label}</span>
           </div>
@@ -2543,41 +2583,41 @@ function _TeamPanelRemoved() { /* removed – demo only */
       </div>
 
       {/* Members List */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: SPACE.md }}>
         {members.map((m) => {
           const r = roles[m.role] || roles.viewer;
           return (
-            <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 18px", borderRadius: 14, background: C.card, border: `1px solid ${C.border}`, transition: "all 0.2s" }}
+            <div key={m.id} style={{ display: "flex", alignItems: "center", gap: SPACE.xxl, padding: "14px 18px", borderRadius: RADIUS.xxxl, background: C.card, border: `1px solid ${C.border}`, transition: "all 0.2s" }}
               onMouseOver={(e) => { e.currentTarget.style.background = C.cardHover; e.currentTarget.style.borderColor = r.color + "40"; }}
               onMouseOut={(e) => { e.currentTarget.style.background = C.card; e.currentTarget.style.borderColor = C.border; }}>
               {/* Avatar */}
-              <div style={{ width: 42, height: 42, borderRadius: 12, background: `linear-gradient(135deg, ${r.color}, ${r.color}80)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 800, color: "#fff", flexShrink: 0 }}>
+              <div style={{ width: 42, height: 42, borderRadius: RADIUS.xxl, background: `linear-gradient(135deg, ${r.color}, ${r.color}80)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: TYPE.labelLg, fontWeight: 800, color: "#fff", flexShrink: 0 }}>
                 {m.avatar}
               </div>
               {/* Info */}
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: C.white }}>{m.name}</div>
-                <div style={{ fontSize: 12, color: C.dimmed, marginTop: 2 }}>{m.email}</div>
+                <div style={{ fontSize: TYPE.bodyLg, fontWeight: 700, color: C.white }}>{m.name}</div>
+                <div style={{ fontSize: TYPE.small, color: C.dimmed, marginTop: 2 }}>{m.email}</div>
               </div>
               {/* Role Badge */}
-              <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 700, color: r.color, background: r.bg, padding: "4px 12px", borderRadius: 8, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: SPACE.sm, fontSize: TYPE.caption, fontWeight: 700, color: r.color, background: r.bg, padding: `${SPACE.xs}px ${SPACE.xl}px`, borderRadius: RADIUS.lg, textTransform: "uppercase", letterSpacing: "0.06em" }}>
                 {m.role === "owner" ? <Shield size={12} /> : null}
                 {r.label}
               </div>
               {/* Last Active */}
-              <div style={{ fontSize: 12, color: m.lastActive === "Gerade aktiv" ? C.green : C.dimmed, fontWeight: 500, minWidth: 90, textAlign: "right" }}>
+              <div style={{ fontSize: TYPE.small, color: m.lastActive === "Gerade aktiv" ? C.green : C.dimmed, fontWeight: 500, minWidth: 90, textAlign: "right" }}>
                 {m.lastActive}
               </div>
               {/* Actions (not for owner) */}
               {m.role !== "owner" && (
-                <div style={{ display: "flex", gap: 4 }}>
+                <div style={{ display: "flex", gap: SPACE.xs }}>
                   <select value={m.role} onChange={(e) => changeRole(m.id, e.target.value)}
-                    style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6, padding: "4px 8px", color: C.muted, fontSize: 11, fontFamily: "inherit", cursor: "pointer", outline: "none" }}>
+                    style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: RADIUS.md, padding: `${SPACE.xs}px ${SPACE.md}px`, color: C.muted, fontSize: TYPE.caption, fontFamily: "inherit", cursor: "pointer", outline: "none" }}>
                     <option value="admin">Admin</option>
                     <option value="editor">Redakteur</option>
                     <option value="viewer">Betrachter</option>
                   </select>
-                  <button onClick={() => removeMemb(m.id)} title="Entfernen" style={{ width: 28, height: 28, borderRadius: 6, background: "transparent", border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+                  <button onClick={() => removeMemb(m.id)} title="Entfernen" style={{ width: 28, height: 28, borderRadius: RADIUS.md, background: "transparent", border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
                     <X size={12} color={C.dimmed} />
                   </button>
                 </div>
@@ -2588,12 +2628,12 @@ function _TeamPanelRemoved() { /* removed – demo only */
       </div>
 
       {/* Info box */}
-      <div style={{ marginTop: 24, padding: 16, background: C.card, borderRadius: 12, border: `1px solid ${C.border}` }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: C.white, marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+      <div style={{ marginTop: 24, padding: 16, background: C.card, borderRadius: RADIUS.xxl, border: `1px solid ${C.border}` }}>
+        <div style={{ fontSize: TYPE.body, fontWeight: 700, color: C.white, marginBottom: 8, display: "flex", alignItems: "center", gap: SPACE.sm }}>
           <Shield size={14} color={C.muted} /> Rollen & Berechtigungen
         </div>
-        <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.8 }}>
-          <span style={{ color: C.red, fontWeight: 700 }}>Inhaber</span> – Voller Zugriff, kann Teammitglieder verwalten und das Dashboard konfigurieren<br />
+        <div style={{ fontSize: TYPE.small, color: C.muted, lineHeight: 1.8 }}>
+          <span style={{ color: C.accent, fontWeight: 700 }}>Inhaber</span> – Voller Zugriff, kann Teammitglieder verwalten und das Dashboard konfigurieren<br />
           <span style={{ color: C.purple, fontWeight: 700 }}>Admin</span> – Kann Beiträge erstellen, planen und Statistiken einsehen<br />
           <span style={{ color: C.blue, fontWeight: 700 }}>Redakteur</span> – Kann Beiträge erstellen und planen<br />
           <span style={{ color: C.dimmed, fontWeight: 700 }}>Betrachter</span> – Kann nur das Dashboard und Statistiken einsehen
@@ -2783,25 +2823,25 @@ function SkriptePanel({ scripts, onRefresh, loading }) {
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
         <div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: C.white, letterSpacing: "-0.02em" }}>Content-Skripte</div>
-          <div style={{ fontSize: 13, color: C.muted, marginTop: 4 }}>
+          <div style={{ fontSize: TYPE.h2, fontWeight: 800, color: C.white, letterSpacing: "-0.02em" }}>Content-Skripte</div>
+          <div style={{ fontSize: TYPE.body, color: C.muted, marginTop: 4 }}>
             {scripts.length} Skript{scripts.length !== 1 ? "e" : ""}{selectedIds.size > 0 ? ` · ${selectedIds.size} ausgewählt` : ""}
           </div>
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", gap: SPACE.md }}>
           <button onClick={onRefresh} disabled={loading}
-            style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 10, background: C.card, border: `1px solid ${C.border}`, color: C.muted, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+            style={{ display: "flex", alignItems: "center", gap: SPACE.sm, padding: "8px 14px", borderRadius: RADIUS.xl, background: C.card, border: `1px solid ${C.border}`, color: C.muted, fontSize: TYPE.small, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
             <RefreshCw size={14} className={loading ? "spin" : ""} style={loading ? { animation: "spin 1s linear infinite" } : {}} /> Aktualisieren
           </button>
           <button onClick={exportPDF} disabled={selectedIds.size === 0 || exporting}
             style={{
-              display: "flex", alignItems: "center", gap: 6, padding: "8px 18px", borderRadius: 10,
-              background: selectedIds.size > 0 ? C.red : C.card,
+              display: "flex", alignItems: "center", gap: SPACE.sm, padding: "8px 18px", borderRadius: RADIUS.xl,
+              background: selectedIds.size > 0 ? C.accent : C.card,
               border: selectedIds.size > 0 ? "none" : `1px solid ${C.border}`,
               color: selectedIds.size > 0 ? "#fff" : C.dimmed,
-              fontSize: 13, fontWeight: 700, cursor: selectedIds.size > 0 ? "pointer" : "default",
+              fontSize: TYPE.body, fontWeight: 700, cursor: selectedIds.size > 0 ? "pointer" : "default",
               fontFamily: "inherit", opacity: exporting ? 0.7 : 1,
-              boxShadow: selectedIds.size > 0 ? `0 4px 16px ${C.redGlow}` : "none",
+              boxShadow: selectedIds.size > 0 ? `0 4px 16px ${C.accentGlow}` : "none",
             }}>
             {exporting ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <Download size={14} />}
             {exporting ? "Exportiere..." : "PDF exportieren"}
@@ -2810,30 +2850,30 @@ function SkriptePanel({ scripts, onRefresh, loading }) {
       </div>
 
       {/* Search + Select All bar */}
-      <div style={{ display: "flex", gap: 10, marginBottom: 16, alignItems: "center" }}>
+      <div style={{ display: "flex", gap: SPACE.lg, marginBottom: 16, alignItems: "center" }}>
         <div style={{ flex: 1, position: "relative" }}>
           <Search size={15} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: C.dimmed }} />
           <input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Skripte durchsuchen..."
-            style={{ width: "100%", padding: "10px 12px 10px 36px", borderRadius: 10, border: `1px solid ${C.border}`, background: C.card, color: C.white, fontSize: 13, fontFamily: "inherit", outline: "none" }}
+            style={{ width: "100%", padding: "10px 12px 10px 36px", borderRadius: RADIUS.xl, border: `1px solid ${C.border}`, background: C.card, color: C.white, fontSize: TYPE.body, fontFamily: "inherit", outline: "none" }}
           />
         </div>
         <button onClick={selectAll}
-          style={{ display: "flex", alignItems: "center", gap: 6, padding: "10px 16px", borderRadius: 10, background: C.card, border: `1px solid ${C.border}`, color: C.muted, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>
-          {selectedIds.size === filtered.length && filtered.length > 0 ? <CheckSquare size={14} color={C.red} /> : <Square size={14} />}
+          style={{ display: "flex", alignItems: "center", gap: SPACE.sm, padding: `${SPACE.lg}px ${SPACE.xxl}px`, borderRadius: RADIUS.xl, background: C.card, border: `1px solid ${C.border}`, color: C.muted, fontSize: TYPE.small, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>
+          {selectedIds.size === filtered.length && filtered.length > 0 ? <CheckSquare size={14} color={C.accent} /> : <Square size={14} />}
           {selectedIds.size === filtered.length && filtered.length > 0 ? "Auswahl aufheben" : "Alle auswählen"}
         </button>
       </div>
 
       {/* Empty state */}
       {scripts.length === 0 && !loading && (
-        <div style={{ textAlign: "center", padding: "60px 20px", background: C.card, borderRadius: 14, border: `1px solid ${C.border}` }}>
+        <div style={{ textAlign: "center", padding: "60px 20px", background: C.card, borderRadius: RADIUS.xxxl, border: `1px solid ${C.border}` }}>
           <FileText size={40} color={C.dimmed} style={{ marginBottom: 16 }} />
-          <div style={{ fontSize: 16, fontWeight: 700, color: C.white, marginBottom: 8 }}>Noch keine Skripte</div>
-          <div style={{ fontSize: 13, color: C.muted, maxWidth: 400, margin: "0 auto", lineHeight: 1.6 }}>
+          <div style={{ fontSize: TYPE.labelLg, fontWeight: 700, color: C.white, marginBottom: 8 }}>Noch keine Skripte</div>
+          <div style={{ fontSize: TYPE.body, color: C.muted, maxWidth: 400, margin: "0 auto", lineHeight: 1.6 }}>
             Skripte werden automatisch über den Make.com Webhook importiert. Konfiguriere dein Szenario mit der Webhook-URL deines Dashboards.
           </div>
-          <div style={{ marginTop: 20, padding: "10px 16px", background: C.bg, borderRadius: 8, display: "inline-block", fontSize: 12, fontFamily: "monospace", color: C.muted }}>
+          <div style={{ marginTop: 20, padding: `${SPACE.lg}px ${SPACE.xxl}px`, background: C.bg, borderRadius: RADIUS.lg, display: "inline-block", fontSize: TYPE.small, fontFamily: "monospace", color: C.muted }}>
             POST /api/scripts
           </div>
         </div>
@@ -2842,12 +2882,12 @@ function SkriptePanel({ scripts, onRefresh, loading }) {
       {/* Loading */}
       {loading && scripts.length === 0 && (
         <div style={{ textAlign: "center", padding: 40 }}>
-          <Loader2 size={24} color={C.red} style={{ animation: "spin 1s linear infinite" }} />
+          <Loader2 size={24} color={C.accent} style={{ animation: "spin 1s linear infinite" }} />
         </div>
       )}
 
       {/* Scripts list */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: SPACE.md }}>
         {filtered.map((s) => {
           const isSelected = selectedIds.has(s.id);
           const isExpanded = expandedId === s.id;
@@ -2856,9 +2896,9 @@ function SkriptePanel({ scripts, onRefresh, loading }) {
               <div
                 onClick={() => setExpandedId(isExpanded ? null : s.id)}
                 style={{
-                  display: "flex", alignItems: "flex-start", gap: 14, padding: "16px 20px",
+                  display: "flex", alignItems: "flex-start", gap: SPACE.xxl, padding: `${SPACE.xxl}px ${SPACE.xxxl}px`,
                   background: isExpanded ? C.cardHover : C.card,
-                  border: `1px solid ${isExpanded ? C.red + "50" : isSelected ? C.red + "30" : C.border}`,
+                  border: `1px solid ${isExpanded ? C.accent + "50" : isSelected ? C.accent + "30" : C.border}`,
                   borderRadius: isExpanded ? "12px 12px 0 0" : 12,
                   borderBottom: isExpanded ? `1px solid ${C.border}` : undefined,
                   cursor: "pointer", transition: "all 0.2s",
@@ -2866,29 +2906,29 @@ function SkriptePanel({ scripts, onRefresh, loading }) {
               >
                 {/* Checkbox */}
                 <div onClick={(e) => { e.stopPropagation(); toggleSelect(s.id); }}
-                  style={{ width: 22, height: 22, borderRadius: 6, border: `2px solid ${isSelected ? C.red : C.border}`, background: isSelected ? C.red : "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", marginTop: 2, flexShrink: 0, transition: "all 0.15s" }}>
+                  style={{ width: 22, height: 22, borderRadius: RADIUS.md, border: `2px solid ${isSelected ? C.accent : C.border}`, background: isSelected ? C.accent : "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", marginTop: 2, flexShrink: 0, transition: "all 0.15s" }}>
                   {isSelected && <Check size={13} color="#fff" strokeWidth={3} />}
                 </div>
 
                 {/* Content */}
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: C.white, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: SPACE.lg, marginBottom: 4 }}>
+                    <div style={{ fontSize: TYPE.bodyLg, fontWeight: 700, color: C.white, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {s.title || "Skript"}
                     </div>
                     {s.competitor && (
-                      <div style={{ fontSize: 10, fontWeight: 600, color: C.muted, background: C.bg, padding: "2px 8px", borderRadius: 5, whiteSpace: "nowrap" }}>
+                      <div style={{ fontSize: TYPE.micro, fontWeight: 600, color: C.muted, background: C.bg, padding: `${SPACE.xxs}px ${SPACE.md}px`, borderRadius: RADIUS.md, whiteSpace: "nowrap" }}>
                         {s.competitor}
                       </div>
                     )}
                   </div>
-                  <div style={{ fontSize: 12, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  <div style={{ fontSize: TYPE.small, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {s.script?.substring(0, 120) || "Kein Inhalt"}...
                   </div>
                 </div>
 
                 {/* Date */}
-                <div style={{ fontSize: 11, color: C.dimmed, fontWeight: 600, whiteSpace: "nowrap", marginTop: 2 }}>
+                <div style={{ fontSize: TYPE.caption, color: C.dimmed, fontWeight: 600, whiteSpace: "nowrap", marginTop: 2 }}>
                   {s.date ? new Date(s.date).toLocaleDateString("de-DE", { day: "2-digit", month: "short", year: "numeric" }) : "–"}
                 </div>
 
@@ -2899,37 +2939,37 @@ function SkriptePanel({ scripts, onRefresh, loading }) {
               {/* Expanded detail */}
               {isExpanded && (
                 <div style={{
-                  background: C.card, border: `1px solid ${C.red}50`, borderTop: "none",
+                  background: C.card, border: `1px solid ${C.accent}50`, borderTop: "none",
                   borderRadius: "0 0 12px 12px", padding: "20px 24px",
                   animation: "fadeIn 0.2s ease",
                 }}>
                   {/* Script text */}
                   <div style={{
-                    fontSize: 13, color: C.white, lineHeight: 1.8,
+                    fontSize: TYPE.body, color: C.white, lineHeight: 1.8,
                     whiteSpace: "pre-wrap", wordBreak: "break-word",
-                    background: C.bg, borderRadius: 10, padding: "16px 20px",
+                    background: C.bg, borderRadius: RADIUS.xl, padding: `${SPACE.xxl}px ${SPACE.xxxl}px`,
                     border: `1px solid ${C.border}`, maxHeight: 400, overflowY: "auto",
                   }}>
                     {s.script || "Kein Inhalt"}
                   </div>
 
                   {/* Meta info */}
-                  <div style={{ display: "flex", gap: 20, marginTop: 14, fontSize: 11, color: C.dimmed }}>
+                  <div style={{ display: "flex", gap: SPACE.xxxl, marginTop: 14, fontSize: TYPE.caption, color: C.dimmed }}>
                     {s.competitor && <span><strong style={{ color: C.muted }}>Quelle:</strong> {s.competitor}</span>}
                     {s.date && <span><strong style={{ color: C.muted }}>Datum:</strong> {s.date}</span>}
                     {s.receivedAt && <span><strong style={{ color: C.muted }}>Empfangen:</strong> {new Date(s.receivedAt).toLocaleString("de-DE")}</span>}
                   </div>
 
                   {/* Actions */}
-                  <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+                  <div style={{ display: "flex", gap: SPACE.md, marginTop: 14 }}>
                     {s.originalUrl && (
                       <a href={s.originalUrl} target="_blank" rel="noopener noreferrer"
-                        style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 14px", borderRadius: 8, background: C.bg, border: `1px solid ${C.border}`, color: C.muted, fontSize: 11, fontWeight: 600, textDecoration: "none", cursor: "pointer" }}>
+                        style={{ display: "flex", alignItems: "center", gap: SPACE.sm, padding: "6px 14px", borderRadius: RADIUS.lg, background: C.bg, border: `1px solid ${C.border}`, color: C.muted, fontSize: TYPE.caption, fontWeight: 600, textDecoration: "none", cursor: "pointer" }}>
                         <ExternalLink size={12} /> Original ansehen
                       </a>
                     )}
                     <button onClick={() => { navigator.clipboard.writeText(s.script || ""); }}
-                      style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 14px", borderRadius: 8, background: C.bg, border: `1px solid ${C.border}`, color: C.muted, fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+                      style={{ display: "flex", alignItems: "center", gap: SPACE.sm, padding: "6px 14px", borderRadius: RADIUS.lg, background: C.bg, border: `1px solid ${C.border}`, color: C.muted, fontSize: TYPE.caption, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
                       Skript kopieren
                     </button>
                   </div>
@@ -3059,9 +3099,9 @@ function LogsPanel({ errorLog }) {
     const pColor = pName.includes("instagram") ? C.instagram : pName.includes("tiktok") ? C.tiktok : C.blue;
 
     const detailRow = (label, value, mono) => (
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "10px 0", borderBottom: `1px solid ${C.border}30` }}>
-        <span style={{ fontSize: 12, color: C.dimmed, minWidth: 120, flexShrink: 0 }}>{label}</span>
-        <span style={{ fontSize: 12, color: C.white, textAlign: "right", wordBreak: "break-all", fontFamily: mono ? "monospace" : "inherit" }}>{value || "—"}</span>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: `${SPACE.lg}px 0`, borderBottom: `1px solid ${C.border}30` }}>
+        <span style={{ fontSize: TYPE.small, color: C.dimmed, minWidth: 120, flexShrink: 0 }}>{label}</span>
+        <span style={{ fontSize: TYPE.small, color: C.white, textAlign: "right", wordBreak: "break-all", fontFamily: mono ? "monospace" : "inherit" }}>{value || "—"}</span>
       </div>
     );
 
@@ -3070,17 +3110,17 @@ function LogsPanel({ errorLog }) {
       if (!jsonStr || jsonStr === "null" || jsonStr === "{}") return null;
       return (
         <div style={{ marginTop: 12 }}>
-          <button onClick={() => toggleSection(key)} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", padding: "10px 14px", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, cursor: "pointer", color: C.white, fontSize: 13, fontWeight: 600, fontFamily: "inherit" }}>
+          <button onClick={() => toggleSection(key)} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", padding: "10px 14px", background: C.bg, border: `1px solid ${C.border}`, borderRadius: RADIUS.lg, cursor: "pointer", color: C.white, fontSize: TYPE.body, fontWeight: 600, fontFamily: "inherit" }}>
             <span>{title}</span>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <button onClick={(e) => { e.stopPropagation(); copyToClipboard(jsonStr, key); }} style={{ padding: "2px 8px", borderRadius: 4, background: C.card, border: `1px solid ${C.border}`, color: copiedField === key ? C.green : C.dimmed, fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: SPACE.md }}>
+              <button onClick={(e) => { e.stopPropagation(); copyToClipboard(jsonStr, key); }} style={{ padding: `${SPACE.xxs}px ${SPACE.md}px`, borderRadius: RADIUS.sm, background: C.card, border: `1px solid ${C.border}`, color: copiedField === key ? C.green : C.dimmed, fontSize: TYPE.caption, cursor: "pointer", fontFamily: "inherit" }}>
                 {copiedField === key ? "Copied!" : "Copy"}
               </button>
               <ChevronDown size={14} color={C.dimmed} style={{ transform: expandedSections[key] ? "rotate(180deg)" : "none", transition: "transform 0.2s" }} />
             </div>
           </button>
           {expandedSections[key] && (
-            <pre style={{ margin: 0, marginTop: 4, padding: 14, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 11, color: C.muted, fontFamily: "monospace", whiteSpace: "pre-wrap", wordBreak: "break-all", maxHeight: 300, overflowY: "auto" }}>
+            <pre style={{ margin: 0, marginTop: 4, padding: 14, background: C.bg, border: `1px solid ${C.border}`, borderRadius: RADIUS.lg, fontSize: TYPE.caption, color: C.muted, fontFamily: "monospace", whiteSpace: "pre-wrap", wordBreak: "break-all", maxHeight: 300, overflowY: "auto" }}>
               {jsonStr}
             </pre>
           )}
@@ -3093,17 +3133,17 @@ function LogsPanel({ errorLog }) {
         {/* Header */}
         <div style={{ padding: "20px 24px", borderBottom: `1px solid ${C.border}` }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{ width: 28, height: 28, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", background: isSuccess ? C.greenGlow : C.redGlow }}>
+            <div style={{ display: "flex", alignItems: "center", gap: SPACE.lg }}>
+              <div style={{ width: 28, height: 28, borderRadius: RADIUS.lg, display: "flex", alignItems: "center", justifyContent: "center", background: isSuccess ? C.greenGlow : C.redGlow }}>
                 {isSuccess ? <Check size={14} color={C.green} /> : <X size={14} color={C.redLight} />}
               </div>
-              <span style={{ fontSize: 16, fontWeight: 700, color: C.white, textTransform: "capitalize" }}>{selectedLog.action}</span>
+              <span style={{ fontSize: TYPE.labelLg, fontWeight: 700, color: C.white, textTransform: "capitalize" }}>{selectedLog.action}</span>
             </div>
-            <button onClick={() => setSelectedLog(null)} style={{ width: 28, height: 28, borderRadius: 6, background: C.bg, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+            <button onClick={() => setSelectedLog(null)} style={{ width: 28, height: 28, borderRadius: RADIUS.md, background: C.bg, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
               <X size={14} color={C.dimmed} />
             </button>
           </div>
-          <span style={{ fontSize: 12, fontWeight: 700, padding: "3px 10px", borderRadius: 6, color: isSuccess ? C.green : "#fff", background: isSuccess ? C.greenGlow : C.red, border: `1px solid ${isSuccess ? C.green + "30" : C.red + "30"}` }}>
+          <span style={{ fontSize: TYPE.small, fontWeight: 700, padding: "3px 10px", borderRadius: RADIUS.md, color: isSuccess ? C.green : "#fff", background: isSuccess ? C.greenGlow : C.red, border: `1px solid ${isSuccess ? C.green + "30" : C.red + "30"}` }}>
             {isSuccess ? "SUCCESS" : "FAILED"}
           </span>
         </div>
@@ -3117,26 +3157,26 @@ function LogsPanel({ errorLog }) {
         {/* Detail Fields */}
         <div style={{ padding: "8px 24px 24px" }}>
           {detailRow("Platform", (
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: SPACE.sm }}>
               {React.createElement(PIcon, { size: 14, color: pColor })}
               {selectedLog.platform}
             </span>
           ))}
           {detailRow("Date", formatDate(selectedLog.created))}
           {detailRow("Status Code", (
-            <span style={{ fontWeight: 700, color: selectedLog.ok ? C.green : C.redLight, background: selectedLog.ok ? C.greenGlow : C.redGlow, padding: "1px 8px", borderRadius: 4, fontFamily: "monospace" }}>
+            <span style={{ fontWeight: 700, color: selectedLog.ok ? C.green : C.redLight, background: selectedLog.ok ? C.greenGlow : C.redGlow, padding: "1px 8px", borderRadius: RADIUS.sm, fontFamily: "monospace" }}>
               {selectedLog.status}
             </span>
           ))}
           {detailRow("Type", (d.type || selectedLog.action || "publishing"))}
           {detailRow("Endpoint", selectedLog.endpoint, true)}
           {detailRow("Result", (
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: SPACE.sm }}>
               {isSuccess ? (
                 <React.Fragment>
                   <span style={{ color: C.green }}>Published</span>
                   {(d.platformPostId || d.platformPostUrl || selectedLog.postId) && (
-                    <span style={{ color: C.dimmed, fontSize: 11 }}>• Platform Post ID: {d.platformPostId || selectedLog.postId || "—"}</span>
+                    <span style={{ color: C.dimmed, fontSize: TYPE.caption }}>• Platform Post ID: {d.platformPostId || selectedLog.postId || "—"}</span>
                   )}
                 </React.Fragment>
               ) : (
@@ -3148,8 +3188,8 @@ function LogsPanel({ errorLog }) {
           {/* Content Preview */}
           {(selectedLog.content || d.content || d.postContent || d.text) && (
             <div style={{ marginTop: 16 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: C.dimmed, marginBottom: 8 }}>Content</div>
-              <div style={{ padding: 14, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 12, color: C.white, lineHeight: 1.6, whiteSpace: "pre-wrap", maxHeight: 160, overflowY: "auto" }}>
+              <div style={{ fontSize: TYPE.small, fontWeight: 600, color: C.dimmed, marginBottom: 8 }}>Content</div>
+              <div style={{ padding: 14, background: C.bg, border: `1px solid ${C.border}`, borderRadius: RADIUS.lg, fontSize: TYPE.small, color: C.white, lineHeight: 1.6, whiteSpace: "pre-wrap", maxHeight: 160, overflowY: "auto" }}>
                 {selectedLog.content || d.content || d.postContent || d.text}
               </div>
             </div>
@@ -3170,9 +3210,9 @@ function LogsPanel({ errorLog }) {
           {(selectedLog.postId || d.postId || d._id) && (
             <div style={{ marginTop: 16 }}>
               {detailRow("Post ID", (
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ fontFamily: "monospace", fontSize: 11 }}>{selectedLog.postId || d.postId || d._id}</span>
-                  <button onClick={() => copyToClipboard(selectedLog.postId || d.postId || d._id, "postId")} style={{ padding: "1px 6px", borderRadius: 4, background: C.bg, border: `1px solid ${C.border}`, color: copiedField === "postId" ? C.green : C.dimmed, fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: SPACE.sm }}>
+                  <span style={{ fontFamily: "monospace", fontSize: TYPE.caption }}>{selectedLog.postId || d.postId || d._id}</span>
+                  <button onClick={() => copyToClipboard(selectedLog.postId || d.postId || d._id, "postId")} style={{ padding: "1px 6px", borderRadius: RADIUS.sm, background: C.bg, border: `1px solid ${C.border}`, color: copiedField === "postId" ? C.green : C.dimmed, fontSize: TYPE.micro, cursor: "pointer", fontFamily: "inherit" }}>
                     {copiedField === "postId" ? "Copied!" : "Copy"}
                   </button>
                 </span>
@@ -3183,15 +3223,15 @@ function LogsPanel({ errorLog }) {
           {/* Logged At */}
           <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${C.border}30` }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontSize: 11, color: C.dimmed }}>Logged at</span>
-              <span style={{ fontSize: 11, color: C.dimmed }}>{formatDate(selectedLog.created)}</span>
+              <span style={{ fontSize: TYPE.caption, color: C.dimmed }}>Logged at</span>
+              <span style={{ fontSize: TYPE.caption, color: C.dimmed }}>{formatDate(selectedLog.created)}</span>
             </div>
           </div>
 
           {/* Platform Post URL if available */}
           {(d.platformPostUrl || d.postUrl) && (
             <div style={{ marginTop: 12 }}>
-              <a href={d.platformPostUrl || d.postUrl} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: C.blue, textDecoration: "none" }}>
+              <a href={d.platformPostUrl || d.postUrl} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: SPACE.sm, fontSize: TYPE.small, color: C.blue, textDecoration: "none" }}>
                 <ExternalLink size={12} /> View on platform
               </a>
             </div>
@@ -3206,38 +3246,38 @@ function LogsPanel({ errorLog }) {
       {/* Main Logs Table */}
       <div style={{ flex: 1, padding: "24px 32px", overflowY: "auto" }}>
         <div style={{ marginBottom: 24 }}>
-          <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.02em", color: C.white }}>Logs</div>
-          <div style={{ fontSize: 13, color: C.muted, marginTop: 2 }}>View activity logs and debug errors</div>
+          <div style={{ fontSize: TYPE.h2, fontWeight: 800, letterSpacing: "-0.02em", color: C.white }}>Logs</div>
+          <div style={{ fontSize: TYPE.body, color: C.muted, marginTop: 2 }}>View activity logs and debug errors</div>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 12px", flex: 1, maxWidth: 260 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: SPACE.md, marginBottom: 20, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: SPACE.md, background: C.card, border: `1px solid ${C.border}`, borderRadius: RADIUS.lg, padding: `${SPACE.md}px ${SPACE.xl}px`, flex: 1, maxWidth: 260 }}>
             <Search size={14} color={C.dimmed} />
             <input type="text" placeholder="Search logs..." value={logsSearch} onChange={(e) => setLogsSearch(e.target.value)}
-              style={{ background: "transparent", border: "none", outline: "none", color: C.white, fontSize: 12, width: "100%", fontFamily: "inherit" }} />
+              style={{ background: "transparent", border: "none", outline: "none", color: C.white, fontSize: TYPE.small, width: "100%", fontFamily: "inherit" }} />
           </div>
-          <button style={{ padding: "8px 14px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, color: C.dimmed, fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 4 }}>Publishing <ChevronDown size={11} /></button>
-          <button style={{ padding: "8px 14px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, color: C.dimmed, fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 4 }}>All platforms <ChevronDown size={11} /></button>
-          <button style={{ padding: "8px 14px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, color: C.dimmed, fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 4 }}>All statuses <ChevronDown size={11} /></button>
-          <button style={{ padding: "8px 14px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, color: C.dimmed, fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 4 }}>Last 7 days <ChevronDown size={11} /></button>
-          <button onClick={() => { setLogsData([]); fetchLogsData(); }} style={{ width: 34, height: 34, borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+          <button style={{ padding: "8px 14px", borderRadius: RADIUS.lg, background: C.card, border: `1px solid ${C.border}`, color: C.dimmed, fontSize: TYPE.small, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: SPACE.xs }}>Publishing <ChevronDown size={11} /></button>
+          <button style={{ padding: "8px 14px", borderRadius: RADIUS.lg, background: C.card, border: `1px solid ${C.border}`, color: C.dimmed, fontSize: TYPE.small, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: SPACE.xs }}>All platforms <ChevronDown size={11} /></button>
+          <button style={{ padding: "8px 14px", borderRadius: RADIUS.lg, background: C.card, border: `1px solid ${C.border}`, color: C.dimmed, fontSize: TYPE.small, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: SPACE.xs }}>All statuses <ChevronDown size={11} /></button>
+          <button style={{ padding: "8px 14px", borderRadius: RADIUS.lg, background: C.card, border: `1px solid ${C.border}`, color: C.dimmed, fontSize: TYPE.small, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: SPACE.xs }}>Last 7 days <ChevronDown size={11} /></button>
+          <button onClick={() => { setLogsData([]); fetchLogsData(); }} style={{ width: 34, height: 34, borderRadius: RADIUS.lg, background: C.card, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
             <RefreshCw size={14} color={C.dimmed} style={logsLoading ? { animation: "spin 1s linear infinite" } : {}} />
           </button>
         </div>
 
-        <div style={{ background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, overflow: "hidden" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "160px 80px 1fr 140px 180px 160px", padding: "12px 20px", borderBottom: `1px solid ${C.border}`, fontSize: 12, fontWeight: 600, color: C.dimmed }}>
+        <div style={{ background: C.card, borderRadius: RADIUS.xxl, border: `1px solid ${C.border}`, overflow: "hidden" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "160px 80px 1fr 140px 180px 160px", padding: `${SPACE.xl}px ${SPACE.xxxl}px`, borderBottom: `1px solid ${C.border}`, fontSize: TYPE.small, fontWeight: 600, color: C.dimmed }}>
             <div>Action</div><div>Status</div><div>Endpoint</div><div>Platform</div><div>Account</div>
-            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>Created <ChevronDown size={10} /></div>
+            <div style={{ display: "flex", alignItems: "center", gap: SPACE.xs }}>Created <ChevronDown size={10} /></div>
           </div>
 
           {logsLoading && (
-            <div style={{ padding: 30, textAlign: "center", color: C.dimmed, fontSize: 13 }}>
+            <div style={{ padding: 30, textAlign: "center", color: C.dimmed, fontSize: TYPE.body }}>
               <Loader2 size={16} style={{ animation: "spin 1s linear infinite", display: "inline-block", marginRight: 6 }} /> Loading logs...
             </div>
           )}
           {!logsLoading && filteredLogs.length === 0 && (
-            <div style={{ padding: 40, textAlign: "center", color: C.dimmed, fontSize: 13 }}>No logs found.</div>
+            <div style={{ padding: 40, textAlign: "center", color: C.dimmed, fontSize: TYPE.body }}>No logs found.</div>
           )}
 
           {filteredLogs.map((log, i) => {
@@ -3245,23 +3285,23 @@ function LogsPanel({ errorLog }) {
             const pColor = log.platform?.toLowerCase().includes("instagram") ? C.instagram : log.platform?.toLowerCase().includes("tiktok") ? C.tiktok : C.dimmed;
             const isSelected = selectedLog && (selectedLog.id === log.id && selectedLog.created === log.created);
             return (
-              <div key={i} onClick={() => setSelectedLog(log)} style={{ display: "grid", gridTemplateColumns: "160px 80px 1fr 140px 180px 160px", padding: "12px 20px", borderBottom: `1px solid ${C.border}08`, alignItems: "center", fontSize: 13, cursor: "pointer", transition: "background 0.1s", background: isSelected ? C.bg + "80" : "transparent", borderLeft: isSelected ? `3px solid ${C.red}` : "3px solid transparent" }}
+              <div key={i} onClick={() => setSelectedLog(log)} style={{ display: "grid", gridTemplateColumns: "160px 80px 1fr 140px 180px 160px", padding: `${SPACE.xl}px ${SPACE.xxxl}px`, borderBottom: `1px solid ${C.border}08`, alignItems: "center", fontSize: TYPE.body, cursor: "pointer", transition: "background 0.1s", background: isSelected ? C.bg + "80" : "transparent", borderLeft: isSelected ? `3px solid ${C.accent}` : "3px solid transparent" }}
                 onMouseOver={(e) => { if (!isSelected) e.currentTarget.style.background = C.bg + "60"; }}
                 onMouseOut={(e) => { if (!isSelected) e.currentTarget.style.background = "transparent"; }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <div style={{ width: 22, height: 22, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", background: log.ok ? C.greenGlow : C.redGlow }}>
+                <div style={{ display: "flex", alignItems: "center", gap: SPACE.md }}>
+                  <div style={{ width: 22, height: 22, borderRadius: RADIUS.md, display: "flex", alignItems: "center", justifyContent: "center", background: log.ok ? C.greenGlow : C.redGlow }}>
                     {log.ok ? <Check size={12} color={C.green} /> : <X size={12} color={C.redLight} />}
                   </div>
                   <span style={{ color: C.white, fontWeight: 500 }}>{log.action}</span>
                 </div>
-                <div><span style={{ fontSize: 12, fontWeight: 700, color: log.ok ? C.green : C.redLight, background: log.ok ? C.greenGlow : C.redGlow, padding: "2px 8px", borderRadius: 4 }}>{log.status}</span></div>
-                <div style={{ color: C.muted, fontSize: 12, fontFamily: "monospace", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{log.endpoint}</div>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <div><span style={{ fontSize: TYPE.small, fontWeight: 700, color: log.ok ? C.green : C.redLight, background: log.ok ? C.greenGlow : C.redGlow, padding: `${SPACE.xxs}px ${SPACE.md}px`, borderRadius: RADIUS.sm }}>{log.status}</span></div>
+                <div style={{ color: C.muted, fontSize: TYPE.small, fontFamily: "monospace", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{log.endpoint}</div>
+                <div style={{ display: "flex", alignItems: "center", gap: SPACE.sm }}>
                   {pIcon && React.createElement(pIcon, { size: 14, color: pColor })}
-                  <span style={{ color: C.white, fontSize: 12 }}>{log.platform}</span>
+                  <span style={{ color: C.white, fontSize: TYPE.small }}>{log.platform}</span>
                 </div>
-                <div style={{ color: C.muted, fontSize: 12 }}>{log.account}</div>
-                <div style={{ color: C.dimmed, fontSize: 12 }}>{formatTimeAgo(log.created)}</div>
+                <div style={{ color: C.muted, fontSize: TYPE.small }}>{log.account}</div>
+                <div style={{ color: C.dimmed, fontSize: TYPE.small }}>{formatTimeAgo(log.created)}</div>
               </div>
             );
           })}
@@ -3275,11 +3315,14 @@ function LogsPanel({ errorLog }) {
 }
 
 export default function Dashboard() {
-  // Theme state persisted in localStorage
-  const [isDarkMode, setIsDarkMode] = useState(() => {
-    if (typeof window === "undefined") return true;
-    try { return localStorage.getItem("theme") !== "light"; } catch { return true; }
-  });
+  // Theme state persisted in localStorage. Starts as the server-rendered
+  // default (dark) and syncs to the stored preference after mount, so the
+  // client's first render always matches the server's (avoids a hydration
+  // mismatch that reading localStorage during useState init would cause).
+  const [isDarkMode, setIsDarkMode] = useState(true);
+  useEffect(() => {
+    try { if (localStorage.getItem("theme") === "light") setIsDarkMode(false); } catch {}
+  }, []);
   C = isDarkMode ? darkTheme : lightTheme;
   const toggleTheme = () => {
     setIsDarkMode((prev) => {
@@ -3333,6 +3376,7 @@ export default function Dashboard() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [accounts, setAccounts] = useState([]);
   const [activeTab, setActiveTab] = useState("dashboard");
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [notifications, setNotifications] = useState(demoNotifications);
   const [debugInfo, setDebugInfo] = useState(null);
   const [selectedPost, setSelectedPost] = useState(null);
@@ -3399,10 +3443,18 @@ export default function Dashboard() {
   // Zernios /posts-Liste enthaelt keine Kennzahlen. GET /analytics
   // liefert dagegen eine Liste, in der jeder Eintrag bereits
   // analytics + platformAnalytics mitbringt (siehe Zernio API-Doku).
+  const analyticsLoadedRef = useRef(new Set());
+
   const fetchPostAnalytics = useCallback(async (postList) => {
     try {
-      const ids = (postList || []).map((p) => p.id).filter(Boolean);
+      // Nur Beitraege abfragen, deren Kennzahlen noch nicht geladen sind
+      const ids = (postList || [])
+        .map((p) => p.id)
+        .filter(Boolean)
+        .filter((id) => !analyticsLoadedRef.current.has(String(id)))
+        .slice(0, 50);
       if (ids.length === 0) return;
+      ids.forEach((id) => analyticsLoadedRef.current.add(String(id)));
 
       const res = await fetch(`/api/late?action=posts-analytics&postIds=${encodeURIComponent(ids.join(","))}`);
       const data = await res.json();
@@ -3676,8 +3728,8 @@ export default function Dashboard() {
         const hidden = JSON.parse(localStorage.getItem("hiddenPostIds") || "[]");
         const mapped = postsList.map(mapPost).filter((p) => !hidden.includes(p.id));
         setPosts(mapped);
-        // Kennzahlen im Hintergrund nachladen
-        fetchPostAnalytics(mapped);
+        // Kennzahlen werden pro sichtbarer Seite nachgeladen (siehe useEffect)
+        analyticsLoadedRef.current = new Set();
       }
     } catch {
       setIsConnected(false);
@@ -3806,6 +3858,20 @@ export default function Dashboard() {
   // Bei Filterwechsel zurück auf Seite 1
   useEffect(() => { setPage(1); }, [statusFilter, platformFilter2, profileFilter, userFilter, dateFilter, searchQuery, sortBy]);
 
+  // Nach Seitenwechsel an den Anfang der Liste scrollen
+  useEffect(() => {
+    if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [page]);
+
+  // Kennzahlen fuer die aktuell sichtbare Seite nachladen
+  const pagedIdsKey = paged.map((p) => p.id).join(",");
+  useEffect(() => {
+    if (!isConnected || paged.length === 0) return;
+    const needed = paged.filter((p) => p.status === "published" || p.status === "partial");
+    if (needed.length > 0) fetchPostAnalytics(needed);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pagedIdsKey, isConnected]);
+
   const totalViews = filtered.reduce((a, p) => a + p.views, 0);
   const totalLikes = filtered.reduce((a, p) => a + p.likes, 0);
   const totalComments = filtered.reduce((a, p) => a + p.comments, 0);
@@ -3819,16 +3885,30 @@ export default function Dashboard() {
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } } @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } } @keyframes livePulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(1.3); } }`}</style>
 
       {/* Sidebar */}
-      <Sidebar activeTab={activeTab} onTabChange={setActiveTab} unreadCount={unreadCount} errorCount={errorLog.length} isDarkMode={isDarkMode} onToggleTheme={toggleTheme} />
+      <Sidebar activeTab={activeTab} onTabChange={setActiveTab} unreadCount={unreadCount} errorCount={errorLog.length} isDarkMode={isDarkMode} onToggleTheme={toggleTheme} isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+
+      {/* Mobile-only backdrop behind the off-canvas sidebar */}
+      <div className={`sidebar-backdrop${isSidebarOpen ? " open" : ""}`} onClick={() => setIsSidebarOpen(false)} style={{
+        position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 50,
+      }} />
+
+      {/* Mobile-only hamburger button to open the sidebar */}
+      <button className="mobile-menu-btn" onClick={() => setIsSidebarOpen(true)} aria-label="Menü öffnen" style={{
+        position: "fixed", top: 14, left: 14, zIndex: 45, width: 40, height: 40, borderRadius: RADIUS.lg,
+        background: C.card, border: `1px solid ${C.border}`, color: C.white, cursor: "pointer",
+        alignItems: "center", justifyContent: "center", boxShadow: "0 2px 10px rgba(0,0,0,0.25)",
+      }}>
+        <Menu size={18} />
+      </button>
 
       {/* Main Content */}
-      <div style={{ flex: 1, marginLeft: 220 }}>
+      <div className="app-main" style={{ flex: 1, marginLeft: 220 }}>
 
       {notification && (
-        <div style={{ position: "fixed", top: 20, right: 20, zIndex: 200, background: C.card, border: `1px solid ${notification.color === "green" ? C.green : notification.color === "red" ? C.redLight : C.yellow}`, borderRadius: 12, padding: "12px 20px", display: "flex", alignItems: "center", gap: 10, boxShadow: "0 8px 32px rgba(0,0,0,0.4)", maxWidth: 480 }}>
+        <div style={{ position: "fixed", top: 20, right: 20, zIndex: 200, background: C.card, border: `1px solid ${notification.color === "green" ? C.green : notification.color === "red" ? C.redLight : C.yellow}`, borderRadius: RADIUS.xxl, padding: `${SPACE.xl}px ${SPACE.xxxl}px`, display: "flex", alignItems: "center", gap: SPACE.lg, boxShadow: "0 8px 32px rgba(0,0,0,0.4)", maxWidth: 480 }}>
           {notification.color === "red" ? <XCircle size={16} color={C.redLight} style={{ flexShrink: 0 }} /> :
            <div style={{ width: 8, height: 8, borderRadius: "50%", background: notification.color === "green" ? C.green : C.yellow, flexShrink: 0 }} />}
-          <span style={{ fontSize: 13, fontWeight: 600, color: notification.color === "red" ? C.redLight : C.white }}>{notification.text}</span>
+          <span style={{ fontSize: TYPE.body, fontWeight: 600, color: notification.color === "red" ? C.redLight : C.white }}>{notification.text}</span>
         </div>
       )}
 
@@ -3837,64 +3917,64 @@ export default function Dashboard() {
         <div style={{ padding: "24px 32px" }}>
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 24 }}>
             <div>
-              <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.02em", color: C.white }}>Connections</div>
-              <div style={{ fontSize: 13, color: C.muted, marginTop: 2 }}>Manage profiles and platform integrations</div>
+              <div style={{ fontSize: TYPE.h2, fontWeight: 800, letterSpacing: "-0.02em", color: C.white }}>Connections</div>
+              <div style={{ fontSize: TYPE.body, color: C.muted, marginTop: 2 }}>Manage profiles and platform integrations</div>
             </div>
-            <div style={{ display: "flex", gap: 8 }}>
-              <button style={{ display: "flex", alignItems: "center", gap: 6, padding: "9px 20px", borderRadius: 8, background: C.red, border: "none", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+            <div style={{ display: "flex", gap: SPACE.md }}>
+              <button style={{ display: "flex", alignItems: "center", gap: SPACE.sm, padding: "9px 20px", borderRadius: RADIUS.lg, background: C.accent, border: "none", color: "#fff", fontSize: TYPE.body, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
                 <Plus size={15} /> New Connection
               </button>
-              <button style={{ padding: "9px 20px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, color: C.white, fontSize: 13, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>
+              <button style={{ padding: "9px 20px", borderRadius: RADIUS.lg, background: C.card, border: `1px solid ${C.border}`, color: C.white, fontSize: TYPE.body, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>
                 New Profile
               </button>
             </div>
           </div>
 
           {/* Filter bar */}
-          <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ fontSize: 14, fontWeight: 700, color: C.white }}>Platforms</span>
-              <select style={{ padding: "8px 14px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, color: C.white, fontSize: 13, fontFamily: "inherit", cursor: "pointer", minWidth: 140 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: SPACE.xxl, marginBottom: 24 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: SPACE.md }}>
+              <span style={{ fontSize: TYPE.bodyLg, fontWeight: 700, color: C.white }}>Platforms</span>
+              <select style={{ padding: "8px 14px", borderRadius: RADIUS.lg, background: C.card, border: `1px solid ${C.border}`, color: C.white, fontSize: TYPE.body, fontFamily: "inherit", cursor: "pointer", minWidth: 140 }}>
                 <option>All profiles</option>
               </select>
             </div>
-            <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
-              <button style={{ padding: "7px 14px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, color: C.dimmed, fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>All platforms</button>
-              <button style={{ padding: "7px 14px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, color: C.dimmed, fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>All statuses</button>
+            <div style={{ marginLeft: "auto", display: "flex", gap: SPACE.md }}>
+              <button style={{ padding: "7px 14px", borderRadius: RADIUS.lg, background: C.card, border: `1px solid ${C.border}`, color: C.dimmed, fontSize: TYPE.small, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>All platforms</button>
+              <button style={{ padding: "7px 14px", borderRadius: RADIUS.lg, background: C.card, border: `1px solid ${C.border}`, color: C.dimmed, fontSize: TYPE.small, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>All statuses</button>
             </div>
           </div>
 
           {/* Connection Cards */}
-          <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: SPACE.xxl, flexWrap: "wrap" }}>
             {accounts.length > 0 ? accounts.map((acc, i) => {
               const isIG = acc.platform === "instagram";
               const color = isIG ? C.instagram : C.tiktok;
               const Icon = isIG ? Instagram : TikTokIcon;
               return (
-                <div key={i} style={{ width: 240, background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, padding: "18px 20px", position: "relative" }}>
+                <div key={i} style={{ width: 240, background: C.card, borderRadius: RADIUS.xxl, border: `1px solid ${C.border}`, padding: "18px 20px", position: "relative" }}>
                   {/* Info icon top right */}
                   <div style={{ position: "absolute", top: 14, right: 14, cursor: "pointer" }}>
                     <AlertCircle size={16} color={C.dimmed} />
                   </div>
                   {/* Platform header */}
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: SPACE.lg, marginBottom: 4 }}>
                     <Icon size={20} color={color} />
                     <div>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: C.white }}>{isIG ? "Instagram" : "TikTok"}</div>
-                      <div style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10, fontWeight: 600, color: C.green, background: C.greenGlow, padding: "2px 8px", borderRadius: 4, marginTop: 2 }}>
+                      <div style={{ fontSize: TYPE.bodyLg, fontWeight: 700, color: C.white }}>{isIG ? "Instagram" : "TikTok"}</div>
+                      <div style={{ display: "inline-flex", alignItems: "center", gap: SPACE.xs, fontSize: TYPE.micro, fontWeight: 600, color: C.green, background: C.greenGlow, padding: `${SPACE.xxs}px ${SPACE.md}px`, borderRadius: RADIUS.sm, marginTop: 2 }}>
                         <div style={{ width: 5, height: 5, borderRadius: "50%", background: C.green }} /> connected
                       </div>
                     </div>
                   </div>
                   {/* Handle */}
-                  <div style={{ fontSize: 13, fontWeight: 600, color: C.white, marginTop: 10 }}>@{acc.name || "mitunsverkaufen.de"}</div>
-                  <div style={{ fontSize: 11, color: C.dimmed, marginTop: 2 }}>{acc.connectedAt ? new Date(acc.connectedAt).toLocaleDateString("de-DE") : new Date().toLocaleDateString("de-DE")}</div>
+                  <div style={{ fontSize: TYPE.body, fontWeight: 600, color: C.white, marginTop: 10 }}>@{acc.name || "mitunsverkaufen.de"}</div>
+                  <div style={{ fontSize: TYPE.caption, color: C.dimmed, marginTop: 2 }}>{acc.connectedAt ? new Date(acc.connectedAt).toLocaleDateString("de-DE") : new Date().toLocaleDateString("de-DE")}</div>
                   {/* Business badge */}
-                  <div style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10, fontWeight: 600, color: C.redLight, background: C.redGlow, padding: "3px 10px", borderRadius: 4, marginTop: 10 }}>
-                    <div style={{ width: 5, height: 5, borderRadius: "50%", background: C.redLight }} /> Business
+                  <div style={{ display: "inline-flex", alignItems: "center", gap: SPACE.xs, fontSize: TYPE.micro, fontWeight: 600, color: C.purple, background: C.purpleGlow, padding: "3px 10px", borderRadius: RADIUS.sm, marginTop: 10 }}>
+                    <div style={{ width: 5, height: 5, borderRadius: "50%", background: C.purple }} /> Business
                   </div>
                   {/* Disconnect button */}
-                  <button style={{ display: "block", width: "100%", padding: "8px 0", borderRadius: 8, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", marginTop: 14, textAlign: "center" }}>
+                  <button style={{ display: "block", width: "100%", padding: `${SPACE.md}px 0`, borderRadius: RADIUS.lg, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontSize: TYPE.small, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", marginTop: 14, textAlign: "center" }}>
                     Disconnect
                   </button>
                 </div>
@@ -3906,23 +3986,23 @@ export default function Dashboard() {
                 const color = isIG ? C.instagram : C.tiktok;
                 const Icon = isIG ? Instagram : TikTokIcon;
                 return (
-                  <div key={plat} style={{ width: 240, background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, padding: "18px 20px", position: "relative" }}>
+                  <div key={plat} style={{ width: 240, background: C.card, borderRadius: RADIUS.xxl, border: `1px solid ${C.border}`, padding: "18px 20px", position: "relative" }}>
                     <div style={{ position: "absolute", top: 14, right: 14 }}><AlertCircle size={16} color={C.dimmed} /></div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: SPACE.lg, marginBottom: 4 }}>
                       <Icon size={20} color={color} />
                       <div>
-                        <div style={{ fontSize: 14, fontWeight: 700, color: C.white }}>{plat}</div>
-                        <div style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10, fontWeight: 600, color: isConnected ? C.green : C.yellow, background: isConnected ? C.greenGlow : C.yellowGlow, padding: "2px 8px", borderRadius: 4, marginTop: 2 }}>
+                        <div style={{ fontSize: TYPE.bodyLg, fontWeight: 700, color: C.white }}>{plat}</div>
+                        <div style={{ display: "inline-flex", alignItems: "center", gap: SPACE.xs, fontSize: TYPE.micro, fontWeight: 600, color: isConnected ? C.green : C.yellow, background: isConnected ? C.greenGlow : C.yellowGlow, padding: `${SPACE.xxs}px ${SPACE.md}px`, borderRadius: RADIUS.sm, marginTop: 2 }}>
                           <div style={{ width: 5, height: 5, borderRadius: "50%", background: isConnected ? C.green : C.yellow }} /> {isConnected ? "connected" : "disconnected"}
                         </div>
                       </div>
                     </div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: C.white, marginTop: 10 }}>@mitunsverkaufen.de</div>
-                    <div style={{ fontSize: 11, color: C.dimmed, marginTop: 2 }}>—</div>
-                    <div style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10, fontWeight: 600, color: C.redLight, background: C.redGlow, padding: "3px 10px", borderRadius: 4, marginTop: 10 }}>
-                      <div style={{ width: 5, height: 5, borderRadius: "50%", background: C.redLight }} /> Business
+                    <div style={{ fontSize: TYPE.body, fontWeight: 600, color: C.white, marginTop: 10 }}>@mitunsverkaufen.de</div>
+                    <div style={{ fontSize: TYPE.caption, color: C.dimmed, marginTop: 2 }}>—</div>
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: SPACE.xs, fontSize: TYPE.micro, fontWeight: 600, color: C.purple, background: C.purpleGlow, padding: "3px 10px", borderRadius: RADIUS.sm, marginTop: 10 }}>
+                      <div style={{ width: 5, height: 5, borderRadius: "50%", background: C.purple }} /> Business
                     </div>
-                    <button style={{ display: "block", width: "100%", padding: "8px 0", borderRadius: 8, background: isConnected ? C.bg : C.red, border: `1px solid ${isConnected ? C.border : C.red}`, color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", marginTop: 14, textAlign: "center" }}>
+                    <button style={{ display: "block", width: "100%", padding: `${SPACE.md}px 0`, borderRadius: RADIUS.lg, background: isConnected ? C.bg : C.accent, border: `1px solid ${isConnected ? C.border : C.accent}`, color: "#fff", fontSize: TYPE.small, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", marginTop: 14, textAlign: "center" }}>
                       {isConnected ? "Disconnect" : "Connect"}
                     </button>
                   </div>
@@ -4054,15 +4134,15 @@ export default function Dashboard() {
           {/* Header */}
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 24 }}>
             <div>
-              <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.02em", color: C.white }}>Analytics</div>
-              <div style={{ fontSize: 13, color: C.muted, marginTop: 2 }}>View post performance metrics</div>
+              <div style={{ fontSize: TYPE.h2, fontWeight: 800, letterSpacing: "-0.02em", color: C.white }}>Analytics</div>
+              <div style={{ fontSize: TYPE.body, color: C.muted, marginTop: 2 }}>View post performance metrics</div>
             </div>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <div style={{ display: "flex", gap: SPACE.md, alignItems: "center" }}>
               {["all", "instagram", "tiktok"].map((p) => {
                 const active = analyticsPlatform === p;
                 const col = p === "instagram" ? C.instagram : p === "tiktok" ? C.tiktok : C.white;
                 return (
-                  <button key={p} onClick={() => setAnalyticsPlatform(p)} style={{ padding: "7px 16px", borderRadius: 8, border: `1px solid ${active ? col + "60" : C.border}`, background: active ? col + "12" : "transparent", color: active ? col : C.dimmed, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+                  <button key={p} onClick={() => setAnalyticsPlatform(p)} style={{ padding: "7px 16px", borderRadius: RADIUS.lg, border: `1px solid ${active ? col + "60" : C.border}`, background: active ? col + "12" : "transparent", color: active ? col : C.dimmed, fontSize: TYPE.small, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
                     {p === "all" ? "Alle Plattformen" : p === "instagram" ? "Instagram" : "TikTok"}
                   </button>
                 );
@@ -4070,26 +4150,26 @@ export default function Dashboard() {
               {["7d", "30d", "90d"].map((r) => {
                 const active = analyticsRange === r;
                 return (
-                  <button key={r} onClick={() => setAnalyticsRange(r)} style={{ padding: "7px 14px", borderRadius: 8, border: `1px solid ${active ? C.blue + "60" : C.border}`, background: active ? C.blueGlow : "transparent", color: active ? C.blue : C.dimmed, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+                  <button key={r} onClick={() => setAnalyticsRange(r)} style={{ padding: "7px 14px", borderRadius: RADIUS.lg, border: `1px solid ${active ? C.blue + "60" : C.border}`, background: active ? C.blueGlow : "transparent", color: active ? C.blue : C.dimmed, fontSize: TYPE.small, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
                     {r === "7d" ? "7 Tage" : r === "30d" ? "30 Tage" : "90 Tage"}
                   </button>
                 );
               })}
-              <button onClick={fetchAnalytics} style={{ width: 34, height: 34, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", background: C.card, border: `1px solid ${C.border}`, cursor: "pointer" }}>
+              <button onClick={fetchAnalytics} style={{ width: 34, height: 34, borderRadius: RADIUS.lg, display: "flex", alignItems: "center", justifyContent: "center", background: C.card, border: `1px solid ${C.border}`, cursor: "pointer" }}>
                 <RefreshCw size={14} color={C.muted} style={analyticsLoading ? { animation: "spin 1s linear infinite" } : {}} />
               </button>
             </div>
           </div>
 
           {isDemo && (
-            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 16px", borderRadius: 10, background: C.yellowGlow, border: `1px solid ${C.yellow}30`, marginBottom: 20 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: SPACE.md, padding: `${SPACE.lg}px ${SPACE.xxl}px`, borderRadius: RADIUS.xl, background: C.yellowGlow, border: `1px solid ${C.yellow}30`, marginBottom: 20 }}>
               <AlertCircle size={14} color={C.yellow} style={{ flexShrink: 0 }} />
-              <div style={{ fontSize: 12, color: C.yellow }}>Demo-Modus – Daten basieren auf deinen Posts. Verbinde die API für erweiterte Metriken.</div>
+              <div style={{ fontSize: TYPE.small, color: C.yellow }}>Demo-Modus – Daten basieren auf deinen Posts. Verbinde die API für erweiterte Metriken.</div>
             </div>
           )}
 
           {/* ── Metric Cards (Zernio style: 2 rows of 4) ───────── */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginBottom: 24 }}>
+          <div className="kpi-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: SPACE.lg, marginBottom: 24 }}>
             {[
               { label: "Likes", icon: Heart, value: fmt(totals.likes), color: C.redLight, change: null },
               { label: "Comments", icon: MessageCircle, value: fmt(totals.comments), color: C.blue, change: null },
@@ -4100,46 +4180,46 @@ export default function Dashboard() {
               { label: "Clicks", icon: ExternalLink, value: fmt(totals.clicks), color: C.green, change: null },
               { label: "Eng. Rate", icon: BarChart3, value: `${engRate}%`, color: C.redLight, change: null },
             ].map((m) => (
-              <div key={m.label} style={{ background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, padding: "14px 16px", display: "flex", alignItems: "center", gap: 10 }}>
+              <div key={m.label} style={{ background: C.card, borderRadius: RADIUS.xxl, border: `1px solid ${C.border}`, padding: "14px 16px", display: "flex", alignItems: "center", gap: SPACE.lg }}>
                 <div style={{ color: m.color, display: "flex", alignItems: "center" }}><m.icon size={16} /></div>
                 <div>
-                  <div style={{ fontSize: 11, color: C.dimmed, fontWeight: 500, marginBottom: 2 }}>{m.label}</div>
-                  <div style={{ fontSize: 18, fontWeight: 800, color: C.white }}>{m.value}</div>
+                  <div style={{ fontSize: TYPE.caption, color: C.dimmed, fontWeight: 500, marginBottom: 2 }}>{m.label}</div>
+                  <div style={{ fontSize: TYPE.h4, fontWeight: 800, color: C.white }}>{m.value}</div>
                 </div>
               </div>
             ))}
           </div>
 
           {/* ── Daily Chart ────────────────────────────────────── */}
-          <div style={{ background: C.card, borderRadius: 14, border: `1px solid ${C.border}`, padding: 20, marginBottom: 20 }}>
-            <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 16, color: C.white }}>Tägliche Performance</div>
+          <div style={{ background: C.card, borderRadius: RADIUS.xxxl, border: `1px solid ${C.border}`, padding: 20, marginBottom: 20 }}>
+            <div style={{ fontSize: TYPE.bodyLg, fontWeight: 700, marginBottom: 16, color: C.white }}>Tägliche Performance</div>
             {chartData.length > 0 ? (
               <ResponsiveContainer width="100%" height={260}>
                 <LineChart data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
-                  <XAxis dataKey="date" tick={{ fill: C.dimmed, fontSize: 10 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: C.dimmed, fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={fmt} />
-                  <Tooltip contentStyle={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, fontSize: 12, color: C.white }} />
+                  <XAxis dataKey="date" tick={{ fill: C.dimmed, fontSize: TYPE.micro }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: C.dimmed, fontSize: TYPE.micro }} axisLine={false} tickLine={false} tickFormatter={fmt} />
+                  <Tooltip contentStyle={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: RADIUS.xl, fontSize: TYPE.small, color: C.white }} />
                   <Line type="monotone" dataKey="likes" name="Likes" stroke={C.redLight} strokeWidth={2} dot={false} />
                   <Line type="monotone" dataKey="comments" name="Comments" stroke={C.blue} strokeWidth={2} dot={false} />
                   <Line type="monotone" dataKey="views" name="Views" stroke={C.purple} strokeWidth={2} dot={false} />
                 </LineChart>
               </ResponsiveContainer>
             ) : (
-              <div style={{ height: 200, display: "flex", alignItems: "center", justifyContent: "center", color: C.dimmed, fontSize: 13 }}>Keine täglichen Daten verfügbar</div>
+              <div style={{ height: 200, display: "flex", alignItems: "center", justifyContent: "center", color: C.dimmed, fontSize: TYPE.body }}>Keine täglichen Daten verfügbar</div>
             )}
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 20 }}>
+          <div className="two-col-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: SPACE.xxxl, marginBottom: 20 }}>
             {/* ── Best Time to Post (green heatmap like Zernio) ── */}
-            <div style={{ background: C.card, borderRadius: 14, border: `1px solid ${C.border}`, padding: 20 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 14, color: C.white }}>Best Time to Post</div>
-              <div style={{ display: "grid", gridTemplateColumns: `36px repeat(7, 1fr)`, gap: 3 }}>
+            <div style={{ background: C.card, borderRadius: RADIUS.xxxl, border: `1px solid ${C.border}`, padding: 20 }}>
+              <div style={{ fontSize: TYPE.bodyLg, fontWeight: 700, marginBottom: 14, color: C.white }}>Best Time to Post</div>
+              <div style={{ display: "grid", gridTemplateColumns: `36px repeat(7, 1fr)`, gap: SPACE.xs }}>
                 <div />
-                {dayLabels.map((d) => <div key={d} style={{ textAlign: "center", fontSize: 10, color: C.dimmed, fontWeight: 600, paddingBottom: 6 }}>{d}</div>)}
+                {dayLabels.map((d) => <div key={d} style={{ textAlign: "center", fontSize: TYPE.micro, color: C.dimmed, fontWeight: 600, paddingBottom: 6 }}>{d}</div>)}
                 {[6, 9, 12, 15, 18, 21].map((h) => (
                   <React.Fragment key={h}>
-                    <div style={{ fontSize: 10, color: C.dimmed, lineHeight: "26px", textAlign: "right", paddingRight: 6 }}>{h < 10 ? "0" : ""}{h}:00</div>
+                    <div style={{ fontSize: TYPE.micro, color: C.dimmed, lineHeight: "26px", textAlign: "right", paddingRight: 6 }}>{h < 10 ? "0" : ""}{h}:00</div>
                     {dayLabels.map((_, di) => {
                       const val = btMap[`${di}-${h}`] || 0;
                       const intensity = val / maxEng;
@@ -4147,7 +4227,7 @@ export default function Dashboard() {
                       const bg = intensity > 0 ? `rgba(34,197,94,${0.15 + intensity * 0.75})` : C.bg;
                       return (
                         <div key={di} title={`${dayLabels[di]} ${h}:00 – ${val.toFixed(1)}% Engagement`} style={{
-                          height: 26, borderRadius: 4, background: bg,
+                          height: 26, borderRadius: RADIUS.sm, background: bg,
                           border: `1px solid ${intensity > 0.4 ? "rgba(34,197,94,0.3)" : C.border}`,
                           cursor: "default",
                         }} />
@@ -4156,20 +4236,20 @@ export default function Dashboard() {
                   </React.Fragment>
                 ))}
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 12, justifyContent: "center" }}>
-                <div style={{ fontSize: 10, color: C.dimmed }}>Fewer</div>
-                {[0.1, 0.25, 0.45, 0.65, 0.85].map((o) => <div key={o} style={{ width: 14, height: 14, borderRadius: 3, background: `rgba(34,197,94,${o})` }} />)}
-                <div style={{ fontSize: 10, color: C.dimmed }}>More</div>
+              <div style={{ display: "flex", alignItems: "center", gap: SPACE.sm, marginTop: 12, justifyContent: "center" }}>
+                <div style={{ fontSize: TYPE.micro, color: C.dimmed }}>Fewer</div>
+                {[0.1, 0.25, 0.45, 0.65, 0.85].map((o) => <div key={o} style={{ width: 14, height: 14, borderRadius: RADIUS.sm, background: `rgba(34,197,94,${o})` }} />)}
+                <div style={{ fontSize: TYPE.micro, color: C.dimmed }}>More</div>
               </div>
               {/* Best times badges */}
               {Object.entries(btMap).length > 0 && (() => {
                 const sorted = Object.entries(btMap).sort((a, b) => b[1] - a[1]).slice(0, 3);
                 return (
-                  <div style={{ display: "flex", gap: 6, marginTop: 12, justifyContent: "center" }}>
-                    <span style={{ fontSize: 11, color: C.dimmed, marginRight: 4 }}>Best time:</span>
+                  <div style={{ display: "flex", gap: SPACE.sm, marginTop: 12, justifyContent: "center" }}>
+                    <span style={{ fontSize: TYPE.caption, color: C.dimmed, marginRight: 4 }}>Best time:</span>
                     {sorted.map(([key]) => {
                       const [d, h] = key.split("-").map(Number);
-                      return <span key={key} style={{ fontSize: 11, fontWeight: 600, color: C.green, background: C.green + "15", padding: "2px 10px", borderRadius: 6, border: `1px solid ${C.green}25` }}>{dayLabels[d]} {h}:00</span>;
+                      return <span key={key} style={{ fontSize: TYPE.caption, fontWeight: 600, color: C.green, background: C.green + "15", padding: `${SPACE.xxs}px ${SPACE.lg}px`, borderRadius: RADIUS.md, border: `1px solid ${C.green}25` }}>{dayLabels[d]} {h}:00</span>;
                     })}
                   </div>
                 );
@@ -4177,27 +4257,27 @@ export default function Dashboard() {
             </div>
 
             {/* ── Top Performing Posts ──────────────────────────── */}
-            <div style={{ background: C.card, borderRadius: 14, border: `1px solid ${C.border}`, padding: 20 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 14, color: C.white }}>Top Performing Posts</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {topPosts.length === 0 && <div style={{ color: C.dimmed, fontSize: 12, padding: 20, textAlign: "center" }}>Keine veröffentlichten Posts</div>}
+            <div style={{ background: C.card, borderRadius: RADIUS.xxxl, border: `1px solid ${C.border}`, padding: 20 }}>
+              <div style={{ fontSize: TYPE.bodyLg, fontWeight: 700, marginBottom: 14, color: C.white }}>Top Performing Posts</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: SPACE.md }}>
+                {topPosts.length === 0 && <div style={{ color: C.dimmed, fontSize: TYPE.small, padding: 20, textAlign: "center" }}>Keine veröffentlichten Posts</div>}
                 {topPosts.map((p, i) => {
                   const eng = (p.likes || 0) + (p.comments || 0) + (p.shares || 0);
                   const pER = p.views > 0 ? ((eng / p.views) * 100).toFixed(2) : "–";
                   const postDate = new Date(p.date).toLocaleDateString("de-DE", { day: "numeric", month: "short", year: "numeric" });
                   return (
-                    <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 10px", borderRadius: 8, cursor: "pointer", transition: "background 0.15s" }}
+                    <div key={p.id} style={{ display: "flex", alignItems: "center", gap: SPACE.xl, padding: `${SPACE.md}px ${SPACE.lg}px`, borderRadius: RADIUS.lg, cursor: "pointer", transition: "background 0.15s" }}
                       onMouseOver={(e) => e.currentTarget.style.background = C.bg}
                       onMouseOut={(e) => e.currentTarget.style.background = "transparent"}
                       onClick={() => setSelectedPost(p)}>
-                      <div style={{ width: 22, height: 22, borderRadius: 6, background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: C.dimmed, flexShrink: 0 }}>{i + 1}</div>
+                      <div style={{ width: 22, height: 22, borderRadius: RADIUS.md, background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: TYPE.caption, fontWeight: 700, color: C.dimmed, flexShrink: 0 }}>{i + 1}</div>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 12, color: C.white, fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.title}</div>
-                        <div style={{ fontSize: 10, color: C.dimmed }}>{postDate}</div>
+                        <div style={{ fontSize: TYPE.small, color: C.white, fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.title}</div>
+                        <div style={{ fontSize: TYPE.micro, color: C.dimmed }}>{postDate}</div>
                       </div>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: C.green, background: C.greenGlow, padding: "3px 10px", borderRadius: 6, flexShrink: 0 }}>ER {pER}%</div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
-                        <Heart size={11} color={C.dimmed} /><span style={{ fontSize: 11, color: C.dimmed }}>{p.likes || 0}</span>
+                      <div style={{ fontSize: TYPE.small, fontWeight: 700, color: C.green, background: C.greenGlow, padding: "3px 10px", borderRadius: RADIUS.md, flexShrink: 0 }}>ER {pER}%</div>
+                      <div style={{ display: "flex", alignItems: "center", gap: SPACE.xs, flexShrink: 0 }}>
+                        <Heart size={11} color={C.dimmed} /><span style={{ fontSize: TYPE.caption, color: C.dimmed }}>{p.likes || 0}</span>
                       </div>
                     </div>
                   );
@@ -4208,9 +4288,9 @@ export default function Dashboard() {
 
           {/* ── Platform Breakdown (Zernio style cards) ────────── */}
           {platformCards.length > 0 && (
-            <div style={{ background: C.card, borderRadius: 14, border: `1px solid ${C.border}`, padding: 20, marginBottom: 20 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 14, color: C.white }}>Platform Breakdown</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ background: C.card, borderRadius: RADIUS.xxxl, border: `1px solid ${C.border}`, padding: 20, marginBottom: 20 }}>
+              <div style={{ fontSize: TYPE.bodyLg, fontWeight: 700, marginBottom: 14, color: C.white }}>Platform Breakdown</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: SPACE.md }}>
                 {platformCards.map((pc) => {
                   const isIG = pc.platform.toLowerCase().includes("instagram");
                   const isTT = pc.platform.toLowerCase().includes("tiktok");
@@ -4219,28 +4299,28 @@ export default function Dashboard() {
                   const eng = (m.likes || 0) + (m.comments || 0) + (m.shares || 0);
                   const er = m.impressions > 0 ? ((eng / m.impressions) * 100).toFixed(2) : m.reach > 0 ? ((eng / m.reach) * 100).toFixed(2) : "–";
                   return (
-                    <div key={pc.key} style={{ display: "flex", alignItems: "center", gap: 16, padding: "12px 16px", borderRadius: 10, background: C.bg, border: `1px solid ${C.border}` }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 140 }}>
+                    <div key={pc.key} style={{ display: "flex", alignItems: "center", gap: SPACE.xxl, padding: `${SPACE.xl}px ${SPACE.xxl}px`, borderRadius: RADIUS.xl, background: C.bg, border: `1px solid ${C.border}` }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: SPACE.md, minWidth: 140 }}>
                         {isIG ? <Instagram size={16} color={color} /> : <TikTokIcon size={16} color={color} />}
                         <div>
-                          <div style={{ fontSize: 13, fontWeight: 700, color: color }}>{isIG ? "Instagram" : isTT ? "TikTok" : pc.name}</div>
-                          <div style={{ fontSize: 10, color: C.dimmed }}>{pc.postCount} posts</div>
+                          <div style={{ fontSize: TYPE.body, fontWeight: 700, color: color }}>{isIG ? "Instagram" : isTT ? "TikTok" : pc.name}</div>
+                          <div style={{ fontSize: TYPE.micro, color: C.dimmed }}>{pc.postCount} posts</div>
                         </div>
                       </div>
-                      <div style={{ flex: 1, display: "flex", gap: 20, justifyContent: "space-around" }}>
+                      <div style={{ flex: 1, display: "flex", gap: SPACE.xxxl, justifyContent: "space-around" }}>
                         {[
                           { icon: Heart, val: m.likes || 0 },
                           { icon: MessageCircle, val: m.comments || 0 },
                           { icon: Share2, val: m.shares || 0 },
                           { icon: Eye, val: m.views || 0 },
                         ].map((s, si) => (
-                          <div key={si} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                          <div key={si} style={{ display: "flex", alignItems: "center", gap: SPACE.xs }}>
                             <s.icon size={12} color={C.dimmed} />
-                            <span style={{ fontSize: 12, color: C.white, fontWeight: 600 }}>{fmt(s.val)}</span>
+                            <span style={{ fontSize: TYPE.small, color: C.white, fontWeight: 600 }}>{fmt(s.val)}</span>
                           </div>
                         ))}
                       </div>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: C.green, background: C.greenGlow, padding: "4px 12px", borderRadius: 6 }}>ER {er}%</div>
+                      <div style={{ fontSize: TYPE.small, fontWeight: 700, color: C.green, background: C.greenGlow, padding: `${SPACE.xs}px ${SPACE.xl}px`, borderRadius: RADIUS.md }}>ER {er}%</div>
                     </div>
                   );
                 })}
@@ -4250,9 +4330,9 @@ export default function Dashboard() {
 
           {/* ── Content Decay Chart ────────────────────────────── */}
           {decayData.length > 0 && (
-            <div style={{ background: C.card, borderRadius: 14, border: `1px solid ${C.border}`, padding: 20 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4, color: C.white }}>Content Performance Decay</div>
-              <div style={{ fontSize: 11, color: C.dimmed, marginBottom: 14 }}>Wie schnell erreicht ein Post seine finale Reichweite?</div>
+            <div style={{ background: C.card, borderRadius: RADIUS.xxxl, border: `1px solid ${C.border}`, padding: 20 }}>
+              <div style={{ fontSize: TYPE.bodyLg, fontWeight: 700, marginBottom: 4, color: C.white }}>Content Performance Decay</div>
+              <div style={{ fontSize: TYPE.caption, color: C.dimmed, marginBottom: 14 }}>Wie schnell erreicht ein Post seine finale Reichweite?</div>
               <ResponsiveContainer width="100%" height={200}>
                 <AreaChart data={decayData}>
                   <defs>
@@ -4262,9 +4342,9 @@ export default function Dashboard() {
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
-                  <XAxis dataKey="bucket_label" tick={{ fill: C.dimmed, fontSize: 10 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: C.dimmed, fontSize: 10 }} axisLine={false} tickLine={false} domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
-                  <Tooltip contentStyle={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, fontSize: 12, color: C.white }} formatter={(v) => [`${v}%`, "Erreicht"]} />
+                  <XAxis dataKey="bucket_label" tick={{ fill: C.dimmed, fontSize: TYPE.micro }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: C.dimmed, fontSize: TYPE.micro }} axisLine={false} tickLine={false} domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
+                  <Tooltip contentStyle={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: RADIUS.xl, fontSize: TYPE.small, color: C.white }} formatter={(v) => [`${v}%`, "Erreicht"]} />
                   <Area type="monotone" dataKey="avg_pct_of_final" name="Performance" stroke={C.purple} fill="url(#gradDecay)" strokeWidth={2} dot={{ r: 3, fill: C.purple }} />
                 </AreaChart>
               </ResponsiveContainer>
@@ -4277,16 +4357,16 @@ export default function Dashboard() {
       {/* Settings Tab */}
       {activeTab === "settings" && (
         <div style={{ padding: "24px 32px", maxWidth: 800 }}>
-          <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.02em", marginBottom: 4, color: C.white }}>Settings</div>
-          <div style={{ fontSize: 13, color: C.muted, marginBottom: 24 }}>API connection, team access, and notification settings</div>
+          <div style={{ fontSize: TYPE.h2, fontWeight: 800, letterSpacing: "-0.02em", marginBottom: 4, color: C.white }}>Settings</div>
+          <div style={{ fontSize: TYPE.body, color: C.muted, marginBottom: 24 }}>API connection, team access, and notification settings</div>
 
           {/* API Status */}
-          <div style={{ background: C.card, borderRadius: 14, border: `1px solid ${C.border}`, padding: 20, marginBottom: 16 }}>
-            <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Late API Status</div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, marginBottom: 16 }}>
+          <div style={{ background: C.card, borderRadius: RADIUS.xxxl, border: `1px solid ${C.border}`, padding: 20, marginBottom: 16 }}>
+            <div style={{ fontSize: TYPE.bodyLg, fontWeight: 700, marginBottom: 12 }}>Late API Status</div>
+            <div style={{ display: "flex", alignItems: "center", gap: SPACE.md, fontSize: TYPE.body, marginBottom: 16 }}>
               {isConnected ? <Wifi size={14} color={C.green} /> : <WifiOff size={14} color={C.yellow} />}
               <span style={{ color: isConnected ? C.green : C.yellow, fontWeight: 600 }}>{isConnected ? `Verbunden · ${accounts.length} Account${accounts.length !== 1 ? "s" : ""}` : "Nicht verbunden – Demo-Modus"}</span>
-              <button onClick={() => { fetchAccounts(); fetchPosts(); }} style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 8, background: C.bg, border: `1px solid ${C.border}`, color: C.muted, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>
+              <button onClick={() => { fetchAccounts(); fetchPosts(); }} style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: SPACE.sm, padding: "6px 14px", borderRadius: RADIUS.lg, background: C.bg, border: `1px solid ${C.border}`, color: C.muted, fontSize: TYPE.small, cursor: "pointer", fontFamily: "inherit" }}>
                 <RefreshCw size={12} /> Neu laden
               </button>
             </div>
@@ -4294,15 +4374,15 @@ export default function Dashboard() {
             {/* Connected Accounts List */}
             {accounts.length > 0 && (
               <div style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: C.dimmed, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Verbundene Accounts</div>
+                <div style={{ fontSize: TYPE.small, fontWeight: 700, color: C.dimmed, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Verbundene Accounts</div>
                 {accounts.map((a, i) => (
-                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 8, background: C.bg, border: `1px solid ${C.border}`, marginBottom: 6 }}>
-                    <div style={{ width: 28, height: 28, borderRadius: 8, background: a.platform === "instagram" ? C.instagram + "20" : C.tiktok + "20", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <div key={i} style={{ display: "flex", alignItems: "center", gap: SPACE.lg, padding: `${SPACE.md}px ${SPACE.xl}px`, borderRadius: RADIUS.lg, background: C.bg, border: `1px solid ${C.border}`, marginBottom: 6 }}>
+                    <div style={{ width: 28, height: 28, borderRadius: RADIUS.lg, background: a.platform === "instagram" ? C.instagram + "20" : C.tiktok + "20", display: "flex", alignItems: "center", justifyContent: "center" }}>
                       {a.platform === "instagram" ? <Instagram size={14} color={C.instagram} /> : <TikTokIcon size={14} color={C.tiktok} />}
                     </div>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: C.white }}>{a.name}</div>
-                      <div style={{ fontSize: 11, color: C.dimmed }}>{a.platform} · ID: {a.accountId || a.id || "?"}</div>
+                      <div style={{ fontSize: TYPE.body, fontWeight: 600, color: C.white }}>{a.name}</div>
+                      <div style={{ fontSize: TYPE.caption, color: C.dimmed }}>{a.platform} · ID: {a.accountId || a.id || "?"}</div>
                     </div>
                     <Check size={14} color={C.green} />
                   </div>
@@ -4312,60 +4392,60 @@ export default function Dashboard() {
           </div>
 
           {/* API Debug Panel */}
-          <div style={{ background: C.card, borderRadius: 14, border: `1px solid ${C.border}`, padding: 20 }}>
+          <div style={{ background: C.card, borderRadius: RADIUS.xxxl, border: `1px solid ${C.border}`, padding: 20 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-              <div style={{ fontSize: 14, fontWeight: 700 }}>API Debug</div>
-              <div style={{ fontSize: 11, color: C.dimmed, background: C.bg, padding: "3px 10px", borderRadius: 6 }}>Für Fehlerbehebung</div>
+              <div style={{ fontSize: TYPE.bodyLg, fontWeight: 700 }}>API Debug</div>
+              <div style={{ fontSize: TYPE.caption, color: C.dimmed, background: C.bg, padding: "3px 10px", borderRadius: RADIUS.md }}>Für Fehlerbehebung</div>
             </div>
-            <div style={{ fontSize: 12, color: C.muted, marginBottom: 10 }}>Rohe API-Antwort von <span style={{ color: C.blue, fontWeight: 600 }}>/api/v1/accounts</span>:</div>
-            <pre style={{ background: C.bg, borderRadius: 10, border: `1px solid ${C.border}`, padding: 14, fontSize: 11, color: C.muted, overflow: "auto", maxHeight: 300, whiteSpace: "pre-wrap", wordBreak: "break-all", lineHeight: 1.6, margin: 0 }}>
+            <div style={{ fontSize: TYPE.small, color: C.muted, marginBottom: 10 }}>Rohe API-Antwort von <span style={{ color: C.blue, fontWeight: 600 }}>/api/v1/accounts</span>:</div>
+            <pre style={{ background: C.bg, borderRadius: RADIUS.xl, border: `1px solid ${C.border}`, padding: 14, fontSize: TYPE.caption, color: C.muted, overflow: "auto", maxHeight: 300, whiteSpace: "pre-wrap", wordBreak: "break-all", lineHeight: 1.6, margin: 0 }}>
               {debugInfo ? JSON.stringify(debugInfo, null, 2) : "Wird geladen..."}
             </pre>
           </div>
 
           {/* ── Error Log Panel ──────────────────────────────── */}
-          <div style={{ background: C.card, borderRadius: 14, border: `1px solid ${C.border}`, padding: 20, marginTop: 16 }}>
+          <div style={{ background: C.card, borderRadius: RADIUS.xxxl, border: `1px solid ${C.border}`, padding: 20, marginTop: 16 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: SPACE.md }}>
                 <AlertCircle size={16} color={C.redLight} />
-                <div style={{ fontSize: 14, fontWeight: 700 }}>Fehler-Protokoll</div>
+                <div style={{ fontSize: TYPE.bodyLg, fontWeight: 700 }}>Fehler-Protokoll</div>
                 {errorLog.length > 0 && (
-                  <div style={{ fontSize: 11, fontWeight: 700, color: "#fff", background: C.red, padding: "2px 8px", borderRadius: 10 }}>{errorLog.length}</div>
+                  <div style={{ fontSize: TYPE.caption, fontWeight: 700, color: "#fff", background: C.red, padding: `${SPACE.xxs}px ${SPACE.md}px`, borderRadius: RADIUS.xl }}>{errorLog.length}</div>
                 )}
               </div>
               {errorLog.length > 0 && (
-                <button onClick={clearErrorLog} style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 12px", borderRadius: 7, background: C.bg, border: `1px solid ${C.border}`, color: C.muted, fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>
+                <button onClick={clearErrorLog} style={{ display: "flex", alignItems: "center", gap: SPACE.sm, padding: "5px 12px", borderRadius: RADIUS.lg, background: C.bg, border: `1px solid ${C.border}`, color: C.muted, fontSize: TYPE.caption, cursor: "pointer", fontFamily: "inherit" }}>
                   <Trash2 size={11} /> Alle löschen
                 </button>
               )}
             </div>
-            <div style={{ fontSize: 12, color: C.muted, marginBottom: 12 }}>Alle API-Fehler werden hier protokolliert und bleiben gespeichert.</div>
+            <div style={{ fontSize: TYPE.small, color: C.muted, marginBottom: 12 }}>Alle API-Fehler werden hier protokolliert und bleiben gespeichert.</div>
 
             {errorLog.length === 0 ? (
-              <div style={{ textAlign: "center", padding: "24px 0", color: C.dimmed, fontSize: 13 }}>
+              <div style={{ textAlign: "center", padding: "24px 0", color: C.dimmed, fontSize: TYPE.body }}>
                 <Check size={20} style={{ marginBottom: 6, opacity: 0.5 }} /><br />
                 Keine Fehler vorhanden
               </div>
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 400, overflowY: "auto" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: SPACE.md, maxHeight: 400, overflowY: "auto" }}>
                 {errorLog.map((entry) => {
                   const isExpanded = expandedError === entry.id;
                   const ts = new Date(entry.timestamp);
                   const timeStr = `${ts.toLocaleDateString("de-DE")} · ${ts.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}`;
                   return (
-                    <div key={entry.id} style={{ background: C.bg, borderRadius: 10, border: `1px solid ${isExpanded ? C.red + "40" : C.border}`, overflow: "hidden", transition: "border-color 0.2s" }}>
-                      <div onClick={() => setExpandedError(isExpanded ? null : entry.id)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", cursor: "pointer" }}>
-                        <div style={{ width: 6, height: 6, borderRadius: 3, background: C.redLight, flexShrink: 0 }} />
+                    <div key={entry.id} style={{ background: C.bg, borderRadius: RADIUS.xl, border: `1px solid ${isExpanded ? C.red + "40" : C.border}`, overflow: "hidden", transition: "border-color 0.2s" }}>
+                      <div onClick={() => setExpandedError(isExpanded ? null : entry.id)} style={{ display: "flex", alignItems: "center", gap: SPACE.lg, padding: "10px 14px", cursor: "pointer" }}>
+                        <div style={{ width: 6, height: 6, borderRadius: RADIUS.sm, background: C.redLight, flexShrink: 0 }} />
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 12, fontWeight: 600, color: C.white, marginBottom: 2 }}>{entry.action}</div>
-                          <div style={{ fontSize: 11, color: C.redLight, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{entry.error}</div>
+                          <div style={{ fontSize: TYPE.small, fontWeight: 600, color: C.white, marginBottom: 2 }}>{entry.action}</div>
+                          <div style={{ fontSize: TYPE.caption, color: C.redLight, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{entry.error}</div>
                         </div>
-                        <div style={{ fontSize: 10, color: C.dimmed, whiteSpace: "nowrap", flexShrink: 0 }}>{timeStr}</div>
+                        <div style={{ fontSize: TYPE.micro, color: C.dimmed, whiteSpace: "nowrap", flexShrink: 0 }}>{timeStr}</div>
                         <ChevronDown size={14} color={C.dimmed} style={{ transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s", flexShrink: 0 }} />
                       </div>
                       {isExpanded && (
                         <div style={{ padding: "0 14px 12px", borderTop: `1px solid ${C.border}` }}>
-                          <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "4px 12px", padding: "10px 0", fontSize: 11 }}>
+                          <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "4px 12px", padding: `${SPACE.lg}px 0`, fontSize: TYPE.caption }}>
                             <span style={{ color: C.dimmed, fontWeight: 600 }}>Aktion:</span>
                             <span style={{ color: C.white }}>{entry.action}</span>
                             <span style={{ color: C.dimmed, fontWeight: 600 }}>Fehler:</span>
@@ -4395,8 +4475,8 @@ export default function Dashboard() {
                           </div>
                           {entry.response && (
                             <div>
-                              <div style={{ fontSize: 11, color: C.dimmed, fontWeight: 600, marginBottom: 4 }}>API-Antwort:</div>
-                              <pre style={{ background: C.card, borderRadius: 8, border: `1px solid ${C.border}`, padding: 10, fontSize: 10, color: C.muted, overflow: "auto", maxHeight: 180, whiteSpace: "pre-wrap", wordBreak: "break-all", lineHeight: 1.5, margin: 0 }}>
+                              <div style={{ fontSize: TYPE.caption, color: C.dimmed, fontWeight: 600, marginBottom: 4 }}>API-Antwort:</div>
+                              <pre style={{ background: C.card, borderRadius: RADIUS.lg, border: `1px solid ${C.border}`, padding: 10, fontSize: TYPE.micro, color: C.muted, overflow: "auto", maxHeight: 180, whiteSpace: "pre-wrap", wordBreak: "break-all", lineHeight: 1.5, margin: 0 }}>
                                 {JSON.stringify(entry.response, null, 2)}
                               </pre>
                             </div>
@@ -4419,18 +4499,18 @@ export default function Dashboard() {
         {/* Zernio-style Posts header */}
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 20 }}>
           <div>
-            <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.02em", color: C.white }}>Posts</div>
-            <div style={{ fontSize: 13, color: C.muted, marginTop: 2 }}>Manage your scheduled and published content</div>
+            <div style={{ fontSize: TYPE.h2, fontWeight: 800, letterSpacing: "-0.02em", color: C.white }}>Posts</div>
+            <div style={{ fontSize: TYPE.body, color: C.muted, marginTop: 2 }}>Manage your scheduled and published content</div>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <button onClick={() => { setCreateModalInitialDate(""); setShowCreateModal(true); }} style={{ display: "flex", alignItems: "center", gap: 6, background: C.red, border: "none", borderRadius: 8, padding: "9px 20px", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: SPACE.md }}>
+            <button onClick={() => { setCreateModalInitialDate(""); setShowCreateModal(true); }} style={{ display: "flex", alignItems: "center", gap: SPACE.sm, background: C.accent, border: "none", borderRadius: RADIUS.lg, padding: "9px 20px", color: "#fff", fontSize: TYPE.body, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
               <Plus size={15} /> Create post
             </button>
           </div>
         </div>
 
         {/* ── Zernio-Filterleiste ── */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: SPACE.md, marginBottom: 20, flexWrap: "wrap" }}>
           <FilterDropdown
             label="All posts" value={statusFilter} onChange={setStatusFilter} width={180}
             options={[
@@ -4458,7 +4538,7 @@ export default function Dashboard() {
             label="All profiles" value={profileFilter} onChange={setProfileFilter} searchable width={200}
             options={[
               { key: "all", label: "All profiles" },
-              ...profileOptions.map((p) => ({ key: p, label: p, dot: C.red })),
+              ...profileOptions.map((p) => ({ key: p, label: p, dot: C.accent })),
             ]} />
 
           <FilterDropdown
@@ -4479,15 +4559,15 @@ export default function Dashboard() {
               { key: "this_month", label: "This month" },
             ]} />
 
-          <div style={{ display: "flex", alignItems: "center", gap: 8, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 12px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: SPACE.md, background: C.card, border: `1px solid ${C.border}`, borderRadius: RADIUS.lg, padding: `${SPACE.md}px ${SPACE.xl}px` }}>
             <Search size={14} color={C.dimmed} />
             <input type="text" placeholder="Search..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-              style={{ background: "transparent", border: "none", outline: "none", color: C.white, fontSize: 12.5, width: 110, fontFamily: "inherit" }} />
+              style={{ background: "transparent", border: "none", outline: "none", color: C.white, fontSize: TYPE.body, width: 110, fontFamily: "inherit" }} />
           </div>
 
           {/* Rechte Seite: Sortierung, Ansicht, Spaltenanzahl */}
-          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
-            <button onClick={() => { fetchAccounts(); fetchPosts(); }} title="Aktualisieren" style={{ width: 34, height: 34, borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: SPACE.md }}>
+            <button onClick={() => { fetchAccounts(); fetchPosts(); }} title="Aktualisieren" style={{ width: 34, height: 34, borderRadius: RADIUS.lg, background: C.card, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
               <RefreshCw size={14} color={C.muted} style={isLoading ? { animation: "spin 1s linear infinite" } : {}} />
             </button>
 
@@ -4513,14 +4593,14 @@ export default function Dashboard() {
               ]} />
 
             {/* Ansichts-Umschalter */}
-            <div style={{ display: "flex", background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 3, gap: 2 }}>
+            <div style={{ display: "flex", background: C.card, border: `1px solid ${C.border}`, borderRadius: RADIUS.lg, padding: 3, gap: SPACE.xxs }}>
               {[
                 { key: "grid", icon: LayoutGrid, title: "Kacheln" },
                 { key: "list", icon: List, title: "Liste" },
                 { key: "calendar", icon: Calendar, title: "Kalender" },
               ].map((v) => (
                 <button key={v.key} onClick={() => v.key === "calendar" ? setActiveTab("calendar") : setViewMode(v.key)} title={v.title} style={{
-                  width: 30, height: 26, borderRadius: 6, border: "none", cursor: "pointer",
+                  width: 30, height: 26, borderRadius: RADIUS.md, border: "none", cursor: "pointer",
                   background: viewMode === v.key ? C.cardHover : "transparent",
                   color: viewMode === v.key ? C.white : C.dimmed,
                   display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s",
@@ -4532,12 +4612,12 @@ export default function Dashboard() {
 
             {/* Spaltenanzahl */}
             {viewMode === "grid" && (
-              <div style={{ display: "flex", alignItems: "center", background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 3, gap: 2 }}>
-                <button onClick={() => setGridCols(Math.max(2, gridCols - 1))} disabled={gridCols <= 2} style={{ width: 26, height: 26, borderRadius: 6, border: "none", background: "transparent", color: gridCols <= 2 ? C.border : C.dimmed, cursor: gridCols <= 2 ? "default" : "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <div style={{ display: "flex", alignItems: "center", background: C.card, border: `1px solid ${C.border}`, borderRadius: RADIUS.lg, padding: 3, gap: SPACE.xxs }}>
+                <button onClick={() => setGridCols(Math.max(2, gridCols - 1))} disabled={gridCols <= 2} style={{ width: 26, height: 26, borderRadius: RADIUS.md, border: "none", background: "transparent", color: gridCols <= 2 ? C.border : C.dimmed, cursor: gridCols <= 2 ? "default" : "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
                   <Minus size={13} />
                 </button>
-                <span style={{ fontSize: 12.5, color: C.muted, minWidth: 14, textAlign: "center", fontWeight: 600 }}>{gridCols}</span>
-                <button onClick={() => setGridCols(Math.min(6, gridCols + 1))} disabled={gridCols >= 6} style={{ width: 26, height: 26, borderRadius: 6, border: "none", background: "transparent", color: gridCols >= 6 ? C.border : C.dimmed, cursor: gridCols >= 6 ? "default" : "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <span style={{ fontSize: TYPE.body, color: C.muted, minWidth: 14, textAlign: "center", fontWeight: 600 }}>{gridCols}</span>
+                <button onClick={() => setGridCols(Math.min(6, gridCols + 1))} disabled={gridCols >= 6} style={{ width: 26, height: 26, borderRadius: RADIUS.md, border: "none", background: "transparent", color: gridCols >= 6 ? C.border : C.dimmed, cursor: gridCols >= 6 ? "default" : "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
                   <Plus size={13} />
                 </button>
               </div>
@@ -4550,20 +4630,20 @@ export default function Dashboard() {
 
         {/* Post Count */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-          <div style={{ fontSize: 12, color: C.dimmed }}>
+          <div style={{ fontSize: TYPE.small, color: C.dimmed }}>
             {filtered.length > 0 ? `${pageStart + 1}–${Math.min(pageStart + PER_PAGE, filtered.length)} of ${filtered.length}` : "No posts"}
           </div>
         </div>
 
         {/* ── Zernio-style Post Cards ── */}
-        <div style={{
+        <div className="post-card-grid" style={{
           display: "grid",
           gridTemplateColumns: viewMode === "list" ? "1fr" : `repeat(${gridCols}, minmax(0, 1fr))`,
-          gap: 14, alignItems: "start",
+          gap: SPACE.xxl, alignItems: "start",
         }}>
           {/* Karten haben eine feste Höhe, damit das Raster gleichmäßig bleibt */}
           {filtered.length === 0 && (
-            <div style={{ gridColumn: "1 / -1", padding: 40, textAlign: "center", color: C.dimmed, fontSize: 14 }}>Keine Beiträge gefunden.</div>
+            <div style={{ gridColumn: "1 / -1", padding: 40, textAlign: "center", color: C.dimmed, fontSize: TYPE.bodyLg }}>Keine Beiträge gefunden.</div>
           )}
           {paged.map((post) => {
             const postPlats = post.platforms || [post.platform || "instagram"];
@@ -4607,15 +4687,15 @@ export default function Dashboard() {
                 onMouseOut={(e) => { if (!isSelected) { e.currentTarget.style.borderColor = C.border; } }}>
 
                 {/* Kopfbereich: Text links, Thumbnail rechts */}
-                <div style={{ display: "flex", gap: 12, padding: 14, flex: 1, minHeight: 0 }}>
+                <div style={{ display: "flex", gap: SPACE.xl, padding: 14, flex: 1, minHeight: 0 }}>
                   <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
                     {/* Titel – feste Höhe für 2 Zeilen */}
-                    <div style={{ fontSize: 12.5, fontWeight: 500, color: C.white, lineHeight: 1.45, height: 36, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", marginBottom: 10 }}>
+                    <div style={{ fontSize: TYPE.body, fontWeight: 500, color: C.white, lineHeight: 1.45, height: 36, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", marginBottom: 10 }}>
                       {post.title}
                     </div>
 
                     {/* Plattform-Icons */}
-                    <div style={{ display: "flex", gap: 7, marginBottom: 9, alignItems: "center", height: 15 }}>
+                    <div style={{ display: "flex", gap: SPACE.md, marginBottom: 9, alignItems: "center", height: 15 }}>
                       {postPlats.map((plat) => {
                         const Icon = plat === "instagram" ? Instagram : plat === "tiktok" ? TikTokIcon : Globe;
                         const ic = plat === "instagram" ? C.instagram : plat === "tiktok" ? C.tiktok : C.muted;
@@ -4630,20 +4710,20 @@ export default function Dashboard() {
                     </div>
 
                     {/* Datum + Uhrzeit */}
-                    <div style={{ fontSize: 11.5, color: C.muted, marginBottom: 5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    <div style={{ fontSize: TYPE.small, color: C.muted, marginBottom: 5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                       {new Date(post.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                       {", "}
                       {new Date(post.date).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true })}
                     </div>
 
                     {/* User · Profil · Post-ID */}
-                    <div style={{ fontSize: 10.5, color: C.dimmed, display: "flex", gap: 5, alignItems: "center", whiteSpace: "nowrap", overflow: "hidden" }}>
+                    <div style={{ fontSize: TYPE.caption, color: C.dimmed, display: "flex", gap: SPACE.sm, alignItems: "center", whiteSpace: "nowrap", overflow: "hidden" }}>
                       {post.createdBy && <span>{post.createdBy}</span>}
                       {post.profile && (
                         <>
                           <span style={{ color: C.border }}>·</span>
-                          <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                            <span style={{ width: 6, height: 6, borderRadius: "50%", background: C.red, display: "inline-block" }} />
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: SPACE.xs }}>
+                            <span style={{ width: 6, height: 6, borderRadius: "50%", background: C.accent, display: "inline-block" }} />
                             {post.profile}
                           </span>
                         </>
@@ -4657,7 +4737,7 @@ export default function Dashboard() {
                           setCopiedId(pid);
                           setTimeout(() => setCopiedId(null), 1500);
                         }}
-                        style={{ display: "inline-flex", alignItems: "center", gap: 4, fontFamily: "monospace", cursor: "pointer", color: copiedId === pid ? C.green : C.dimmed }}>
+                        style={{ display: "inline-flex", alignItems: "center", gap: SPACE.xs, fontFamily: "monospace", cursor: "pointer", color: copiedId === pid ? C.green : C.dimmed }}>
                         {copiedId === pid ? "kopiert!" : shortId}
                         {copiedId === pid ? <Check size={9} /> : <Copy size={9} />}
                       </span>
@@ -4689,17 +4769,17 @@ export default function Dashboard() {
                 </div>
 
                 {/* Fußzeile: Status + Metriken */}
-                <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "0 14px", height: 40, borderTop: `1px solid ${C.border}`, flexShrink: 0, overflow: "hidden" }}>
-                  <div style={{ display: "inline-flex", alignItems: "center", fontSize: 10.5, fontWeight: 600, color: sc.color, background: sc.color + "18", padding: "3px 9px", borderRadius: 5, flexShrink: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: SPACE.lg, padding: "0 14px", height: 40, borderTop: `1px solid ${C.border}`, flexShrink: 0, overflow: "hidden" }}>
+                  <div style={{ display: "inline-flex", alignItems: "center", fontSize: TYPE.caption, fontWeight: 600, color: sc.color, background: sc.color + "18", padding: "3px 9px", borderRadius: RADIUS.md, flexShrink: 0 }}>
                     {sc.label}
                   </div>
                   {metrics.map((m) => (
-                    <div key={m.key} title={m.key} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, color: C.muted, flexShrink: 0 }}>
+                    <div key={m.key} title={m.key} style={{ display: "inline-flex", alignItems: "center", gap: SPACE.xs, fontSize: TYPE.caption, color: C.muted, flexShrink: 0 }}>
                       <m.icon size={11} />
                       {fmtNum(m.value)}
                     </div>
                   ))}
-                  <div style={{ marginLeft: "auto", width: 22, height: 22, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: C.dimmed, fontSize: 15, letterSpacing: 1, flexShrink: 0 }}
+                  <div style={{ marginLeft: "auto", width: 22, height: 22, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: C.dimmed, fontSize: TYPE.label, letterSpacing: 1, flexShrink: 0 }}
                     onClick={(e) => { e.stopPropagation(); setSelectedPost(isSelected ? null : post); }}>
                     ⋮
                   </div>
@@ -4713,30 +4793,30 @@ export default function Dashboard() {
 
         {/* ── Pagination ── */}
         {totalPages > 1 && (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 4, marginTop: 24 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: SPACE.xs, marginTop: 24 }}>
             <button onClick={() => setPage(Math.max(1, safePage - 1))} disabled={safePage === 1} style={{
-              width: 30, height: 30, borderRadius: 7, background: "transparent", border: `1px solid ${C.border}`,
+              width: 30, height: 30, borderRadius: RADIUS.lg, background: "transparent", border: `1px solid ${C.border}`,
               color: safePage === 1 ? C.border : C.muted, cursor: safePage === 1 ? "default" : "pointer",
               display: "flex", alignItems: "center", justifyContent: "center",
             }}>
               <ChevronLeft size={14} />
             </button>
             {Array.from({ length: totalPages }, (_, i) => i + 1)
-              .filter((n) => n === 1 || n === totalPages || Math.abs(n - safePage) <= 2)
+              .filter((n) => n === 1 || n === totalPages || Math.abs(n - safePage) <= 1)
               .map((n, idx, arr) => (
                 <React.Fragment key={n}>
-                  {idx > 0 && arr[idx - 1] !== n - 1 && <span style={{ color: C.dimmed, padding: "0 3px", fontSize: 12 }}>…</span>}
+                  {idx > 0 && arr[idx - 1] !== n - 1 && <span style={{ color: C.dimmed, padding: "0 3px", fontSize: TYPE.small }}>…</span>}
                   <button onClick={() => setPage(n)} style={{
-                    minWidth: 30, height: 30, padding: "0 8px", borderRadius: 7,
+                    minWidth: 30, height: 30, padding: "0 8px", borderRadius: RADIUS.lg,
                     background: n === safePage ? C.cardHover : "transparent",
-                    border: `1px solid ${n === safePage ? C.dimmed + "60" : C.border}`,
-                    color: n === safePage ? C.white : C.muted, fontSize: 12.5,
+                    border: `1px solid ${n === safePage ? C.dimmed + "60" : "transparent"}`,
+                    color: n === safePage ? C.white : C.muted, fontSize: TYPE.body,
                     fontWeight: n === safePage ? 700 : 500, cursor: "pointer", fontFamily: "inherit",
                   }}>{n}</button>
                 </React.Fragment>
               ))}
             <button onClick={() => setPage(Math.min(totalPages, safePage + 1))} disabled={safePage === totalPages} style={{
-              width: 30, height: 30, borderRadius: 7, background: "transparent", border: `1px solid ${C.border}`,
+              width: 30, height: 30, borderRadius: RADIUS.lg, background: "transparent", border: `1px solid ${C.border}`,
               color: safePage === totalPages ? C.border : C.muted, cursor: safePage === totalPages ? "default" : "pointer",
               display: "flex", alignItems: "center", justifyContent: "center",
             }}>
@@ -4746,14 +4826,14 @@ export default function Dashboard() {
         )}
 
         {!isConnected && (
-          <div style={{ marginTop: 32, padding: 24, background: C.card, borderRadius: 16, border: `1px solid ${C.border}`, display: "flex", gap: 16, alignItems: "flex-start" }}>
-            <div style={{ width: 44, height: 44, borderRadius: 12, background: C.redGlow, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><BarChart3 size={22} color={C.red} /></div>
+          <div style={{ marginTop: 32, padding: 24, background: C.card, borderRadius: RADIUS.xxxl, border: `1px solid ${C.border}`, display: "flex", gap: SPACE.xxl, alignItems: "flex-start" }}>
+            <div style={{ width: 44, height: 44, borderRadius: RADIUS.xxl, background: C.blueGlow, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><BarChart3 size={22} color={C.blue} /></div>
             <div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: C.white, marginBottom: 8 }}>Zernio API verbinden – 3 Schritte</div>
-              <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.8 }}>
-                <span style={{ color: C.red, fontWeight: 700 }}>1.</span> Erstelle einen Account auf <span style={{ color: C.blue, fontWeight: 600 }}>zernio.com</span> und verbinde Instagram + TikTok<br />
-                <span style={{ color: C.red, fontWeight: 700 }}>2.</span> Kopiere deinen API-Key unter Settings → API<br />
-                <span style={{ color: C.red, fontWeight: 700 }}>3.</span> Füge ihn als <span style={{ color: C.green, fontWeight: 600 }}>LATE_API_KEY</span> in deinen Vercel Environment Variables ein und deploye erneut
+              <div style={{ fontSize: TYPE.label, fontWeight: 700, color: C.white, marginBottom: 8 }}>Zernio API verbinden – 3 Schritte</div>
+              <div style={{ fontSize: TYPE.body, color: C.muted, lineHeight: 1.8 }}>
+                <span style={{ color: C.blue, fontWeight: 700 }}>1.</span> Erstelle einen Account auf <span style={{ color: C.blue, fontWeight: 600 }}>zernio.com</span> und verbinde Instagram + TikTok<br />
+                <span style={{ color: C.blue, fontWeight: 700 }}>2.</span> Kopiere deinen API-Key unter Settings → API<br />
+                <span style={{ color: C.blue, fontWeight: 700 }}>3.</span> Füge ihn als <span style={{ color: C.green, fontWeight: 600 }}>LATE_API_KEY</span> in deinen Vercel Environment Variables ein und deploye erneut
               </div>
             </div>
           </div>
