@@ -10,7 +10,8 @@ import {
   LayoutDashboard, Bell, Settings, UserPlus, AlertCircle, XCircle, UsersRound, Shield, ExternalLink,
   Sun, Moon, FileText, CheckSquare, Square, Download, EyeOff, Sparkles,
   Kanban, Lightbulb, PenLine, Wand2, Rocket, GripVertical, Pencil,
-  Bookmark, Copy, List, LayoutGrid, Minus, MousePointerClick, ArrowUpDown, Facebook, Youtube, Linkedin, Menu
+  Bookmark, Copy, List, LayoutGrid, Minus, MousePointerClick, ArrowUpDown, Facebook, Youtube, Linkedin, Menu,
+  Filter, MoreHorizontal, Target
 } from "lucide-react";
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip,
@@ -18,40 +19,43 @@ import {
 } from "recharts";
 
 // ── Brand Colors ────────────────────────────────────────────────
-// `accent` = primary brand/CTA color. `red` = errors/destructive actions only.
-// Keeping these separate avoids the primary "Create post" button reading as a
-// danger/error signal (see design critique: semantic color collision).
+// `accent` = general system/interactive color (nav, links, secondary actions).
+// `cta` = the one color reserved for the single action used every day
+// ("Neuer Beitrag") so it visually outranks everything else on screen.
+// `red` = errors/destructive actions only — keeping these three apart avoids
+// any of them reading as one of the others (see design critique history).
 //
-// Dark-glass redesign (glass-dark-ui system): slate-toned near-black base
-// instead of neutral gray, translucent hairline borders, and a dedicated
-// `glass`/`glassHover`/`glassBorder` trio used together with the `.glass-panel`
-// / `.glass-border` CSS classes (see layout.jsx) on the large hero surfaces —
-// sidebar, KPI tiles, post cards, modals. Small dense chrome (badges, table
-// rows, dropdown items) stays on the solid `card`/`cardHover` tones so text
-// never sits on stacked translucency.
+// Findexa-reference redesign: solid near-black cards (see `.glass-panel` /
+// `.glass-border` in layout.jsx for the inset-highlight + drop-shadow
+// treatment — same class names as the previous glass iteration, now solid
+// instead of translucent/blurred) with a tighter, less-rounded corner scale.
 const darkTheme = {
   bg: "#07090d", bgSoft: "#0b0e15", card: "#12151d", cardHover: "#181c26",
   border: "rgba(255,255,255,0.08)",
-  glass: "rgba(255,255,255,0.045)", glassHover: "rgba(255,255,255,0.075)", glassBorder: "rgba(255,255,255,0.10)",
-  glassStrong: "rgba(15,17,24,0.82)",
-  accent: "#F97316", accentGlow: "rgba(249,115,22,0.14)", accentLight: "#FB923C",
+  glass: "#12151d", glassHover: "#181c26", glassBorder: "rgba(255,255,255,0.08)",
+  glassStrong: "#12151d",
+  accent: "#4C7EFF", accentGlow: "rgba(76,126,255,0.16)", accentLight: "#6F97FF",
+  cta: "#F97316", ctaGlow: "rgba(249,115,22,0.16)", ctaLight: "#FB923C",
   red: "#DC2626", redGlow: "rgba(220,38,38,0.12)",
   redLight: "#EF4444", green: "#22C55E", greenGlow: "rgba(34,197,94,0.12)",
-  blue: "#3B82F6", blueGlow: "rgba(59,130,246,0.12)", purple: "#8B5CF6",
-  purpleGlow: "rgba(139,92,246,0.12)", yellow: "#EAB308",
+  blue: "#4C7EFF", blueGlow: "rgba(76,126,255,0.12)", purple: "#8B5CF6",
+  purpleGlow: "rgba(139,92,246,0.12)", teal: "#14B8A6", tealGlow: "rgba(20,184,166,0.14)",
+  yellow: "#EAB308",
   yellowGlow: "rgba(234,179,8,0.12)", white: "#F5F7FA", muted: "#94A3B8",
   dimmed: "#64748B", instagram: "#E1306C", tiktok: "#00F2EA",
 };
 const lightTheme = {
   bg: "#F3F4F6", bgSoft: "#E5E7EB", card: "#FFFFFF", cardHover: "#F9FAFB",
   border: "#D1D5DB",
-  glass: "rgba(255,255,255,0.6)", glassHover: "rgba(255,255,255,0.8)", glassBorder: "rgba(15,23,42,0.08)",
-  glassStrong: "rgba(255,255,255,0.9)",
-  accent: "#EA580C", accentGlow: "rgba(234,88,12,0.10)", accentLight: "#F97316",
+  glass: "#FFFFFF", glassHover: "#F9FAFB", glassBorder: "#D1D5DB",
+  glassStrong: "#FFFFFF",
+  accent: "#3468E0", accentGlow: "rgba(52,104,224,0.10)", accentLight: "#4C7EFF",
+  cta: "#EA580C", ctaGlow: "rgba(234,88,12,0.10)", ctaLight: "#F97316",
   red: "#DC2626", redGlow: "rgba(220,38,38,0.08)",
   redLight: "#EF4444", green: "#16A34A", greenGlow: "rgba(22,163,74,0.08)",
-  blue: "#2563EB", blueGlow: "rgba(37,99,235,0.08)", purple: "#7C3AED",
-  purpleGlow: "rgba(124,58,237,0.08)", yellow: "#CA8A04",
+  blue: "#3468E0", blueGlow: "rgba(52,104,224,0.08)", purple: "#7C3AED",
+  purpleGlow: "rgba(124,58,237,0.08)", teal: "#0F9C8C", tealGlow: "rgba(15,156,140,0.10)",
+  yellow: "#CA8A04",
   yellowGlow: "rgba(202,138,4,0.08)", white: "#111827", muted: "#6B7280",
   dimmed: "#9CA3AF", instagram: "#E1306C", tiktok: "#00B8A9",
 };
@@ -59,7 +63,9 @@ let C = darkTheme;
 
 // ── Design tokens: type scale, spacing scale, radius scale ───────
 // Consolidated from 14 ad-hoc fontSize values / 15 gap values / 13 radius
-// values down to a named, documented scale (see design critique).
+// values down to a named, documented scale (see design critique). Radius
+// scale tightened for the Findexa-reference pass — buttons and cards read
+// noticeably less "soft"/pill-shaped than the earlier glass redesign.
 const TYPE = {
   micro: 10, caption: 11, small: 12, body: 13, bodyLg: 14,
   label: 15, labelLg: 16, h4: 18, h3: 20, h2: 22, display: 28,
@@ -68,7 +74,7 @@ const SPACE = {
   none: 0, xxs: 2, xs: 4, sm: 6, md: 8, lg: 10, xl: 12, xxl: 16, xxxl: 20,
 };
 const RADIUS = {
-  sm: 4, md: 6, lg: 8, xl: 10, xxl: 12, xxxl: 14, pill: 20, shell: 22,
+  sm: 4, md: 6, lg: 8, xl: 10, xxl: 12, xxxl: 14, pill: 10, shell: 16,
 };
 
 // ── TikTok Icon (original logo style, outline) ─────────────────
@@ -1453,10 +1459,10 @@ function CreatePostModal({ onClose, onSubmit, isSubmitting, accounts, initialDat
           <button onClick={handleClose} style={{ padding: `${SPACE.lg}px ${SPACE.xxxl}px`, borderRadius: RADIUS.xl, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, fontSize: TYPE.body, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Abbrechen</button>
           <button onClick={handleSubmit} disabled={!canSubmit} title={blockReason || ""} style={{
             display: "flex", alignItems: "center", gap: SPACE.sm, padding: "10px 24px", borderRadius: RADIUS.xl,
-            background: canSubmit ? C.accent : C.border, border: "none",
+            background: canSubmit ? C.cta : C.border, border: "none",
             color: canSubmit ? "#fff" : C.dimmed, fontSize: TYPE.body, fontWeight: 700,
             cursor: canSubmit ? "pointer" : "not-allowed",
-            fontFamily: "inherit", boxShadow: canSubmit ? `0 4px 16px ${C.accentGlow}` : "none",
+            fontFamily: "inherit", boxShadow: canSubmit ? `0 4px 16px ${C.ctaGlow}` : "none",
             opacity: isSubmitting ? 0.7 : 1, transition: "background 0.2s, color 0.2s, box-shadow 0.2s",
           }}>
             {isSubmitting ? <Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} /> : postNow ? <Send size={15} /> : <Clock size={15} />}
@@ -1698,6 +1704,7 @@ function Sidebar({ activeTab, onTabChange, unreadCount, errorCount, isDarkMode, 
   };
 
   const navItems = [
+    { key: "home", icon: LayoutDashboard, label: "Übersicht" },
     { key: "connections", icon: Globe, label: "Connections" },
     {
       key: "posts", icon: Send, label: "Posts", expandable: true,
@@ -3388,7 +3395,7 @@ export default function Dashboard() {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [accounts, setAccounts] = useState([]);
-  const [activeTab, setActiveTab] = useState("dashboard");
+  const [activeTab, setActiveTab] = useState("home");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [notifications, setNotifications] = useState(demoNotifications);
   const [debugInfo, setDebugInfo] = useState(null);
@@ -3894,16 +3901,17 @@ export default function Dashboard() {
   const progress = Math.min(100, Math.round((filtered.length / MONTHLY_GOAL) * 100));
 
   // Restrained atmospheric glow behind the whole app (dark mode only) — the
-  // "glass" panels sit on top of this instead of a flat page background.
+  // cards sit on top of this instead of a flat page background. Kept as a
+  // separate backgroundImage (not the `background` shorthand) so it never
+  // collides with the plain backgroundColor fallback.
   const atmosphere = isDarkMode
-    ? `radial-gradient(1100px 560px at 12% -8%, rgba(249,115,22,0.10), transparent 60%),`
-      + `radial-gradient(900px 500px at 100% 0%, rgba(139,92,246,0.09), transparent 55%),`
-      + `radial-gradient(800px 520px at 45% 115%, rgba(59,130,246,0.07), transparent 60%),`
-      + `${C.bg}`
-    : C.bg;
+    ? `radial-gradient(1100px 560px at 12% -8%, rgba(76,126,255,0.10), transparent 60%),`
+      + `radial-gradient(900px 500px at 100% 0%, rgba(139,92,246,0.08), transparent 55%),`
+      + `radial-gradient(800px 520px at 45% 115%, rgba(249,115,22,0.05), transparent 60%)`
+    : "none";
 
   return (
-    <div data-theme={isDarkMode ? "dark" : "light"} style={{ minHeight: "100vh", background: atmosphere, backgroundAttachment: "fixed", color: C.white, display: "flex" }}>
+    <div data-theme={isDarkMode ? "dark" : "light"} style={{ minHeight: "100vh", backgroundImage: atmosphere, backgroundColor: C.bg, backgroundAttachment: "fixed", color: C.white, display: "flex" }}>
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } } @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } } @keyframes livePulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(1.3); } }`}</style>
 
       {/* Sidebar */}
@@ -3933,6 +3941,229 @@ export default function Dashboard() {
           <span style={{ fontSize: TYPE.body, fontWeight: 600, color: notification.color === "red" ? C.redLight : C.white }}>{notification.text}</span>
         </div>
       )}
+
+      {/* ── Übersicht (Overview / Findexa-style landing) ─────── */}
+      {activeTab === "home" && (() => {
+        const now = new Date();
+        const monthKey = (d) => { const dt = new Date(d); return `${dt.getFullYear()}-${dt.getMonth()}`; };
+        const thisMonthKey = monthKey(now);
+        const lastMonthKey = monthKey(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+
+        const published = posts.filter((p) => p.status === "published");
+        const thisMonth = published.filter((p) => monthKey(p.publishedAt || p.date) === thisMonthKey);
+        const lastMonth = published.filter((p) => monthKey(p.publishedAt || p.date) === lastMonthKey);
+        const sumOf = (list, key) => list.reduce((a, p) => a + (p[key] || 0), 0);
+        const pctDelta = (curr, prev) => (prev > 0 ? Math.round(((curr - prev) / prev) * 100) : null);
+
+        const reachThis = sumOf(thisMonth, "reach") || sumOf(thisMonth, "views");
+        const reachLast = sumOf(lastMonth, "reach") || sumOf(lastMonth, "views");
+        const engThis = sumOf(thisMonth, "likes") + sumOf(thisMonth, "comments") + sumOf(thisMonth, "shares");
+        const impThis = sumOf(thisMonth, "impressions") || reachThis;
+        const engRateThis = impThis > 0 ? (engThis / impThis) * 100 : 0;
+        const engLast = sumOf(lastMonth, "likes") + sumOf(lastMonth, "comments") + sumOf(lastMonth, "shares");
+        const impLast = sumOf(lastMonth, "impressions") || reachLast;
+        const engRateLast = impLast > 0 ? (engLast / impLast) * 100 : 0;
+
+        const doneCountAll = posts.filter((p) => p.done).length;
+        const goalPct = Math.min(100, Math.round((doneCountAll / MONTHLY_GOAL) * 100));
+
+        const chartPosts = [...published]
+          .sort((a, b) => new Date(a.publishedAt || a.date) - new Date(b.publishedAt || b.date))
+          .slice(-8)
+          .map((p) => ({ name: p.title.length > 14 ? p.title.slice(0, 13) + "…" : p.title, value: p.reach || p.views || 0, full: p.title }));
+        const bestVal = Math.max(0, ...chartPosts.map((c) => c.value));
+
+        const recentPosts = [...posts].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5);
+        const homeStatusConf = {
+          published: { label: "Published", color: C.green },
+          scheduled: { label: "Scheduled", color: C.accent },
+          queued: { label: "Queued", color: C.purple },
+          draft: { label: "Draft", color: C.dimmed },
+          failed: { label: "Failed", color: C.redLight },
+          partial: { label: "Partial", color: C.yellow },
+        };
+
+        const exportCsv = () => {
+          const rows = [
+            ["Titel", "Datum", "Status", "Likes", "Kommentare", "Shares"],
+            ...posts.map((p) => [p.title, new Date(p.date).toLocaleDateString("de-DE"), p.status, p.likes, p.comments, p.shares]),
+          ];
+          const csv = rows.map((r) => r.map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(",")).join("\n");
+          const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url; a.download = `beitraege-${now.toISOString().slice(0, 10)}.csv`;
+          a.click();
+          URL.revokeObjectURL(url);
+        };
+
+        const DeltaTag = ({ value }) => value === null ? (
+          <span style={{ fontSize: TYPE.small, color: C.dimmed }}>seit Verbindung</span>
+        ) : (
+          <div style={{ display: "flex", alignItems: "center", gap: SPACE.xs, fontSize: TYPE.small, fontWeight: 600, color: value >= 0 ? C.green : C.redLight }}>
+            {value >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />} {value >= 0 ? "+" : ""}{value}%
+            <span style={{ color: C.dimmed, fontWeight: 500 }}>ggü. Vormonat</span>
+          </div>
+        );
+
+        const StatCard = ({ icon: Icon, iconColor, iconBg, label, value, delta }) => (
+          <div className="glass-panel" style={{ background: C.glass, border: `1px solid ${C.border}`, borderRadius: RADIUS.xxl, padding: 18 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: SPACE.lg, marginBottom: 14 }}>
+              <div style={{ width: 32, height: 32, borderRadius: RADIUS.lg, background: iconBg, color: iconColor, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Icon size={16} /></div>
+              <div style={{ fontSize: TYPE.small, fontWeight: 600, color: C.muted }}>{label}</div>
+            </div>
+            <div style={{ fontSize: 26, fontWeight: 800, letterSpacing: "-0.01em", color: C.white }}>{value}</div>
+            <div style={{ marginTop: 8 }}><DeltaTag value={delta} /></div>
+          </div>
+        );
+
+        return (
+          <div style={{ padding: "24px 32px" }}>
+            <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 24, flexWrap: "wrap", gap: SPACE.xxl }}>
+              <div>
+                <div style={{ fontSize: TYPE.h2, fontWeight: 800, letterSpacing: "-0.02em", color: C.white }}>Willkommen zurück, Dariel 👋</div>
+                <div style={{ fontSize: TYPE.body, color: C.muted, marginTop: 6 }}>Behalte den Überblick über deine Content-Performance und Workflows.</div>
+              </div>
+              <div style={{ display: "flex", gap: SPACE.md }}>
+                <div style={{ display: "flex", alignItems: "center", gap: SPACE.sm, background: C.card, border: `1px solid ${C.border}`, borderRadius: RADIUS.pill, padding: "9px 16px", fontSize: TYPE.small, color: C.muted, fontWeight: 500 }}>
+                  <Calendar size={14} /> {now.toLocaleDateString("de-DE", { weekday: "short", day: "numeric", month: "long", year: "numeric" })}
+                </div>
+                <button onClick={exportCsv} style={{ display: "flex", alignItems: "center", gap: SPACE.sm, background: C.accent, border: "none", borderRadius: RADIUS.pill, padding: "9px 18px", color: "#fff", fontSize: TYPE.small, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                  <Download size={14} /> Export
+                </button>
+              </div>
+            </div>
+
+            <div className="kpi-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: SPACE.xl, marginBottom: SPACE.xl }}>
+              <StatCard icon={TrendingUp} iconColor={C.accent} iconBg={C.accentGlow} label="Reichweite (Monat)" value={fmt(reachThis)} delta={pctDelta(reachThis, reachLast)} />
+              <StatCard icon={Heart} iconColor={C.purple} iconBg={C.purpleGlow} label="Engagement Rate" value={`${engRateThis.toFixed(2)}%`} delta={pctDelta(engRateThis, engRateLast)} />
+              <StatCard icon={Check} iconColor={C.teal} iconBg={C.tealGlow} label="Veröffentlichte Beiträge" value={thisMonth.length} delta={pctDelta(thisMonth.length, lastMonth.length)} />
+            </div>
+
+            <div className="two-col-grid" style={{ display: "grid", gridTemplateColumns: "1.35fr 1fr", gap: SPACE.xl, marginBottom: SPACE.xl, alignItems: "start" }}>
+              <div>
+                <div style={{ display: "flex", gap: SPACE.md, marginBottom: SPACE.xl }}>
+                  <button onClick={() => { setCreateModalInitialDate(""); setShowCreateModal(true); }} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: SPACE.sm, background: `linear-gradient(135deg, ${C.ctaLight}, ${C.cta})`, border: "none", borderRadius: RADIUS.lg, padding: "11px 18px", color: "#fff", fontSize: TYPE.body, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", boxShadow: `0 8px 20px ${C.ctaGlow}` }}>
+                    <Plus size={15} /> Neuer Beitrag
+                  </button>
+                  <button onClick={() => setActiveTab("calendar")} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: SPACE.sm, background: C.card, border: `1px solid ${C.border}`, borderRadius: RADIUS.lg, padding: "11px 18px", color: C.white, fontSize: TYPE.body, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+                    <Calendar size={15} /> Warteschlange ansehen
+                  </button>
+                </div>
+
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                  <div style={{ fontSize: TYPE.body, fontWeight: 700, color: C.white }}>Meine Kanäle</div>
+                  <div onClick={() => setActiveTab("connections")} style={{ display: "flex", alignItems: "center", gap: SPACE.xs, fontSize: TYPE.small, color: C.muted, cursor: "pointer" }}><Plus size={13} /> Verbinden</div>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: SPACE.md }}>
+                  {["instagram", "tiktok"].map((plat) => {
+                    const acc = accounts.find((a) => a.platform === plat);
+                    const connected = isConnected && !!acc;
+                    const isIG = plat === "instagram";
+                    return (
+                      <div key={plat} className="glass-panel" style={{ background: C.glass, border: `1px solid ${C.border}`, borderRadius: RADIUS.xl, padding: 14 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: SPACE.md, marginBottom: 10 }}>
+                          <div style={{ width: 26, height: 26, borderRadius: RADIUS.md, background: isIG ? "linear-gradient(135deg,#f58529,#dd2a7b,#8134af)" : "#101216", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                            {isIG ? <Instagram size={13} color="#fff" /> : <TikTokIcon size={13} color="#3ad1c4" />}
+                          </div>
+                          <div style={{ fontSize: TYPE.small, fontWeight: 600, color: C.muted }}>{isIG ? "Instagram" : "TikTok"}</div>
+                        </div>
+                        <div style={{ fontSize: TYPE.body, fontWeight: 700, color: C.white, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{connected ? `@${acc.name || "mitunsverkaufen"}` : "—"}</div>
+                        <div style={{ fontSize: TYPE.caption, fontWeight: 600, color: connected ? C.green : C.dimmed, marginTop: 5 }}>● {connected ? "Aktiv" : "Nicht verbunden"}</div>
+                      </div>
+                    );
+                  })}
+                  <div className="glass-panel" style={{ background: C.glass, border: `1px solid ${C.border}`, borderRadius: RADIUS.xl, padding: 14, gridColumn: "1 / -1" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: SPACE.md, marginBottom: 10 }}>
+                      <div style={{ width: 26, height: 26, borderRadius: RADIUS.md, background: `linear-gradient(135deg, ${C.accent}, ${C.purple})`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Target size={13} color="#fff" /></div>
+                      <div style={{ fontSize: TYPE.small, fontWeight: 600, color: C.muted }}>Monatsziel</div>
+                    </div>
+                    <div style={{ fontSize: TYPE.body, fontWeight: 700, color: C.white }}>{doneCountAll} / {MONTHLY_GOAL} Beiträge</div>
+                    <div style={{ fontSize: TYPE.caption, fontWeight: 600, color: C.accent, marginTop: 5 }}>● Im Plan · {goalPct}%</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="glass-panel" style={{ background: C.glass, border: `1px solid ${C.border}`, borderRadius: RADIUS.xxl, padding: 18 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: SPACE.md, marginBottom: 16 }}>
+                  <div style={{ width: 32, height: 32, borderRadius: RADIUS.lg, background: C.accentGlow, color: C.accent, display: "flex", alignItems: "center", justifyContent: "center" }}><BarChart3 size={16} /></div>
+                  <div style={{ fontSize: TYPE.body, fontWeight: 700, color: C.white }}>Reichweite je Beitrag</div>
+                </div>
+                {chartPosts.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={200}>
+                    <BarChart data={chartPosts} margin={{ top: 10, right: 4, left: -20, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke={C.border} vertical={false} />
+                      <XAxis dataKey="name" tick={{ fill: C.dimmed, fontSize: TYPE.micro }} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fill: C.dimmed, fontSize: TYPE.micro }} axisLine={false} tickLine={false} tickFormatter={fmt} />
+                      <Tooltip cursor={{ fill: C.cardHover }} content={({ active, payload }) => active && payload?.[0] ? (
+                        <div style={{ background: C.cardHover, border: `1px solid ${C.border}`, borderRadius: RADIUS.lg, padding: "8px 12px", fontSize: TYPE.small, color: C.white, boxShadow: "0 8px 20px rgba(0,0,0,0.35)" }}>
+                          <div style={{ color: C.dimmed, marginBottom: 2 }}>{payload[0].payload.full}</div>
+                          <div style={{ fontWeight: 700 }}>{fmt(payload[0].value)} Reichweite</div>
+                        </div>
+                      ) : null} />
+                      <Bar dataKey="value" radius={[6, 6, 2, 2]}>
+                        {chartPosts.map((entry, i) => <Cell key={i} fill={entry.value === bestVal ? C.accent : C.cardHover} />)}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div style={{ height: 160, display: "flex", alignItems: "center", justifyContent: "center", color: C.dimmed, fontSize: TYPE.body, textAlign: "center" }}>Noch keine veröffentlichten Beiträge mit Reichweite</div>
+                )}
+              </div>
+            </div>
+
+            <div className="two-col-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1.35fr", gap: SPACE.xl }}>
+              <div className="glass-panel" style={{ background: C.glass, border: `1px solid ${C.border}`, borderRadius: RADIUS.xxl, padding: 18 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: SPACE.md, marginBottom: 16 }}>
+                  <div style={{ width: 32, height: 32, borderRadius: RADIUS.lg, background: C.yellowGlow, color: C.yellow, display: "flex", alignItems: "center", justifyContent: "center" }}><Target size={16} /></div>
+                  <div style={{ fontSize: TYPE.body, fontWeight: 700, color: C.white }}>Content-Ziele</div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: SPACE.lg }}>
+                  <div style={{ width: 32, height: 32, borderRadius: RADIUS.lg, background: C.accentGlow, color: C.accent, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Send size={15} /></div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: TYPE.small, fontWeight: 600, color: C.white, marginBottom: 6 }}>Monatsziel · {doneCountAll} / {MONTHLY_GOAL} Beiträge</div>
+                    <div style={{ height: 5, background: C.bg, borderRadius: 999, overflow: "hidden" }}>
+                      <div style={{ height: "100%", width: `${goalPct}%`, background: C.accent, borderRadius: 999 }} />
+                    </div>
+                  </div>
+                  <div style={{ fontSize: TYPE.body, fontWeight: 700, color: C.white, flexShrink: 0 }}>{goalPct}%</div>
+                </div>
+              </div>
+
+              <div className="glass-panel" style={{ background: C.glass, border: `1px solid ${C.border}`, borderRadius: RADIUS.xxl, padding: 18 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: SPACE.md, marginBottom: 14 }}>
+                  <div style={{ width: 32, height: 32, borderRadius: RADIUS.lg, background: C.purpleGlow, color: C.purple, display: "flex", alignItems: "center", justifyContent: "center" }}><FileText size={16} /></div>
+                  <div style={{ fontSize: TYPE.body, fontWeight: 700, color: C.white, flex: 1 }}>Neueste Beiträge</div>
+                  <div onClick={() => setActiveTab("dashboard")} style={{ display: "flex", alignItems: "center", gap: SPACE.xs, background: C.bg, border: `1px solid ${C.border}`, borderRadius: RADIUS.pill, padding: "6px 12px", fontSize: TYPE.caption, color: C.muted, cursor: "pointer" }}><Filter size={12} /> Alle ansehen</div>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "2.2fr 1fr 0.8fr 1fr", gap: SPACE.md, padding: `0 ${SPACE.xs}px ${SPACE.sm}px`, borderBottom: `1px solid ${C.border}`, fontSize: TYPE.micro, letterSpacing: "0.05em", textTransform: "uppercase", color: C.dimmed }}>
+                  <div>Beitrag</div><div>Datum</div><div>Likes</div><div>Status</div>
+                </div>
+                {recentPosts.length === 0 && <div style={{ padding: "20px 0", textAlign: "center", color: C.dimmed, fontSize: TYPE.small }}>Noch keine Beiträge</div>}
+                {recentPosts.map((p) => {
+                  const isIG = (p.platforms || [])[0] === "instagram";
+                  const sc = homeStatusConf[p.status] || homeStatusConf.draft;
+                  return (
+                    <div key={p.id} onClick={() => setSelectedPost(p)} style={{ display: "grid", gridTemplateColumns: "2.2fr 1fr 0.8fr 1fr", gap: SPACE.md, alignItems: "center", padding: `${SPACE.md}px ${SPACE.xs}px`, borderBottom: `1px solid ${C.border}`, cursor: "pointer" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: SPACE.md, minWidth: 0 }}>
+                        <div style={{ width: 26, height: 26, borderRadius: RADIUS.md, background: isIG ? "linear-gradient(135deg,#f58529,#dd2a7b)" : "#101216", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                          {isIG ? <Instagram size={12} color="#fff" /> : <TikTokIcon size={12} color="#3ad1c4" />}
+                        </div>
+                        <span style={{ fontSize: TYPE.small, fontWeight: 600, color: C.white, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.title}</span>
+                      </div>
+                      <div style={{ fontSize: TYPE.caption, color: C.muted }}>{new Date(p.date).toLocaleDateString("de-DE", { day: "2-digit", month: "short" })}</div>
+                      <div style={{ fontSize: TYPE.caption, color: C.muted }}>{p.likes > 0 ? p.likes.toLocaleString("de-DE") : "—"}</div>
+                      <div style={{ display: "flex", alignItems: "center", gap: SPACE.xs, fontSize: TYPE.caption, fontWeight: 600, color: sc.color }}>
+                        <span style={{ width: 6, height: 6, borderRadius: "50%", background: sc.color }} />{sc.label}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── Connections Tab (Zernio style) ──────────────────── */}
       {activeTab === "connections" && (
@@ -4525,7 +4756,7 @@ export default function Dashboard() {
             <div style={{ fontSize: TYPE.body, color: C.muted, marginTop: 2 }}>Manage your scheduled and published content</div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: SPACE.md }}>
-            <button onClick={() => { setCreateModalInitialDate(""); setShowCreateModal(true); }} style={{ display: "flex", alignItems: "center", gap: SPACE.sm, background: `linear-gradient(135deg, ${C.accentLight}, ${C.accent})`, border: "none", borderRadius: RADIUS.lg, padding: "9px 20px", color: "#fff", fontSize: TYPE.body, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", boxShadow: `0 8px 20px ${C.accentGlow}` }}>
+            <button onClick={() => { setCreateModalInitialDate(""); setShowCreateModal(true); }} style={{ display: "flex", alignItems: "center", gap: SPACE.sm, background: `linear-gradient(135deg, ${C.ctaLight}, ${C.cta})`, border: "none", borderRadius: RADIUS.pill, padding: "9px 20px", color: "#fff", fontSize: TYPE.body, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", boxShadow: `0 8px 20px ${C.ctaGlow}` }}>
               <Plus size={15} /> Create post
             </button>
           </div>

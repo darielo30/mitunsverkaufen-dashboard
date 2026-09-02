@@ -18,36 +18,20 @@ export default function RootLayout({ children }) {
           ::-webkit-scrollbar-thumb { background: #1E2A3A; border-radius: 4px; }
 
           /* Visible keyboard focus state (replaces per-input outline:none-only handling) */
-          *:focus-visible { outline: 2px solid #F97316; outline-offset: 2px; border-radius: 4px; }
+          *:focus-visible { outline: 2px solid #4C7EFF; outline-offset: 2px; border-radius: 4px; }
 
-          /* Dark-glass redesign (glass-dark-ui system): frosted panels plus
-             masked gradient border, used on the large hero surfaces
-             (sidebar, KPI tiles, post cards, modals). See the glass /
-             glassHover / glassBorder tokens in page.jsx. */
+          /* Findexa-style redesign: solid cards with a soft inner top highlight
+             and outer drop shadow instead of frosted blur — reads as more
+             "premium"/tactile than translucency. See the card/cardHover
+             tokens in page.jsx. Class names kept from the previous glass
+             iteration so existing className hooks didn't need touching. */
           .glass-panel {
-            backdrop-filter: blur(20px) saturate(140%);
-            -webkit-backdrop-filter: blur(20px) saturate(140%);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 1px 2px rgba(0,0,0,0.25), 0 12px 24px rgba(0,0,0,0.18);
+          }
+          [data-theme="light"] .glass-panel {
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.6), 0 1px 2px rgba(15,23,42,0.04), 0 8px 20px rgba(15,23,42,0.06);
           }
           .glass-border { position: relative; }
-          .glass-border::before {
-            content: "";
-            position: absolute; inset: 0; border-radius: inherit; padding: 1px;
-            background: linear-gradient(145deg,
-              rgba(255,255,255,0.16) 0%,
-              rgba(249,115,22,0.30) 45%,
-              rgba(139,92,246,0.22) 75%,
-              rgba(255,255,255,0.06) 100%);
-            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-            -webkit-mask-composite: xor; mask-composite: exclude;
-            pointer-events: none;
-          }
-          [data-theme="light"] .glass-border::before {
-            background: linear-gradient(145deg,
-              rgba(15,23,42,0.10) 0%,
-              rgba(234,88,12,0.20) 45%,
-              rgba(124,58,237,0.14) 75%,
-              rgba(15,23,42,0.04) 100%);
-          }
 
           /* ── Responsive layout: sidebar off-canvas + grid column-drop ── */
           .mobile-menu-btn { display: none; }
