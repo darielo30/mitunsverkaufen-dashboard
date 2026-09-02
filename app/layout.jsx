@@ -1,3 +1,9 @@
+import "./globals.css";
+import { Geist } from "next/font/google";
+import { cn } from "@/lib/utils";
+
+const geist = Geist({subsets:['latin'],variable:'--font-sans'});
+
 export const metadata = {
   title: "Social Dashboard – mitunsverkaufen.de",
   description: "Instagram & TikTok Content-Tracker für mitunsverkaufen.de",
@@ -5,7 +11,7 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="de">
+    <html lang="de" className={cn("font-sans", geist.variable)}>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
