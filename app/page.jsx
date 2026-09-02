@@ -155,9 +155,9 @@ function StatCard({ icon: Icon, label, value, change, color, glowColor }) {
       onMouseOut={(e) => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.boxShadow = "none"; }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
         <div style={{ width: 42, height: 42, borderRadius: RADIUS.xxl, background: glowColor, display: "flex", alignItems: "center", justifyContent: "center" }}><Icon size={20} color={color} /></div>
-        <div style={{ display: "flex", alignItems: "center", gap: SPACE.xs, fontSize: TYPE.body, color: isUp ? C.green : C.redLight, fontWeight: 600 }}>{isUp ? <TrendingUp size={14} /> : <TrendingDown size={14} />}{isUp ? "+" : ""}{change}%</div>
+        <div style={{ display: "flex", alignItems: "center", gap: SPACE.xs, fontSize: TYPE.body, color: isUp ? C.green : C.redLight, fontWeight: 500 }}>{isUp ? <TrendingUp size={14} /> : <TrendingDown size={14} />}{isUp ? "+" : ""}{change}%</div>
       </div>
-      <div style={{ fontSize: TYPE.display, fontWeight: 800, color: C.white, letterSpacing: "-0.03em" }}>{value}</div>
+      <div style={{ fontSize: TYPE.display, fontWeight: 700, color: C.white, letterSpacing: "-0.03em" }}>{value}</div>
       <div style={{ fontSize: TYPE.body, color: C.muted, marginTop: 4, fontWeight: 500 }}>{label}</div>
     </div>
   );
@@ -167,8 +167,8 @@ function ChartTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
   return (
     <div style={{ background: "#1A2035", border: `1px solid ${C.border}`, borderRadius: RADIUS.xxl, padding: `${SPACE.xl}px ${SPACE.xxl}px`, boxShadow: "0 12px 40px rgba(0,0,0,0.5)" }}>
-      <div style={{ fontSize: TYPE.body, color: C.muted, marginBottom: 8, fontWeight: 600 }}>{label}</div>
-      {payload.map((p, i) => (<div key={i} style={{ fontSize: TYPE.body, color: p.color, fontWeight: 600, marginBottom: 2 }}>{p.name}: {fmt(p.value)}</div>))}
+      <div style={{ fontSize: TYPE.body, color: C.muted, marginBottom: 8, fontWeight: 500 }}>{label}</div>
+      {payload.map((p, i) => (<div key={i} style={{ fontSize: TYPE.body, color: p.color, fontWeight: 500, marginBottom: 2 }}>{p.name}: {fmt(p.value)}</div>))}
     </div>
   );
 }
@@ -182,7 +182,7 @@ function StatusBadge({ status }) {
   };
   const c = config[status] || config.draft;
   const isLive = status === "published";
-  return (<div style={{ display: "flex", alignItems: "center", gap: SPACE.sm, fontSize: TYPE.caption, fontWeight: 700, color: c.color, background: c.bg, padding: "3px 10px", borderRadius: RADIUS.md, textTransform: "uppercase", letterSpacing: "0.06em" }}><div style={{ width: 6, height: 6, borderRadius: "50%", background: c.color, ...(isLive ? { animation: "livePulse 2s ease-in-out infinite" } : {}) }} />{c.label}</div>);
+  return (<div style={{ display: "flex", alignItems: "center", gap: SPACE.sm, fontSize: TYPE.caption, fontWeight: 600, color: c.color, background: c.bg, padding: "3px 10px", borderRadius: RADIUS.md, textTransform: "uppercase", letterSpacing: "0.06em" }}><div style={{ width: 6, height: 6, borderRadius: "50%", background: c.color, ...(isLive ? { animation: "livePulse 2s ease-in-out infinite" } : {}) }} />{c.label}</div>);
 }
 
 // ── Month Picker Dropdown ───────────────────────────────────────
@@ -206,7 +206,7 @@ function MonthPicker({ selectedMonth, selectedYear, onSelect }) {
         <div style={{ position: "absolute", top: "100%", right: 0, marginTop: 6, background: C.card, border: `1px solid ${C.border}`, borderRadius: RADIUS.xxxl, padding: 16, width: 280, boxShadow: "0 12px 40px rgba(0,0,0,0.5)", zIndex: 60 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
             <button onClick={() => setYear(year - 1)} style={{ width: 30, height: 30, borderRadius: RADIUS.lg, background: C.bg, border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}><ChevronLeft size={16} color={C.muted} /></button>
-            <div style={{ fontSize: TYPE.label, fontWeight: 700, color: C.white }}>{year}</div>
+            <div style={{ fontSize: TYPE.label, fontWeight: 600, color: C.white }}>{year}</div>
             <button onClick={() => setYear(year + 1)} style={{ width: 30, height: 30, borderRadius: RADIUS.lg, background: C.bg, border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}><ChevronRight size={16} color={C.muted} /></button>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: SPACE.sm }}>
@@ -214,7 +214,7 @@ function MonthPicker({ selectedMonth, selectedYear, onSelect }) {
               const isSelected = i === selectedMonth && year === selectedYear;
               return (
                 <button key={m} onClick={() => { onSelect(i, year); setOpen(false); }} style={{
-                  padding: `${SPACE.md}px ${SPACE.xs}px`, borderRadius: RADIUS.lg, border: "none", fontSize: TYPE.body, fontWeight: isSelected ? 700 : 500,
+                  padding: `${SPACE.md}px ${SPACE.xs}px`, borderRadius: RADIUS.lg, border: "none", fontSize: TYPE.body, fontWeight: isSelected ? 600 : 500,
                   background: isSelected ? C.accent : "transparent", color: isSelected ? "#fff" : C.muted,
                   cursor: "pointer", transition: "all 0.15s", fontFamily: "inherit",
                 }} onMouseOver={(e) => { if (!isSelected) e.currentTarget.style.background = C.bg; }}
@@ -260,7 +260,7 @@ function TimezonePicker({ value, onChange }) {
               display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", padding: `${SPACE.md}px ${SPACE.xl}px`,
               borderRadius: RADIUS.lg, border: "none", background: value === tz.value ? C.accentGlow : "transparent",
               color: value === tz.value ? C.accent : C.muted, fontSize: TYPE.body, cursor: "pointer", fontFamily: "inherit",
-              fontWeight: value === tz.value ? 600 : 400, transition: "all 0.15s",
+              fontWeight: value === tz.value ? 500 : 400, transition: "all 0.15s",
             }} onMouseOver={(e) => { if (value !== tz.value) e.currentTarget.style.background = C.bg; }}
                onMouseOut={(e) => { if (value !== tz.value) e.currentTarget.style.background = "transparent"; }}>
               <span>{tz.label}</span>
@@ -356,12 +356,12 @@ function ThumbnailPicker({ videoFile, onSelect, selectedTimestamp }) {
 
   return (
     <div style={{ marginTop: 12 }}>
-      <div style={{ fontSize: TYPE.body, fontWeight: 600, color: C.muted, marginBottom: 8, display: "flex", alignItems: "center", gap: SPACE.sm }}>
+      <div style={{ fontSize: TYPE.body, fontWeight: 500, color: C.muted, marginBottom: 8, display: "flex", alignItems: "center", gap: SPACE.sm }}>
         <Scissors size={14} /> Thumbnail wählen
       </div>
 
       <div style={{ background: C.bg, borderRadius: RADIUS.xl, padding: 12, border: `1px solid ${C.border}` }}>
-        <div style={{ fontSize: TYPE.small, fontWeight: 600, color: C.dimmed, marginBottom: 8 }}>Video durchscrubben und Frame auswählen:</div>
+        <div style={{ fontSize: TYPE.small, fontWeight: 500, color: C.dimmed, marginBottom: 8 }}>Video durchscrubben und Frame auswählen:</div>
         <video
           ref={videoRef}
           src={videoUrlRef.current}
@@ -402,7 +402,7 @@ function ThumbnailPicker({ videoFile, onSelect, selectedTimestamp }) {
 
           <button onClick={captureFrame} style={{
             display: "flex", alignItems: "center", gap: SPACE.sm, padding: "6px 14px", borderRadius: RADIUS.lg,
-            background: C.accent, border: "none", color: "#fff", fontSize: TYPE.small, fontWeight: 600, cursor: "pointer",
+            background: C.accent, border: "none", color: "#fff", fontSize: TYPE.small, fontWeight: 500, cursor: "pointer",
             fontFamily: "inherit", boxShadow: `0 2px 8px ${C.accentGlow}`, flexShrink: 0,
           }}>
             <Scissors size={13} /> Frame wählen
@@ -414,7 +414,7 @@ function ThumbnailPicker({ videoFile, onSelect, selectedTimestamp }) {
           <div style={{ display: "flex", alignItems: "center", gap: SPACE.xl, marginTop: 10, padding: `${SPACE.md}px ${SPACE.lg}px`, background: C.accentGlow, borderRadius: RADIUS.lg, border: `1px solid ${C.accent}30` }}>
             <img src={selectedFrame.dataUrl} alt="Gewähltes Thumbnail" style={{ width: 72, height: "auto", borderRadius: RADIUS.md, objectFit: "cover", border: `1px solid ${C.border}` }} />
             <div>
-              <div style={{ fontSize: TYPE.small, color: C.accent, fontWeight: 700 }}>Thumbnail ausgewählt</div>
+              <div style={{ fontSize: TYPE.small, color: C.accent, fontWeight: 600 }}>Thumbnail ausgewählt</div>
               <div style={{ fontSize: TYPE.caption, color: C.muted, marginTop: 2 }}>Frame bei {formatTime(selectedFrame.time)}</div>
             </div>
             <Check size={16} color={C.accent} style={{ marginLeft: "auto" }} />
@@ -428,7 +428,7 @@ function ThumbnailPicker({ videoFile, onSelect, selectedTimestamp }) {
 // ── Content Type Definitions ─────────────────────────────────────
 const CONTENT_TYPES = [
   { key: "reel", label: "Reel", desc: "Kurzvideos bis 90 Sek.", icon: "🎬", needsVideo: true },
-  { key: "carousel", label: "Carousel", desc: "Bis zu 10 Bilder/Videos", icon: "🖼️", needsVideo: false },
+  { key: "carousel", label: "Karussell", desc: "Bis zu 10 Bilder/Videos", icon: "🖼️", needsVideo: false },
   { key: "story", label: "Story", desc: "24h sichtbar, vertikal", icon: "📱", needsVideo: false },
   { key: "feed", label: "Feed Post", desc: "Klassischer Beitrag", icon: "📸", needsVideo: false },
 ];
@@ -498,7 +498,7 @@ function ChartCard({ title, hint, data, left, right }) {
   return (
     <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: RADIUS.lg, padding: "14px 14px 8px", marginBottom: 14 }}>
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: SPACE.lg, marginBottom: 10, flexWrap: "wrap" }}>
-        <div style={{ fontSize: TYPE.body, fontWeight: 700, color: C.white }}>{title}</div>
+        <div style={{ fontSize: TYPE.body, fontWeight: 600, color: C.white }}>{title}</div>
         <div style={{ fontSize: TYPE.caption, color: C.dimmed }}>{hint}</div>
       </div>
       <div style={{ height: 190 }}>
@@ -510,7 +510,7 @@ function ChartCard({ title, hint, data, left, right }) {
             <YAxis yAxisId="r" orientation="right" {...axis} width={38} allowDecimals={false} />
             <Tooltip
               contentStyle={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: RADIUS.lg, fontSize: TYPE.small }}
-              labelStyle={{ color: C.white, fontWeight: 600, marginBottom: 4 }}
+              labelStyle={{ color: C.white, fontWeight: 500, marginBottom: 4 }}
               labelFormatter={fmtDay}
             />
             {left.map((s) => (
@@ -565,18 +565,22 @@ function PostDetailPanel({ post, onClose, isConnected, onHide, onDeleteRemote })
     published: C.green, scheduled: C.blue, queued: C.purple,
     draft: C.dimmed, failed: C.redLight, partial: C.yellow,
   };
+  const statusLabels = {
+    published: "Live", scheduled: "Geplant", queued: "Warteschlange",
+    draft: "Entwurf", failed: "Fehler", partial: "Teilweise",
+  };
 
   // Analytics-Spalten wie bei Zernio
   const cols = [
     { key: "likes", label: "Likes", icon: Heart, color: C.redLight },
-    { key: "comments", label: "Comments", icon: MessageCircle, color: C.blue },
-    { key: "shares", label: "Shares", icon: Share2, color: C.green },
-    { key: "saves", label: "Saves", icon: Bookmark, color: C.yellow },
-    { key: "clicks", label: "Clicks", icon: MousePointerClick, color: C.purple },
-    { key: "views", label: "Views", icon: Eye, color: C.muted },
-    { key: "follows", label: "Follows", icon: UserPlus, color: C.blue },
+    { key: "comments", label: "Kommentare", icon: MessageCircle, color: C.blue },
+    { key: "shares", label: "Geteilt", icon: Share2, color: C.green },
+    { key: "saves", label: "Gespeichert", icon: Bookmark, color: C.yellow },
+    { key: "clicks", label: "Klicks", icon: MousePointerClick, color: C.purple },
+    { key: "views", label: "Aufrufe", icon: Eye, color: C.muted },
+    { key: "follows", label: "Follower", icon: UserPlus, color: C.blue },
     { key: "impressions", label: "Impr.", icon: TrendingUp, color: C.green },
-    { key: "reach", label: "Reach", icon: UsersRound, color: C.purple },
+    { key: "reach", label: "Reichweite", icon: UsersRound, color: C.purple },
   ];
 
   const sum = (k) => plats.reduce((a, p) => a + (p.analytics?.[k] || 0), 0);
@@ -599,7 +603,7 @@ function PostDetailPanel({ post, onClose, isConnected, onHide, onDeleteRemote })
   const dash = (v) => (v > 0 ? v.toLocaleString("de-DE") : "–");
   const cell = { padding: `${SPACE.lg}px ${SPACE.xl}px`, fontSize: TYPE.small, textAlign: "right", whiteSpace: "nowrap" };
 
-  const headline = post.status === "published" ? "Published" : post.status === "scheduled" ? "Scheduled for" : "Created";
+  const headline = post.status === "published" ? "Veröffentlicht" : post.status === "scheduled" ? "Geplant für" : "Erstellt";
   const headlineDate = new Date(post.publishedAt || post.date).toLocaleDateString("de-DE", { day: "numeric", month: "long", year: "numeric" });
   const headlineTime = new Date(post.publishedAt || post.date).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
 
@@ -623,7 +627,7 @@ function PostDetailPanel({ post, onClose, isConnected, onHide, onDeleteRemote })
         {/* Kopfzeile */}
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", padding: "20px 24px", borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
           <div>
-            <div style={{ fontSize: TYPE.h4, fontWeight: 800, color: C.white, letterSpacing: "-0.02em" }}>Post Details</div>
+            <div style={{ fontSize: TYPE.h4, fontWeight: 700, color: C.white, letterSpacing: "-0.02em" }}>Post-Details</div>
             <div style={{ fontSize: TYPE.body, color: C.dimmed, marginTop: 3 }}>{headline} {headlineDate} um {headlineTime}</div>
           </div>
           <button onClick={close} style={{ width: 34, height: 34, borderRadius: RADIUS.lg, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
@@ -637,7 +641,7 @@ function PostDetailPanel({ post, onClose, isConnected, onHide, onDeleteRemote })
         <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px 28px" }}>
 
           {/* Content */}
-          <div style={{ fontSize: TYPE.bodyLg, fontWeight: 700, color: C.white, marginBottom: 10 }}>Content</div>
+          <div style={{ fontSize: TYPE.bodyLg, fontWeight: 600, color: C.white, marginBottom: 10 }}>Content</div>
           <div style={{ fontSize: TYPE.body, color: C.muted, lineHeight: 1.75, whiteSpace: "pre-wrap", wordBreak: "break-word", background: C.bg, border: `1px solid ${C.border}`, borderRadius: RADIUS.lg, padding: "14px 16px", marginBottom: 16 }}>
             {post.caption || post.title || "–"}
           </div>
@@ -661,8 +665,8 @@ function PostDetailPanel({ post, onClose, isConnected, onHide, onDeleteRemote })
               return (
                 <div key={pd.platform} style={{ display: "flex", alignItems: "center", gap: SPACE.lg, padding: "11px 14px", background: C.bg, borderTop: i > 0 ? `1px solid ${C.border}` : "none" }}>
                   <m.Icon size={16} color={C.white} />
-                  <span style={{ fontSize: TYPE.body, fontWeight: 600, color: C.white }}>{m.label}</span>
-                  <span style={{ fontSize: TYPE.caption, fontWeight: 600, color: stColor, background: stColor + "18", padding: `${SPACE.xxs}px ${SPACE.md}px`, borderRadius: RADIUS.md }}>{pd.status}</span>
+                  <span style={{ fontSize: TYPE.body, fontWeight: 500, color: C.white }}>{m.label}</span>
+                  <span style={{ fontSize: TYPE.caption, fontWeight: 500, color: stColor, background: stColor + "18", padding: `${SPACE.xxs}px ${SPACE.md}px`, borderRadius: RADIUS.md }}>{statusLabels[pd.status] || pd.status}</span>
                   <span style={{ fontSize: TYPE.small, color: C.dimmed }}>
                     {pd.publishedAt
                       ? new Date(pd.publishedAt).toLocaleString("de-DE", { day: "numeric", month: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" })
@@ -671,7 +675,7 @@ function PostDetailPanel({ post, onClose, isConnected, onHide, onDeleteRemote })
                   {pd.url && (
                     <a href={pd.url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}
                       style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: SPACE.xs, fontSize: TYPE.small, color: C.muted, textDecoration: "none" }}>
-                      View <ExternalLink size={11} />
+                      Ansehen <ExternalLink size={11} />
                     </a>
                   )}
                 </div>
@@ -680,22 +684,22 @@ function PostDetailPanel({ post, onClose, isConnected, onHide, onDeleteRemote })
           </div>
 
           {/* Analytics */}
-          <div style={{ fontSize: TYPE.bodyLg, fontWeight: 700, color: C.white, marginBottom: 10 }}>Analytics</div>
+          <div style={{ fontSize: TYPE.bodyLg, fontWeight: 600, color: C.white, marginBottom: 10 }}>Statistiken</div>
           {hasAnalytics ? (
             <>
               <div style={{ border: `1px solid ${C.border}`, borderRadius: RADIUS.lg, overflowX: "auto", marginBottom: 14 }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 640 }}>
                   <thead>
                     <tr style={{ background: C.bg }}>
-                      <th style={{ padding: `${SPACE.lg}px ${SPACE.xl}px`, fontSize: TYPE.small, color: C.dimmed, fontWeight: 600, textAlign: "left", whiteSpace: "nowrap" }}>Platform</th>
+                      <th style={{ padding: `${SPACE.lg}px ${SPACE.xl}px`, fontSize: TYPE.small, color: C.dimmed, fontWeight: 500, textAlign: "left", whiteSpace: "nowrap" }}>Plattform</th>
                       {cols.map((c) => (
-                        <th key={c.key} style={{ padding: `${SPACE.lg}px ${SPACE.xl}px`, fontSize: TYPE.small, color: C.dimmed, fontWeight: 600, textAlign: "right", whiteSpace: "nowrap" }}>
+                        <th key={c.key} style={{ padding: `${SPACE.lg}px ${SPACE.xl}px`, fontSize: TYPE.small, color: C.dimmed, fontWeight: 500, textAlign: "right", whiteSpace: "nowrap" }}>
                           <span style={{ display: "inline-flex", alignItems: "center", gap: SPACE.sm }}>
                             <c.icon size={12} color={c.color} /> {c.label}
                           </span>
                         </th>
                       ))}
-                      <th style={{ padding: `${SPACE.lg}px ${SPACE.xl}px`, fontSize: TYPE.small, color: C.dimmed, fontWeight: 600, textAlign: "right" }}>ER</th>
+                      <th style={{ padding: `${SPACE.lg}px ${SPACE.xl}px`, fontSize: TYPE.small, color: C.dimmed, fontWeight: 500, textAlign: "right" }}>ER</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -718,13 +722,13 @@ function PostDetailPanel({ post, onClose, isConnected, onHide, onDeleteRemote })
                       );
                     })}
                     <tr style={{ borderTop: `1px solid ${C.border}`, background: C.bg }}>
-                      <td style={{ padding: `${SPACE.lg}px ${SPACE.xl}px`, fontSize: TYPE.body, fontWeight: 700, color: C.white }}>Total</td>
+                      <td style={{ padding: `${SPACE.lg}px ${SPACE.xl}px`, fontSize: TYPE.body, fontWeight: 600, color: C.white }}>Gesamt</td>
                       {cols.map((c) => (
-                        <td key={c.key} style={{ ...cell, fontWeight: 700, color: totalAnalytics[c.key] > 0 ? C.white : C.dimmed }}>
+                        <td key={c.key} style={{ ...cell, fontWeight: 600, color: totalAnalytics[c.key] > 0 ? C.white : C.dimmed }}>
                           {dash(totalAnalytics[c.key])}
                         </td>
                       ))}
-                      <td style={{ ...cell, fontWeight: 700, color: C.white }}>{er(totalAnalytics) || "–"}</td>
+                      <td style={{ ...cell, fontWeight: 600, color: C.white }}>{er(totalAnalytics) || "–"}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -733,24 +737,24 @@ function PostDetailPanel({ post, onClose, isConnected, onHide, onDeleteRemote })
               {history.length >= 2 ? (
                 <>
                   <ChartCard
-                    title="Engagement over time"
+                    title="Engagement im Zeitverlauf"
                     hint="Likes ← linke Achse · andere → rechte Achse"
                     data={history}
                     left={[{ key: "likes", label: "Likes", color: C.redLight }]}
                     right={[
-                      { key: "comments", label: "Comments", color: C.blue },
-                      { key: "saves", label: "Saves", color: C.yellow },
-                      { key: "shares", label: "Shares", color: C.green },
+                      { key: "comments", label: "Kommentare", color: C.blue },
+                      { key: "saves", label: "Gespeichert", color: C.yellow },
+                      { key: "shares", label: "Geteilt", color: C.green },
                     ]}
                   />
                   <ChartCard
-                    title="Reach & impressions over time"
-                    hint="Impressions ← linke Achse · Reach & Views → rechte Achse"
+                    title="Reichweite & Impressionen im Zeitverlauf"
+                    hint="Impressionen ← linke Achse · Reichweite & Aufrufe → rechte Achse"
                     data={history}
-                    left={[{ key: "impressions", label: "Impressions", color: C.purple }]}
+                    left={[{ key: "impressions", label: "Impressionen", color: C.purple }]}
                     right={[
-                      { key: "reach", label: "Reach", color: C.blue },
-                      { key: "views", label: "Views", color: C.instagram },
+                      { key: "reach", label: "Reichweite", color: C.blue },
+                      { key: "views", label: "Aufrufe", color: C.instagram },
                     ]}
                   />
                 </>
@@ -762,14 +766,14 @@ function PostDetailPanel({ post, onClose, isConnected, onHide, onDeleteRemote })
             </>
           ) : (
             <div style={{ padding: "18px 16px", background: C.bg, border: `1px solid ${C.border}`, borderRadius: RADIUS.lg, fontSize: TYPE.body, color: C.dimmed, textAlign: "center", marginBottom: 20 }}>
-              Noch keine Analytics für diesen Beitrag verfügbar.
+              Noch keine Statistiken für diesen Beitrag verfügbar.
             </div>
           )}
 
           {/* Aktionen */}
           <div style={{ display: "flex", gap: SPACE.md, flexWrap: "wrap", paddingTop: 18, borderTop: `1px solid ${C.border}`, marginBottom: 16 }}>
             <button onClick={() => { if (window.confirm("Beitrag aus dem Dashboard entfernen?\n(Bleibt auf den Plattformen online)")) { onHide(post); close(); } }}
-              style={{ display: "flex", alignItems: "center", gap: SPACE.sm, padding: "7px 14px", borderRadius: RADIUS.lg, background: C.redGlow, border: `1px solid ${C.red}25`, color: C.redLight, fontSize: TYPE.small, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+              style={{ display: "flex", alignItems: "center", gap: SPACE.sm, padding: "7px 14px", borderRadius: RADIUS.lg, background: C.redGlow, border: `1px solid ${C.red}25`, color: C.redLight, fontSize: TYPE.small, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>
               <EyeOff size={12} /> Ausblenden
             </button>
             {isConnected && (post.status === "scheduled" || post.status === "draft") && (
@@ -778,7 +782,7 @@ function PostDetailPanel({ post, onClose, isConnected, onHide, onDeleteRemote })
                 const ok = await onDeleteRemote(post);
                 if (ok) close();
               }}
-                style={{ display: "flex", alignItems: "center", gap: SPACE.sm, padding: "7px 14px", borderRadius: RADIUS.lg, background: C.red + "15", border: `1px solid ${C.red}50`, color: "#fff", fontSize: TYPE.small, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+                style={{ display: "flex", alignItems: "center", gap: SPACE.sm, padding: "7px 14px", borderRadius: RADIUS.lg, background: C.red + "15", border: `1px solid ${C.red}50`, color: "#fff", fontSize: TYPE.small, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>
                 <Trash2 size={12} /> Bei Zernio löschen
               </button>
             )}
@@ -842,13 +846,13 @@ function FilterDropdown({ label, value, options, onChange, icon: LeadIcon, searc
           )}
           {shown.map((o) => (
             o.divider ? (
-              <div key={o.key} style={{ fontSize: TYPE.micro, fontWeight: 700, color: C.dimmed, textTransform: "uppercase", letterSpacing: "0.08em", padding: "10px 10px 5px" }}>{o.label}</div>
+              <div key={o.key} style={{ fontSize: TYPE.micro, fontWeight: 600, color: C.dimmed, textTransform: "uppercase", letterSpacing: "0.08em", padding: "10px 10px 5px" }}>{o.label}</div>
             ) : (
               <button key={o.key} onClick={() => { onChange(o.key); setOpen(false); setQ(""); }} style={{
                 display: "flex", alignItems: "center", gap: SPACE.md, width: "100%", padding: `${SPACE.md}px ${SPACE.lg}px`, borderRadius: RADIUS.md,
                 border: "none", background: o.key === value ? C.cardHover : "transparent",
                 color: o.key === value ? C.white : C.muted, fontSize: TYPE.body,
-                fontWeight: o.key === value ? 600 : 400, cursor: "pointer", fontFamily: "inherit", textAlign: "left",
+                fontWeight: o.key === value ? 500 : 400, cursor: "pointer", fontFamily: "inherit", textAlign: "left",
               }}
                 onMouseOver={(e) => { if (o.key !== value) e.currentTarget.style.background = C.bgSoft; }}
                 onMouseOut={(e) => { if (o.key !== value) e.currentTarget.style.background = "transparent"; }}>
@@ -1079,7 +1083,7 @@ function CreatePostModal({ onClose, onSubmit, isSubmitting, accounts, initialDat
 
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "20px 24px", borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
           <div>
-            <div style={{ fontSize: TYPE.labelLg, fontWeight: 700, color: C.white }}>Neuer Beitrag</div>
+            <div style={{ fontSize: TYPE.labelLg, fontWeight: 600, color: C.white }}>Neuer Beitrag</div>
             <div style={{ fontSize: TYPE.small, color: C.dimmed, marginTop: 2 }}>Erstelle & veröffentliche Content</div>
           </div>
           <button onClick={handleClose} style={{ width: 32, height: 32, borderRadius: RADIUS.lg, background: C.bg, border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}><X size={16} color={C.muted} /></button>
@@ -1089,7 +1093,7 @@ function CreatePostModal({ onClose, onSubmit, isSubmitting, accounts, initialDat
 
           {/* Platform Selection */}
           <div>
-            <div style={{ fontSize: TYPE.body, fontWeight: 600, color: C.muted, marginBottom: 8 }}>Plattformen</div>
+            <div style={{ fontSize: TYPE.body, fontWeight: 500, color: C.muted, marginBottom: 8 }}>Plattformen</div>
             <div style={{ display: "flex", gap: SPACE.lg }}>
               {[{ key: "instagram", label: "Instagram", icon: Instagram, color: C.instagram }, { key: "tiktok", label: "TikTok", icon: TikTokIcon, color: C.tiktok }].map((p) => {
                 const account = accounts.find((a) => a.platform === p.key);
@@ -1100,19 +1104,19 @@ function CreatePostModal({ onClose, onSubmit, isSubmitting, accounts, initialDat
                       border: `1.5px solid ${platforms[p.key] ? p.color : C.border}`,
                       background: platforms[p.key] ? p.color + "15" : "transparent",
                       color: platforms[p.key] ? p.color : C.dimmed,
-                      fontSize: TYPE.body, fontWeight: 600, cursor: "pointer", transition: "all 0.2s", fontFamily: "inherit",
+                      fontSize: TYPE.body, fontWeight: 500, cursor: "pointer", transition: "all 0.2s", fontFamily: "inherit",
                       opacity: account ? 1 : 0.5,
                     }}>
                       <p.icon size={16} />{p.label}
                       {account && platforms[p.key] && <Check size={14} />}
                       {!account && (
                         <span title={`${p.label}-Account nicht verbunden`}
-                          style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 18, height: 18, borderRadius: "50%", background: C.yellowGlow, color: C.yellow, fontSize: TYPE.caption, fontWeight: 800, cursor: "help" }}>!</span>
+                          style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 18, height: 18, borderRadius: "50%", background: C.yellowGlow, color: C.yellow, fontSize: TYPE.caption, fontWeight: 700, cursor: "help" }}>!</span>
                       )}
                     </button>
                     {!account && platforms[p.key] && (
                       <div style={{ position: "absolute", top: "100%", left: 0, marginTop: 6, background: C.card, border: `1px solid ${C.yellow}40`, borderRadius: RADIUS.xl, padding: `${SPACE.md}px ${SPACE.xl}px`, width: 240, boxShadow: "0 8px 24px rgba(0,0,0,0.4)", zIndex: 10 }}>
-                        <div style={{ fontSize: TYPE.small, color: C.yellow, fontWeight: 600, marginBottom: 4 }}>{p.label}-Account nicht verbunden</div>
+                        <div style={{ fontSize: TYPE.small, color: C.yellow, fontWeight: 500, marginBottom: 4 }}>{p.label}-Account nicht verbunden</div>
                         <div style={{ fontSize: TYPE.caption, color: C.muted, lineHeight: 1.5 }}>Verbinde deinen {p.label}-Account in deinem Late Dashboard unter Settings.</div>
                       </div>
                     )}
@@ -1127,7 +1131,7 @@ function CreatePostModal({ onClose, onSubmit, isSubmitting, accounts, initialDat
 
           {/* Content Type Selection – 2 per row */}
           <div>
-            <div style={{ fontSize: TYPE.body, fontWeight: 600, color: C.muted, marginBottom: 8 }}>Content-Typ</div>
+            <div style={{ fontSize: TYPE.body, fontWeight: 500, color: C.muted, marginBottom: 8 }}>Content-Typ</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: SPACE.md }}>
               {CONTENT_TYPES.map((ct) => {
                 const isActive = contentType === ct.key;
@@ -1143,7 +1147,7 @@ function CreatePostModal({ onClose, onSubmit, isSubmitting, accounts, initialDat
                     }}>
                     <div style={{ fontSize: TYPE.h2, lineHeight: 1, flexShrink: 0 }}>{ct.icon}</div>
                     <div>
-                      <div style={{ fontSize: TYPE.body, fontWeight: 700, color: isActive ? C.accent : isDisabled ? C.dimmed : C.white }}>{ct.label}</div>
+                      <div style={{ fontSize: TYPE.body, fontWeight: 600, color: isActive ? C.accent : isDisabled ? C.dimmed : C.white }}>{ct.label}</div>
                       <div style={{ fontSize: TYPE.caption, color: isDisabled ? C.dimmed + "80" : C.dimmed, marginTop: 2, lineHeight: 1.4 }}>{ct.desc}</div>
                     </div>
                     {isActive && <Check size={14} color={C.accent} style={{ marginLeft: "auto", flexShrink: 0 }} />}
@@ -1161,12 +1165,12 @@ function CreatePostModal({ onClose, onSubmit, isSubmitting, accounts, initialDat
           {/* Caption */}
           <div>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-              <div style={{ fontSize: TYPE.body, fontWeight: 600, color: C.muted }}>Caption</div>
+              <div style={{ fontSize: TYPE.body, fontWeight: 500, color: C.muted }}>Caption</div>
               <button onClick={() => setShowAiCaption(!showAiCaption)} style={{
                 display: "flex", alignItems: "center", gap: SPACE.sm, padding: "5px 12px", borderRadius: RADIUS.lg,
                 background: showAiCaption ? C.purpleGlow : "transparent",
                 border: `1px solid ${showAiCaption ? C.purple + "60" : C.border}`,
-                color: showAiCaption ? C.purple : C.dimmed, fontSize: TYPE.small, fontWeight: 600,
+                color: showAiCaption ? C.purple : C.dimmed, fontSize: TYPE.small, fontWeight: 500,
                 cursor: "pointer", fontFamily: "inherit", transition: "all 0.2s",
               }}>
                 <Sparkles size={13} /> Mit KI generieren
@@ -1178,7 +1182,7 @@ function CreatePostModal({ onClose, onSubmit, isSubmitting, accounts, initialDat
               <div style={{ background: C.bg, border: `1px solid ${C.purple}30`, borderRadius: RADIUS.xxl, padding: 16, marginBottom: 12 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: SPACE.md, marginBottom: 10 }}>
                   <Sparkles size={16} color={C.purple} />
-                  <div style={{ fontSize: TYPE.body, fontWeight: 700, color: C.white }}>Caption aus Transkript generieren</div>
+                  <div style={{ fontSize: TYPE.body, fontWeight: 600, color: C.white }}>Caption aus Transkript generieren</div>
                 </div>
                 <div style={{ fontSize: TYPE.caption, color: C.dimmed, marginBottom: 10, lineHeight: 1.5 }}>
                   Kopiere das Transkript deines Reels hier rein. Es werden automatisch Captions für Instagram & TikTok generiert.
@@ -1219,13 +1223,13 @@ function CreatePostModal({ onClose, onSubmit, isSubmitting, accounts, initialDat
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderBottom: `1px solid ${C.border}` }}>
                           <div style={{ display: "flex", alignItems: "center", gap: SPACE.md }}>
                             <p.icon size={14} color={p.color} />
-                            <span style={{ fontSize: TYPE.small, fontWeight: 700, color: p.color }}>{p.label}</span>
+                            <span style={{ fontSize: TYPE.small, fontWeight: 600, color: p.color }}>{p.label}</span>
                             <span style={{ fontSize: TYPE.micro, color: C.dimmed }}>{p.text.length} / {p.limit} Zeichen</span>
                           </div>
                           <button onClick={() => selectAiCaption(p.text)} style={{
                             display: "flex", alignItems: "center", gap: SPACE.sm, padding: "5px 12px", borderRadius: RADIUS.md,
                             background: p.color + "15", border: `1px solid ${p.color}40`, color: p.color,
-                            fontSize: TYPE.caption, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+                            fontSize: TYPE.caption, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
                           }}>
                             <Check size={11} /> Übernehmen
                           </button>
@@ -1247,7 +1251,7 @@ function CreatePostModal({ onClose, onSubmit, isSubmitting, accounts, initialDat
                     <button onClick={generateCaption} disabled={aiGenerating || !aiTranscript.trim()} style={{
                       display: "flex", alignItems: "center", gap: SPACE.sm, padding: "7px 16px", borderRadius: RADIUS.lg,
                       background: !aiTranscript.trim() ? C.border : C.purple, border: "none",
-                      color: "#fff", fontSize: TYPE.small, fontWeight: 700, cursor: !aiTranscript.trim() ? "not-allowed" : "pointer",
+                      color: "#fff", fontSize: TYPE.small, fontWeight: 600, cursor: !aiTranscript.trim() ? "not-allowed" : "pointer",
                       fontFamily: "inherit", opacity: aiGenerating ? 0.7 : 1,
                     }}>
                       {aiGenerating ? <Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} /> : <Sparkles size={13} />}
@@ -1269,7 +1273,7 @@ function CreatePostModal({ onClose, onSubmit, isSubmitting, accounts, initialDat
 
           {/* Collab Partner */}
           <div>
-            <div style={{ fontSize: TYPE.body, fontWeight: 600, color: C.muted, marginBottom: 8 }}>Collab Partner</div>
+            <div style={{ fontSize: TYPE.body, fontWeight: 500, color: C.muted, marginBottom: 8 }}>Collab Partner</div>
 
             {/* Quick-select default partners */}
             <div style={{ display: "flex", gap: SPACE.md, marginBottom: 10 }}>
@@ -1280,7 +1284,7 @@ function CreatePostModal({ onClose, onSubmit, isSubmitting, accounts, initialDat
                     display: "flex", alignItems: "center", gap: SPACE.sm, padding: "6px 14px", borderRadius: RADIUS.pill,
                     border: `1.5px solid ${isActive ? C.green : C.border}`,
                     background: isActive ? C.greenGlow : "transparent",
-                    color: isActive ? C.green : C.dimmed, fontSize: TYPE.small, fontWeight: 600,
+                    color: isActive ? C.green : C.dimmed, fontSize: TYPE.small, fontWeight: 500,
                     cursor: "pointer", fontFamily: "inherit", transition: "all 0.2s",
                   }}>
                     {isActive ? <Check size={12} /> : <Plus size={12} />}
@@ -1294,7 +1298,7 @@ function CreatePostModal({ onClose, onSubmit, isSubmitting, accounts, initialDat
               {collabs.map((c, i) => (
                 <div key={i} style={{ display: "flex", alignItems: "center", gap: SPACE.md }}>
                   <div style={{ position: "relative", flex: 1 }}>
-                    <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", fontSize: TYPE.body, color: C.dimmed, fontWeight: 600, pointerEvents: "none" }}>@</span>
+                    <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", fontSize: TYPE.body, color: C.dimmed, fontWeight: 500, pointerEvents: "none" }}>@</span>
                     <input type="text" value={c} onChange={(e) => updateCollab(i, e.target.value)}
                       placeholder="username"
                       style={{ width: "100%", background: C.bg, border: `1px solid ${C.border}`, borderRadius: RADIUS.lg, padding: "8px 12px 8px 26px", color: C.white, fontSize: TYPE.body, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }}
@@ -1312,7 +1316,7 @@ function CreatePostModal({ onClose, onSubmit, isSubmitting, accounts, initialDat
 
           {/* Media Upload */}
           <div>
-            <div style={{ fontSize: TYPE.body, fontWeight: 600, color: C.muted, marginBottom: 8 }}>Medien</div>
+            <div style={{ fontSize: TYPE.body, fontWeight: 500, color: C.muted, marginBottom: 8 }}>Medien</div>
             <input type="file" ref={fileInputRef} accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime,video/webm" multiple
               style={{ display: "none" }} onChange={(e) => handleFiles(Array.from(e.target.files))} />
 
@@ -1327,7 +1331,7 @@ function CreatePostModal({ onClose, onSubmit, isSubmitting, accounts, initialDat
                 background: isDragging ? C.accentGlow : "transparent", transition: "all 0.2s",
               }}>
               <Upload size={24} color={isDragging ? C.accent : C.dimmed} />
-              <div style={{ fontSize: TYPE.body, fontWeight: 600, color: isDragging ? C.accent : C.muted }}>Bilder oder Videos hierher ziehen</div>
+              <div style={{ fontSize: TYPE.body, fontWeight: 500, color: isDragging ? C.accent : C.muted }}>Bilder oder Videos hierher ziehen</div>
               <div style={{ fontSize: TYPE.small, color: C.dimmed }}>oder klicken zum Durchsuchen · JPG, PNG, MP4, MOV</div>
             </div>
 
@@ -1343,11 +1347,11 @@ function CreatePostModal({ onClose, onSubmit, isSubmitting, accounts, initialDat
                       </div>
                     )}
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: TYPE.body, fontWeight: 600, color: C.white, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.name}</div>
+                      <div style={{ fontSize: TYPE.body, fontWeight: 500, color: C.white, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.name}</div>
                       <div style={{ fontSize: TYPE.caption, color: C.dimmed }}>{fmtSize(f.size)} · {f.type === "video" ? "Video" : "Bild"}{f.uploading ? " · Wird hochgeladen..." : ""}</div>
                     </div>
                     {f.uploading && <Loader2 size={16} color={C.muted} style={{ animation: "spin 1s linear infinite" }} />}
-                    {f.url === "local" && <div style={{ fontSize: TYPE.micro, color: C.yellow, fontWeight: 600, padding: `${SPACE.xxs}px ${SPACE.sm}px`, background: C.yellowGlow, borderRadius: RADIUS.sm }}>Lokal</div>}
+                    {f.url === "local" && <div style={{ fontSize: TYPE.micro, color: C.yellow, fontWeight: 500, padding: `${SPACE.xxs}px ${SPACE.sm}px`, background: C.yellowGlow, borderRadius: RADIUS.sm }}>Lokal</div>}
                     {f.url && f.url !== "local" && <Check size={16} color={C.green} />}
                     <button onClick={(e) => { e.stopPropagation(); removeFile(f.name); }} style={{ width: 28, height: 28, borderRadius: RADIUS.md, background: "transparent", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
                       <Trash2 size={14} color={C.dimmed} />
@@ -1360,7 +1364,7 @@ function CreatePostModal({ onClose, onSubmit, isSubmitting, accounts, initialDat
             {/* Thumbnail Options for Video */}
             {videoFile && (
               <div style={{ marginTop: 12 }}>
-                <div style={{ fontSize: TYPE.body, fontWeight: 600, color: C.muted, marginBottom: 8, display: "flex", alignItems: "center", gap: SPACE.sm }}>
+                <div style={{ fontSize: TYPE.body, fontWeight: 500, color: C.muted, marginBottom: 8, display: "flex", alignItems: "center", gap: SPACE.sm }}>
                   <Scissors size={14} /> Thumbnail
                 </div>
                 {/* Mode Toggle */}
@@ -1369,14 +1373,14 @@ function CreatePostModal({ onClose, onSubmit, isSubmitting, accounts, initialDat
                     display: "flex", alignItems: "center", gap: SPACE.sm, padding: "6px 14px", borderRadius: RADIUS.lg,
                     border: `1px solid ${thumbnailMode === "scrub" ? C.accent : C.border}`,
                     background: thumbnailMode === "scrub" ? C.accentGlow : "transparent",
-                    color: thumbnailMode === "scrub" ? C.accent : C.dimmed, fontSize: TYPE.small, fontWeight: 600,
+                    color: thumbnailMode === "scrub" ? C.accent : C.dimmed, fontSize: TYPE.small, fontWeight: 500,
                     cursor: "pointer", fontFamily: "inherit",
                   }}><Scissors size={12} /> Frame aus Video</button>
                   <button onClick={() => { setThumbnailMode("upload"); }} style={{
                     display: "flex", alignItems: "center", gap: SPACE.sm, padding: "6px 14px", borderRadius: RADIUS.lg,
                     border: `1px solid ${thumbnailMode === "upload" ? C.accent : C.border}`,
                     background: thumbnailMode === "upload" ? C.accentGlow : "transparent",
-                    color: thumbnailMode === "upload" ? C.accent : C.dimmed, fontSize: TYPE.small, fontWeight: 600,
+                    color: thumbnailMode === "upload" ? C.accent : C.dimmed, fontSize: TYPE.small, fontWeight: 500,
                     cursor: "pointer", fontFamily: "inherit",
                   }}><Upload size={12} /> Eigenes Bild</button>
                 </div>
@@ -1393,14 +1397,14 @@ function CreatePostModal({ onClose, onSubmit, isSubmitting, accounts, initialDat
                       <div onClick={() => thumbInputRef.current?.click()}
                         style={{ border: `2px dashed ${C.border}`, borderRadius: RADIUS.xl, padding: `${SPACE.xxxl}px ${SPACE.xxl}px`, display: "flex", flexDirection: "column", alignItems: "center", gap: SPACE.sm, cursor: "pointer" }}>
                         <Upload size={20} color={C.dimmed} />
-                        <div style={{ fontSize: TYPE.small, fontWeight: 600, color: C.muted }}>Thumbnail-Bild hochladen</div>
+                        <div style={{ fontSize: TYPE.small, fontWeight: 500, color: C.muted }}>Thumbnail-Bild hochladen</div>
                         <div style={{ fontSize: TYPE.caption, color: C.dimmed }}>JPG, PNG oder WebP</div>
                       </div>
                     ) : (
                       <div style={{ display: "flex", alignItems: "center", gap: SPACE.xl }}>
                         <img src={customThumbnail.preview} alt="Thumbnail" style={{ width: 80, height: "auto", borderRadius: RADIUS.lg, border: `1px solid ${C.border}` }} />
                         <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: TYPE.small, color: C.green, fontWeight: 700 }}>Thumbnail hochgeladen</div>
+                          <div style={{ fontSize: TYPE.small, color: C.green, fontWeight: 600 }}>Thumbnail hochgeladen</div>
                           <div style={{ fontSize: TYPE.caption, color: C.dimmed, marginTop: 2 }}>{customThumbnail.name}</div>
                         </div>
                         <button onClick={() => { setCustomThumbnail(null); }} style={{ width: 28, height: 28, borderRadius: RADIUS.md, background: "transparent", border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
@@ -1416,7 +1420,7 @@ function CreatePostModal({ onClose, onSubmit, isSubmitting, accounts, initialDat
 
           {/* Scheduling */}
           <div>
-            <div style={{ fontSize: TYPE.body, fontWeight: 600, color: C.muted, marginBottom: 8 }}>Zeitplanung</div>
+            <div style={{ fontSize: TYPE.body, fontWeight: 500, color: C.muted, marginBottom: 8 }}>Zeitplanung</div>
             <div style={{ display: "flex", gap: SPACE.lg, marginBottom: 12 }}>
               <button onClick={() => setPostNow(true)} style={{
                 display: "flex", alignItems: "center", gap: SPACE.sm, padding: `${SPACE.md}px ${SPACE.xxl}px`, borderRadius: RADIUS.lg,
@@ -1456,13 +1460,13 @@ function CreatePostModal({ onClose, onSubmit, isSubmitting, accounts, initialDat
               {blockReason}
             </div>
           )}
-          <button onClick={handleClose} style={{ padding: `${SPACE.lg}px ${SPACE.xxxl}px`, borderRadius: RADIUS.xl, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, fontSize: TYPE.body, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Abbrechen</button>
+          <button onClick={handleClose} style={{ padding: `${SPACE.lg}px ${SPACE.xxxl}px`, borderRadius: RADIUS.xl, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, fontSize: TYPE.body, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>Abbrechen</button>
           <button onClick={handleSubmit} disabled={!canSubmit} title={blockReason || ""} style={{
             display: "flex", alignItems: "center", gap: SPACE.sm, padding: "10px 24px", borderRadius: RADIUS.xl,
             background: canSubmit ? C.cta : C.border, border: "none",
-            color: canSubmit ? "#fff" : C.dimmed, fontSize: TYPE.body, fontWeight: 700,
+            color: canSubmit ? "#fff" : C.dimmed, fontSize: TYPE.body, fontWeight: 600,
             cursor: canSubmit ? "pointer" : "not-allowed",
-            fontFamily: "inherit", boxShadow: canSubmit ? `0 4px 16px ${C.ctaGlow}` : "none",
+            fontFamily: "inherit", boxShadow: canSubmit ? `inset 0 1px 0 rgba(255,255,255,0.22), 0 4px 16px ${C.ctaGlow}` : "none",
             opacity: isSubmitting ? 0.7 : 1, transition: "background 0.2s, color 0.2s, box-shadow 0.2s",
           }}>
             {isSubmitting ? <Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} /> : postNow ? <Send size={15} /> : <Clock size={15} />}
@@ -1545,7 +1549,7 @@ function ContentPipelinePanel() {
       {/* Header */}
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 24 }}>
         <div>
-          <div style={{ fontSize: TYPE.h2, fontWeight: 800, letterSpacing: "-0.02em", color: C.white, display: "flex", alignItems: "center", gap: SPACE.lg }}>
+          <div style={{ fontSize: TYPE.h2, fontWeight: 700, letterSpacing: "-0.02em", color: C.white, display: "flex", alignItems: "center", gap: SPACE.lg }}>
             <Kanban size={22} color={C.accent} /> Content-Pipeline
           </div>
           <div style={{ fontSize: TYPE.body, color: C.muted, marginTop: 2 }}>Von der Idee bis zur Produktion – Karten per Drag & Drop verschieben</div>
@@ -1579,10 +1583,10 @@ function ContentPipelinePanel() {
                   <col.icon size={15} color={color} />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: TYPE.body, fontWeight: 700, color: C.white, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{col.label}</div>
+                  <div style={{ fontSize: TYPE.body, fontWeight: 600, color: C.white, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{col.label}</div>
                   <div style={{ fontSize: TYPE.caption, color: C.dimmed, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{col.desc}</div>
                 </div>
-                <span style={{ fontSize: TYPE.caption, fontWeight: 700, color, background: glow, padding: `${SPACE.xxs}px ${SPACE.md}px`, borderRadius: RADIUS.xl, flexShrink: 0 }}>{colCards.length}</span>
+                <span style={{ fontSize: TYPE.caption, fontWeight: 600, color, background: glow, padding: `${SPACE.xxs}px ${SPACE.md}px`, borderRadius: RADIUS.xl, flexShrink: 0 }}>{colCards.length}</span>
               </div>
 
               {/* Cards */}
@@ -1593,7 +1597,7 @@ function ContentPipelinePanel() {
                   </div>
                 )}
                 {isDragTarget && (
-                  <div style={{ border: `1.5px dashed ${color}`, background: glow, borderRadius: RADIUS.xl, padding: "14px 12px", textAlign: "center", fontSize: TYPE.small, fontWeight: 600, color }}>
+                  <div style={{ border: `1.5px dashed ${color}`, background: glow, borderRadius: RADIUS.xl, padding: "14px 12px", textAlign: "center", fontSize: TYPE.small, fontWeight: 500, color }}>
                     Hier ablegen
                   </div>
                 )}
@@ -1616,19 +1620,19 @@ function ContentPipelinePanel() {
                         <div>
                           <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} autoFocus
                             onKeyDown={(e) => { if (e.key === "Enter") saveEdit(); if (e.key === "Escape") setEditingId(null); }}
-                            style={{ width: "100%", background: C.bg, border: `1px solid ${color}`, borderRadius: RADIUS.lg, padding: "7px 10px", color: C.white, fontSize: TYPE.body, fontWeight: 600, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }} />
+                            style={{ width: "100%", background: C.bg, border: `1px solid ${color}`, borderRadius: RADIUS.lg, padding: "7px 10px", color: C.white, fontSize: TYPE.body, fontWeight: 500, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }} />
                           <textarea value={editNotes} onChange={(e) => setEditNotes(e.target.value)} rows={3} placeholder="Notizen / Skript-Text..."
                             style={{ width: "100%", background: C.bg, border: `1px solid ${C.border}`, borderRadius: RADIUS.lg, padding: "7px 10px", color: C.white, fontSize: TYPE.small, fontFamily: "inherit", outline: "none", resize: "vertical", lineHeight: 1.5, marginTop: 6, boxSizing: "border-box" }} />
                           <div style={{ display: "flex", gap: SPACE.sm, justifyContent: "flex-end", marginTop: 6 }}>
                             <button onClick={() => setEditingId(null)} style={{ padding: "5px 10px", borderRadius: RADIUS.md, background: "transparent", border: `1px solid ${C.border}`, color: C.dimmed, fontSize: TYPE.caption, cursor: "pointer", fontFamily: "inherit" }}>Abbrechen</button>
-                            <button onClick={saveEdit} style={{ padding: "5px 12px", borderRadius: RADIUS.md, background: color, border: "none", color: "#fff", fontSize: TYPE.caption, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Speichern</button>
+                            <button onClick={saveEdit} style={{ padding: "5px 12px", borderRadius: RADIUS.md, background: color, border: "none", color: "#fff", fontSize: TYPE.caption, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Speichern</button>
                           </div>
                         </div>
                       ) : (
                         <div>
                           <div style={{ display: "flex", alignItems: "flex-start", gap: SPACE.sm }}>
                             <GripVertical size={13} color={C.dimmed} style={{ marginTop: 2, flexShrink: 0, opacity: 0.6 }} />
-                            <div style={{ fontSize: TYPE.body, fontWeight: 600, color: C.white, lineHeight: 1.4, flex: 1, wordBreak: "break-word" }}>{card.title}</div>
+                            <div style={{ fontSize: TYPE.body, fontWeight: 500, color: C.white, lineHeight: 1.4, flex: 1, wordBreak: "break-word" }}>{card.title}</div>
                           </div>
                           {card.notes && (
                             <div style={{ fontSize: TYPE.small, color: C.muted, lineHeight: 1.5, marginTop: 5, marginLeft: 19, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden", whiteSpace: "pre-wrap" }}>{card.notes}</div>
@@ -1668,12 +1672,12 @@ function ContentPipelinePanel() {
                       style={{ width: "100%", background: C.bg, border: `1px solid ${C.border}`, borderRadius: RADIUS.lg, padding: "7px 10px", color: C.white, fontSize: TYPE.body, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }} />
                     <div style={{ display: "flex", gap: SPACE.sm, justifyContent: "flex-end", marginTop: 8 }}>
                       <button onClick={() => { setAddingCol(null); setNewTitle(""); }} style={{ padding: "5px 10px", borderRadius: RADIUS.md, background: "transparent", border: `1px solid ${C.border}`, color: C.dimmed, fontSize: TYPE.caption, cursor: "pointer", fontFamily: "inherit" }}>Abbrechen</button>
-                      <button onClick={() => addCard(col.key)} style={{ padding: "5px 12px", borderRadius: RADIUS.md, background: color, border: "none", color: "#fff", fontSize: TYPE.caption, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Hinzufügen</button>
+                      <button onClick={() => addCard(col.key)} style={{ padding: "5px 12px", borderRadius: RADIUS.md, background: color, border: "none", color: "#fff", fontSize: TYPE.caption, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Hinzufügen</button>
                     </div>
                   </div>
                 ) : (
                   <button onClick={() => { setAddingCol(col.key); setNewTitle(""); }}
-                    style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: SPACE.sm, width: "100%", padding: `${SPACE.md}px 0`, borderRadius: RADIUS.xl, background: "transparent", border: `1.5px dashed ${C.border}`, color: C.dimmed, fontSize: TYPE.small, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", transition: "all 0.2s" }}
+                    style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: SPACE.sm, width: "100%", padding: `${SPACE.md}px 0`, borderRadius: RADIUS.xl, background: "transparent", border: `1.5px dashed ${C.border}`, color: C.dimmed, fontSize: TYPE.small, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", transition: "all 0.2s" }}
                     onMouseOver={(e) => { e.currentTarget.style.borderColor = color; e.currentTarget.style.color = color; e.currentTarget.style.background = glow; }}
                     onMouseOut={(e) => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.dimmed; e.currentTarget.style.background = "transparent"; }}>
                     <Plus size={13} /> Karte hinzufügen
@@ -1695,7 +1699,7 @@ function Sidebar({ activeTab, onTabChange, unreadCount, errorCount, isDarkMode, 
   // active state instead of a flat neutral panel.
   const SB = {
     bg: isDarkMode ? "rgba(18,21,29,0.55)" : "rgba(255,255,255,0.75)",
-    activeBg: isDarkMode ? "rgba(249,115,22,0.14)" : "#E8EAFF",
+    activeBg: C.accentGlow,
     hoverBg: isDarkMode ? "rgba(255,255,255,0.06)" : "#EEEEFF",
     text: isDarkMode ? "#94A3B8" : "#6B7280",
     activeText: isDarkMode ? "#F5F7FA" : "#111827",
@@ -1705,20 +1709,20 @@ function Sidebar({ activeTab, onTabChange, unreadCount, errorCount, isDarkMode, 
 
   const navItems = [
     { key: "home", icon: LayoutDashboard, label: "Übersicht" },
-    { key: "connections", icon: Globe, label: "Connections" },
+    { key: "connections", icon: Globe, label: "Verbindungen" },
     {
       key: "posts", icon: Send, label: "Posts", expandable: true,
       children: [
-        { key: "dashboard", label: "Overview" },
-        { key: "calendar", label: "Queues" },
+        { key: "dashboard", label: "Alle Posts" },
+        { key: "calendar", label: "Warteschlange" },
       ],
     },
-    { key: "analytics", icon: BarChart3, label: "Analytics" },
+    { key: "analytics", icon: BarChart3, label: "Statistiken" },
     {
-      key: "inbox", icon: Bell, label: "Inbox", badge: unreadCount, expandable: true,
+      key: "inbox", icon: Bell, label: "Posteingang", badge: unreadCount, expandable: true,
       children: [
-        { key: "notifications", label: "Messages" },
-        { key: "comments", label: "Comments" },
+        { key: "notifications", label: "Nachrichten" },
+        { key: "comments", label: "Kommentare" },
       ],
     },
     { key: "ads", icon: TrendingUp, label: "Ads", disabled: true },
@@ -1726,20 +1730,22 @@ function Sidebar({ activeTab, onTabChange, unreadCount, errorCount, isDarkMode, 
     { key: "pipeline", icon: Kanban, label: "Content-Pipeline" },
     { key: "webhooks", icon: RefreshCw, label: "Webhooks", disabled: true },
     { key: "logs", icon: Shield, label: "Logs" },
-    { key: "settings", icon: Settings, label: "Settings", badge: errorCount },
+    { key: "settings", icon: Settings, label: "Einstellungen", badge: errorCount },
   ];
 
   const navItemStyle = (isActive, disabled) => ({
     display: "flex", alignItems: "center", gap: SPACE.lg, width: "100%", padding: "9px 16px", borderRadius: RADIUS.lg,
     border: "none", background: isActive ? SB.activeBg : "transparent", color: isActive ? SB.activeText : disabled ? SB.text + "60" : SB.text,
-    fontSize: TYPE.body, fontWeight: isActive ? 600 : 500, cursor: disabled ? "default" : "pointer",
+    fontSize: TYPE.body, fontWeight: isActive ? 500 : 500, cursor: disabled ? "default" : "pointer",
     fontFamily: "inherit", transition: "all 0.15s", textAlign: "left", opacity: disabled ? 0.5 : 1,
+    // Right-edge indicator bar on the active item, matching the reference.
+    boxShadow: isActive ? `inset -3px 0 0 0 ${C.accent}` : "none",
   });
 
   const subItemStyle = (isActive) => ({
     display: "flex", alignItems: "center", gap: SPACE.md, width: "100%", padding: "7px 16px 7px 42px", borderRadius: RADIUS.lg,
     border: "none", background: isActive ? SB.activeBg : "transparent", color: isActive ? SB.activeText : SB.text,
-    fontSize: TYPE.body, fontWeight: isActive ? 600 : 400, cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s", textAlign: "left",
+    fontSize: TYPE.body, fontWeight: isActive ? 500 : 400, cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s", textAlign: "left",
   });
 
   // Auto-expand parent menus based on active tab
@@ -1754,9 +1760,9 @@ function Sidebar({ activeTab, onTabChange, unreadCount, errorCount, isDarkMode, 
     }}>
       {/* User Profile */}
       <div style={{ padding: "20px 16px 16px", display: "flex", alignItems: "center", gap: SPACE.lg }}>
-        <div style={{ width: 38, height: 38, borderRadius: "50%", background: `linear-gradient(135deg, ${C.accent}, #9A3412)`, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: TYPE.label, color: "#fff", flexShrink: 0 }}>D</div>
+        <div style={{ width: 38, height: 38, borderRadius: "50%", background: `linear-gradient(135deg, ${C.accent}, #9A3412)`, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: TYPE.label, color: "#fff", flexShrink: 0 }}>D</div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: TYPE.body, fontWeight: 700, color: SB.activeText, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>Dariel</div>
+          <div style={{ fontSize: TYPE.body, fontWeight: 600, color: SB.activeText, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>Dariel</div>
           <div style={{ fontSize: TYPE.micro, color: SB.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>darielo30@live.de</div>
         </div>
         <button onClick={onClose} aria-label="Menü schließen" className="mobile-menu-btn" style={{
@@ -1803,7 +1809,7 @@ function Sidebar({ activeTab, onTabChange, unreadCount, errorCount, isDarkMode, 
                 <item.icon size={16} />
                 <span style={{ flex: 1 }}>{item.label}</span>
                 {item.badge > 0 && (
-                  <span style={{ fontSize: TYPE.micro, fontWeight: 700, color: "#fff", background: C.accent, padding: "1px 6px", borderRadius: RADIUS.lg, minWidth: 18, textAlign: "center" }}>{item.badge > 99 ? "99+" : item.badge}</span>
+                  <span style={{ fontSize: TYPE.micro, fontWeight: 600, color: "#fff", background: C.accent, padding: "1px 6px", borderRadius: RADIUS.lg, minWidth: 18, textAlign: "center" }}>{item.badge > 99 ? "99+" : item.badge}</span>
                 )}
                 {item.expandable && (
                   <ChevronDown size={13} style={{ transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s", opacity: 0.5 }} />
@@ -1838,7 +1844,7 @@ function Sidebar({ activeTab, onTabChange, unreadCount, errorCount, isDarkMode, 
         onMouseOver={(e) => e.currentTarget.style.background = SB.hoverBg}
         onMouseOut={(e) => e.currentTarget.style.background = "transparent"}>
           {isDarkMode ? <Sun size={15} color={C.yellow} /> : <Moon size={15} color="#6366F1" />}
-          {isDarkMode ? "Light Mode" : "Dark Mode"}
+          {isDarkMode ? "Heller Modus" : "Dunkler Modus"}
         </button>
       </div>
     </div>
@@ -1974,7 +1980,7 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
     const p = (platform || "instagram").toLowerCase();
     const col = p === "instagram" ? C.instagram : C.tiktok;
     return (
-      <div style={{ display: "inline-flex", alignItems: "center", gap: SPACE.xs, padding: `${SPACE.xxs}px ${SPACE.md}px`, borderRadius: RADIUS.md, background: col + "15", fontSize: TYPE.micro, fontWeight: 600, color: col }}>
+      <div style={{ display: "inline-flex", alignItems: "center", gap: SPACE.xs, padding: `${SPACE.xxs}px ${SPACE.md}px`, borderRadius: RADIUS.md, background: col + "15", fontSize: TYPE.micro, fontWeight: 500, color: col }}>
         {p === "instagram" ? <Instagram size={10} /> : <TikTokIcon size={10} />}
         {p === "instagram" ? "IG" : "TT"}
       </div>
@@ -1986,7 +1992,7 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
       {/* Top Bar */}
       <div style={{ padding: "20px 24px 0", borderBottom: `1px solid ${C.border}` }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-          <div style={{ fontSize: TYPE.h3, fontWeight: 800, letterSpacing: "-0.02em" }}>Inbox</div>
+          <div style={{ fontSize: TYPE.h3, fontWeight: 700, letterSpacing: "-0.02em" }}>Posteingang</div>
           <div style={{ display: "flex", alignItems: "center", gap: SPACE.md }}>
             {loadingComments && <Loader2 size={14} color={C.dimmed} style={{ animation: "spin 1s linear infinite" }} />}
             {/* Platform pills */}
@@ -2001,7 +2007,7 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
                   display: "flex", alignItems: "center", gap: SPACE.sm, padding: "5px 12px", borderRadius: RADIUS.lg,
                   border: `1px solid ${active ? (f.color || C.accent) : C.border}`,
                   background: active ? (f.color || C.accent) + "15" : "transparent",
-                  color: active ? (f.color || C.accent) : C.dimmed, fontSize: TYPE.small, fontWeight: 600,
+                  color: active ? (f.color || C.accent) : C.dimmed, fontSize: TYPE.small, fontWeight: 500,
                   cursor: "pointer", fontFamily: "inherit",
                 }}>
                   {f.icon && <f.icon size={12} />}{f.label}
@@ -2019,13 +2025,13 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
             const active = inboxView === v.key;
             return (
               <button key={v.key} onClick={() => { setInboxView(v.key); setSelectedComment(null); setSelectedConvo(null); }} style={{
-                display: "flex", alignItems: "center", gap: SPACE.sm, padding: `${SPACE.lg}px ${SPACE.xxxl}px`, fontSize: TYPE.body, fontWeight: 600,
+                display: "flex", alignItems: "center", gap: SPACE.sm, padding: `${SPACE.lg}px ${SPACE.xxxl}px`, fontSize: TYPE.body, fontWeight: 500,
                 color: active ? C.white : C.dimmed, background: "transparent", border: "none",
                 borderBottom: active ? `2px solid ${C.accent}` : "2px solid transparent",
                 cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s",
               }}>
                 <v.icon size={14} /> {v.label}
-                {v.count > 0 && <span style={{ fontSize: TYPE.micro, background: active ? C.accent + "20" : C.border, color: active ? C.accent : C.dimmed, padding: "1px 6px", borderRadius: RADIUS.xl, fontWeight: 700 }}>{v.count}</span>}
+                {v.count > 0 && <span style={{ fontSize: TYPE.micro, background: active ? C.accent + "20" : C.border, color: active ? C.accent : C.dimmed, padding: "1px 6px", borderRadius: RADIUS.xl, fontWeight: 600 }}>{v.count}</span>}
               </button>
             );
           })}
@@ -2067,14 +2073,14 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
                     <div style={{ width: 38, height: 38, borderRadius: "50%", background: pc + "20", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, position: "relative" }}>
                       {n.avatar
                         ? <img src={n.avatar} alt="" style={{ width: 38, height: 38, borderRadius: "50%", objectFit: "cover" }} />
-                        : <span style={{ fontSize: TYPE.label, fontWeight: 700, color: pc }}>{(n.user || "?")[0].toUpperCase()}</span>
+                        : <span style={{ fontSize: TYPE.label, fontWeight: 600, color: pc }}>{(n.user || "?")[0].toUpperCase()}</span>
                       }
                       {!n.read && <div style={{ position: "absolute", top: -1, right: -1, width: 10, height: 10, borderRadius: "50%", background: C.accent, border: `2px solid ${C.bg}` }} />}
                     </div>
                     {/* Content */}
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: SPACE.sm, marginBottom: 2 }}>
-                        <span style={{ fontSize: TYPE.body, fontWeight: 700, color: C.white }}>{n.user}</span>
+                        <span style={{ fontSize: TYPE.body, fontWeight: 600, color: C.white }}>{n.user}</span>
                         <PlatformBadge platform={n.platform} />
                       </div>
                       <div style={{ fontSize: TYPE.small, color: C.muted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
@@ -2094,7 +2100,7 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
               {!selectedComment ? (
                 <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: C.dimmed, gap: SPACE.xl }}>
                   <MessageCircle size={40} color={C.border} />
-                  <div style={{ fontSize: TYPE.bodyLg, fontWeight: 600 }}>Kommentar auswählen</div>
+                  <div style={{ fontSize: TYPE.bodyLg, fontWeight: 500 }}>Kommentar auswählen</div>
                   <div style={{ fontSize: TYPE.small }}>Wähle einen Kommentar aus der Liste, um Details zu sehen.</div>
                 </div>
               ) : (
@@ -2104,12 +2110,12 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
                     <div style={{ width: 44, height: 44, borderRadius: "50%", background: (selectedComment.platform === "instagram" ? C.instagram : C.tiktok) + "20", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                       {selectedComment.avatar
                         ? <img src={selectedComment.avatar} alt="" style={{ width: 44, height: 44, borderRadius: "50%", objectFit: "cover" }} />
-                        : <span style={{ fontSize: TYPE.h4, fontWeight: 700, color: selectedComment.platform === "instagram" ? C.instagram : C.tiktok }}>{(selectedComment.user || "?")[0].toUpperCase()}</span>
+                        : <span style={{ fontSize: TYPE.h4, fontWeight: 600, color: selectedComment.platform === "instagram" ? C.instagram : C.tiktok }}>{(selectedComment.user || "?")[0].toUpperCase()}</span>
                       }
                     </div>
                     <div style={{ flex: 1 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: SPACE.md }}>
-                        <span style={{ fontSize: TYPE.labelLg, fontWeight: 700, color: C.white }}>{selectedComment.user}</span>
+                        <span style={{ fontSize: TYPE.labelLg, fontWeight: 600, color: C.white }}>{selectedComment.user}</span>
                         <PlatformBadge platform={selectedComment.platform} />
                       </div>
                       <div style={{ fontSize: TYPE.small, color: C.dimmed, marginTop: 2 }}>{formatTime(selectedComment.time)}</div>
@@ -2119,7 +2125,7 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
                         try {
                           await fetch("/api/late", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "hide-comment", postId: selectedComment.postId, commentId: selectedComment.commentId }) });
                         } catch {}
-                      }} style={{ padding: `${SPACE.sm}px ${SPACE.xl}px`, borderRadius: RADIUS.lg, background: C.card, border: `1px solid ${C.border}`, color: C.dimmed, fontSize: TYPE.caption, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: SPACE.xs }}>
+                      }} style={{ padding: `${SPACE.sm}px ${SPACE.xl}px`, borderRadius: RADIUS.lg, background: C.card, border: `1px solid ${C.border}`, color: C.dimmed, fontSize: TYPE.caption, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: SPACE.xs }}>
                         <EyeOff size={12} /> Ausblenden
                       </button>
                     )}
@@ -2128,7 +2134,7 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
                   {/* Post reference */}
                   {selectedComment.post && (
                     <div style={{ padding: `${SPACE.xl}px ${SPACE.xxl}px`, borderRadius: RADIUS.xl, background: C.card, border: `1px solid ${C.border}`, marginBottom: 16, fontSize: TYPE.small, color: C.muted }}>
-                      <div style={{ fontSize: TYPE.micro, fontWeight: 700, color: C.dimmed, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Beitrag</div>
+                      <div style={{ fontSize: TYPE.micro, fontWeight: 600, color: C.dimmed, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Beitrag</div>
                       {selectedComment.post}
                     </div>
                   )}
@@ -2143,12 +2149,12 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
                   {/* Replies thread */}
                   {selectedComment.replies && selectedComment.replies.length > 0 && (
                     <div style={{ marginBottom: 16 }}>
-                      <div style={{ fontSize: TYPE.caption, fontWeight: 700, color: C.dimmed, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Antworten ({selectedComment.replies.length})</div>
+                      <div style={{ fontSize: TYPE.caption, fontWeight: 600, color: C.dimmed, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Antworten ({selectedComment.replies.length})</div>
                       <div style={{ display: "flex", flexDirection: "column", gap: SPACE.md, paddingLeft: 16, borderLeft: `2px solid ${C.border}` }}>
                         {selectedComment.replies.map((r, ri) => (
                           <div key={ri} style={{ padding: "10px 14px", borderRadius: RADIUS.xl, background: C.bg, border: `1px solid ${C.border}` }}>
                             <div style={{ display: "flex", alignItems: "center", gap: SPACE.sm, marginBottom: 4 }}>
-                              <span style={{ fontSize: TYPE.small, fontWeight: 700, color: C.white }}>{r.author?.username || r.username || "Unbekannt"}</span>
+                              <span style={{ fontSize: TYPE.small, fontWeight: 600, color: C.white }}>{r.author?.username || r.username || "Unbekannt"}</span>
                               <span style={{ fontSize: TYPE.micro, color: C.dimmed }}>{formatTime(r.createdAt)}</span>
                             </div>
                             <div style={{ fontSize: TYPE.body, color: C.muted, lineHeight: 1.5 }}>{r.text || r.content || r.message || ""}</div>
@@ -2164,7 +2170,7 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
                       <input type="text" value={replyText} onChange={(e) => setReplyText(e.target.value)}
                         placeholder="Antwort schreiben..."
                         style={{ flex: 1, padding: "10px 14px", borderRadius: RADIUS.xl, background: C.card, border: `1px solid ${C.border}`, color: C.white, fontSize: TYPE.body, fontFamily: "inherit", outline: "none" }} />
-                      <button style={{ padding: "10px 18px", borderRadius: RADIUS.xl, background: C.accent, border: "none", color: "#fff", fontSize: TYPE.body, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: SPACE.sm, opacity: !replyText.trim() ? 0.5 : 1 }}>
+                      <button style={{ padding: "10px 18px", borderRadius: RADIUS.xl, background: C.accent, border: "none", color: "#fff", fontSize: TYPE.body, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: SPACE.sm, opacity: !replyText.trim() ? 0.5 : 1 }}>
                         <Send size={14} /> Antworten
                       </button>
                     </div>
@@ -2204,14 +2210,14 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
                     <div style={{ width: 38, height: 38, borderRadius: "50%", background: pc + "20", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                       {convo.participant?.profilePicture
                         ? <img src={convo.participant.profilePicture} alt="" style={{ width: 38, height: 38, borderRadius: "50%", objectFit: "cover" }} />
-                        : <span style={{ fontSize: TYPE.label, fontWeight: 700, color: pc }}>{name[0].toUpperCase()}</span>
+                        : <span style={{ fontSize: TYPE.label, fontWeight: 600, color: pc }}>{name[0].toUpperCase()}</span>
                       }
                     </div>
                     {/* Content */}
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 2 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: SPACE.sm }}>
-                          <span style={{ fontSize: TYPE.body, fontWeight: 700, color: C.white }}>{name}</span>
+                          <span style={{ fontSize: TYPE.body, fontWeight: 600, color: C.white }}>{name}</span>
                           <PlatformBadge platform={convo.platform} />
                         </div>
                         <span style={{ fontSize: TYPE.micro, color: C.dimmed, flexShrink: 0 }}>
@@ -2232,7 +2238,7 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
               {!selectedConvo ? (
                 <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: C.dimmed, gap: SPACE.xl }}>
                   <Send size={40} color={C.border} />
-                  <div style={{ fontSize: TYPE.bodyLg, fontWeight: 600 }}>Konversation auswählen</div>
+                  <div style={{ fontSize: TYPE.bodyLg, fontWeight: 500 }}>Konversation auswählen</div>
                   <div style={{ fontSize: TYPE.small }}>Wähle eine Konversation, um den Chat zu öffnen.</div>
                 </div>
               ) : (
@@ -2242,12 +2248,12 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
                     <div style={{ width: 38, height: 38, borderRadius: "50%", background: ((selectedConvo.platform || "instagram") === "instagram" ? C.instagram : C.tiktok) + "20", display: "flex", alignItems: "center", justifyContent: "center" }}>
                       {selectedConvo.participant?.profilePicture
                         ? <img src={selectedConvo.participant.profilePicture} alt="" style={{ width: 38, height: 38, borderRadius: "50%", objectFit: "cover" }} />
-                        : <span style={{ fontSize: TYPE.label, fontWeight: 700, color: (selectedConvo.platform || "instagram") === "instagram" ? C.instagram : C.tiktok }}>{(selectedConvo.participant?.username || selectedConvo.name || "U")[0].toUpperCase()}</span>
+                        : <span style={{ fontSize: TYPE.label, fontWeight: 600, color: (selectedConvo.platform || "instagram") === "instagram" ? C.instagram : C.tiktok }}>{(selectedConvo.participant?.username || selectedConvo.name || "U")[0].toUpperCase()}</span>
                       }
                     </div>
                     <div>
                       <div style={{ display: "flex", alignItems: "center", gap: SPACE.md }}>
-                        <span style={{ fontSize: TYPE.label, fontWeight: 700, color: C.white }}>{selectedConvo.participant?.username || selectedConvo.name || "Unbekannt"}</span>
+                        <span style={{ fontSize: TYPE.label, fontWeight: 600, color: C.white }}>{selectedConvo.participant?.username || selectedConvo.name || "Unbekannt"}</span>
                         <PlatformBadge platform={selectedConvo.platform} />
                       </div>
                       <div style={{ fontSize: TYPE.caption, color: C.dimmed, marginTop: 1 }}>Konversation</div>
@@ -2289,7 +2295,7 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
                         placeholder="Nachricht schreiben..."
                         style={{ flex: 1, padding: "11px 16px", borderRadius: RADIUS.xxl, background: C.card, border: `1px solid ${C.border}`, color: C.white, fontSize: TYPE.body, fontFamily: "inherit", outline: "none" }} />
                       <button onClick={() => handleReply(selectedConvo.id)} disabled={sendingReply || !replyText.trim()}
-                        style={{ padding: "11px 20px", borderRadius: RADIUS.xxl, background: C.accent, border: "none", color: "#fff", fontSize: TYPE.body, fontWeight: 600, cursor: sendingReply ? "wait" : "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: SPACE.sm, opacity: !replyText.trim() ? 0.5 : 1 }}>
+                        style={{ padding: "11px 20px", borderRadius: RADIUS.xxl, background: C.accent, border: "none", color: "#fff", fontSize: TYPE.body, fontWeight: 500, cursor: sendingReply ? "wait" : "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: SPACE.sm, opacity: !replyText.trim() ? 0.5 : 1 }}>
                         {sendingReply ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <Send size={14} />}
                       </button>
                     </div>
@@ -2344,7 +2350,7 @@ function CalendarPanel({ posts, onSelectPost, onNewPost }) {
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
         <div>
-          <div style={{ fontSize: TYPE.h2, fontWeight: 800, color: C.white }}>Content-Kalender</div>
+          <div style={{ fontSize: TYPE.h2, fontWeight: 700, color: C.white }}>Content-Kalender</div>
           <div style={{ fontSize: TYPE.body, color: C.muted, marginTop: 4 }}>Alle Beiträge auf einen Blick</div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: SPACE.md }}>
@@ -2352,7 +2358,7 @@ function CalendarPanel({ posts, onSelectPost, onNewPost }) {
             style={{ width: 36, height: 36, borderRadius: RADIUS.xl, display: "flex", alignItems: "center", justifyContent: "center", background: C.card, border: `1px solid ${C.border}`, cursor: "pointer", color: C.muted, fontSize: TYPE.h4 }}>
             <ChevronLeft size={18} />
           </button>
-          <div style={{ fontSize: TYPE.labelLg, fontWeight: 700, color: C.white, minWidth: 160, textAlign: "center" }}>
+          <div style={{ fontSize: TYPE.labelLg, fontWeight: 600, color: C.white, minWidth: 160, textAlign: "center" }}>
             {MONTHS_DE[calMonth]} {calYear}
           </div>
           <button onClick={() => { if (calMonth === 11) { setCalMonth(0); setCalYear(calYear + 1); } else setCalMonth(calMonth + 1); }}
@@ -2374,7 +2380,7 @@ function CalendarPanel({ posts, onSelectPost, onNewPost }) {
       {/* Weekday headers */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: SPACE.xxs, marginBottom: 1 }}>
         {WEEKDAYS.map((wd) => (
-          <div key={wd} style={{ padding: `${SPACE.md}px 0`, textAlign: "center", fontSize: TYPE.caption, fontWeight: 700, color: C.dimmed, textTransform: "uppercase", letterSpacing: "0.08em" }}>{wd}</div>
+          <div key={wd} style={{ padding: `${SPACE.md}px 0`, textAlign: "center", fontSize: TYPE.caption, fontWeight: 600, color: C.dimmed, textTransform: "uppercase", letterSpacing: "0.08em" }}>{wd}</div>
         ))}
       </div>
 
@@ -2405,7 +2411,7 @@ function CalendarPanel({ posts, onSelectPost, onNewPost }) {
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
                 <div style={{
                   width: 24, height: 24, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: TYPE.small, fontWeight: isTodayCell ? 800 : 600,
+                  fontSize: TYPE.small, fontWeight: isTodayCell ? 700 : 500,
                   color: isTodayCell ? "#fff" : dayPosts.length > 0 ? C.white : C.dimmed,
                   background: isTodayCell ? C.accent : "transparent",
                 }}>
@@ -2427,7 +2433,7 @@ function CalendarPanel({ posts, onSelectPost, onNewPost }) {
                   return (
                     <div key={p.id} onClick={() => onSelectPost && onSelectPost(p)}
                       style={{
-                        padding: "3px 6px", borderRadius: RADIUS.md, fontSize: TYPE.micro, fontWeight: 600,
+                        padding: "3px 6px", borderRadius: RADIUS.md, fontSize: TYPE.micro, fontWeight: 500,
                         background: statusColor(p.status) + "15", color: statusColor(p.status),
                         cursor: "pointer", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
                         borderLeft: `3px solid ${statusColor(p.status)}`,
@@ -2443,7 +2449,7 @@ function CalendarPanel({ posts, onSelectPost, onNewPost }) {
                   );
                 })}
                 {dayPosts.length > 3 && (
-                  <div style={{ fontSize: TYPE.micro, color: C.dimmed, fontWeight: 600, paddingLeft: 6 }}>+{dayPosts.length - 3} mehr</div>
+                  <div style={{ fontSize: TYPE.micro, color: C.dimmed, fontWeight: 500, paddingLeft: 6 }}>+{dayPosts.length - 3} mehr</div>
                 )}
               </div>
             </div>
@@ -2460,8 +2466,8 @@ function CalendarPanel({ posts, onSelectPost, onNewPost }) {
           { label: "Entwurf", count: Object.values(postsByDay).flat().filter((p) => p.status === "draft").length, color: C.dimmed },
         ].map((s) => (
           <div key={s.label} style={{ flex: 1, padding: "14px 16px", background: C.card, borderRadius: RADIUS.xxl, border: `1px solid ${C.border}`, textAlign: "center" }}>
-            <div style={{ fontSize: TYPE.h2, fontWeight: 800, color: s.color }}>{s.count}</div>
-            <div style={{ fontSize: TYPE.caption, color: C.muted, fontWeight: 600, marginTop: 2 }}>{s.label}</div>
+            <div style={{ fontSize: TYPE.h2, fontWeight: 700, color: s.color }}>{s.count}</div>
+            <div style={{ fontSize: TYPE.caption, color: C.muted, fontWeight: 500, marginTop: 2 }}>{s.label}</div>
           </div>
         ))}
       </div>
@@ -2487,14 +2493,14 @@ function CalendarPanel({ posts, onSelectPost, onNewPost }) {
             boxShadow: "0 8px 32px rgba(0,0,0,0.5)", pointerEvents: "none",
             animation: "fadeIn 0.15s ease",
           }}>
-            <div style={{ fontSize: TYPE.small, fontWeight: 700, color: C.white, marginBottom: 8, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 220 }}>
+            <div style={{ fontSize: TYPE.small, fontWeight: 600, color: C.white, marginBottom: 8, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 220 }}>
               {tp.title || "Post"}
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: SPACE.sm }}>
               {rows.map((r, i) => (
                 <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: SPACE.xxl, fontSize: TYPE.caption }}>
-                  <span style={{ color: C.dimmed, fontWeight: 600 }}>{r.label}</span>
-                  <span style={{ color: r.color || C.muted, fontWeight: 600, textAlign: "right" }}>{r.value}</span>
+                  <span style={{ color: C.dimmed, fontWeight: 500 }}>{r.label}</span>
+                  <span style={{ color: r.color || C.muted, fontWeight: 500, textAlign: "right" }}>{r.value}</span>
                 </div>
               ))}
             </div>
@@ -2551,12 +2557,12 @@ function _TeamPanelRemoved() { /* removed – demo only */
     <div style={{ padding: "28px 32px", maxWidth: 800, margin: "0 auto" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
         <div>
-          <div style={{ fontSize: TYPE.h2, fontWeight: 800, letterSpacing: "-0.02em" }}>Team</div>
+          <div style={{ fontSize: TYPE.h2, fontWeight: 700, letterSpacing: "-0.02em" }}>Team</div>
           <div style={{ fontSize: TYPE.body, color: C.muted, marginTop: 4 }}>{members.length} Mitglied{members.length !== 1 ? "er" : ""}</div>
         </div>
         <button onClick={() => setShowInvite(!showInvite)} style={{
           display: "flex", alignItems: "center", gap: SPACE.sm, padding: `${SPACE.lg}px ${SPACE.xxxl}px`, borderRadius: RADIUS.xl,
-          background: C.accent, border: "none", color: "#fff", fontSize: TYPE.body, fontWeight: 700,
+          background: C.accent, border: "none", color: "#fff", fontSize: TYPE.body, fontWeight: 600,
           cursor: "pointer", fontFamily: "inherit", boxShadow: `0 4px 16px ${C.accentGlow}`,
         }}>
           <UserPlus size={15} /> Einladen
@@ -2566,7 +2572,7 @@ function _TeamPanelRemoved() { /* removed – demo only */
       {/* Invite Form */}
       {showInvite && (
         <div style={{ background: C.card, borderRadius: RADIUS.xxxl, border: `1px solid ${C.accent}30`, padding: 20, marginBottom: 20 }}>
-          <div style={{ fontSize: TYPE.bodyLg, fontWeight: 700, marginBottom: 14 }}>Teammitglied einladen</div>
+          <div style={{ fontSize: TYPE.bodyLg, fontWeight: 600, marginBottom: 14 }}>Teammitglied einladen</div>
           <div style={{ display: "flex", gap: SPACE.lg, marginBottom: 12 }}>
             <input type="email" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)}
               placeholder="E-Mail-Adresse eingeben..."
@@ -2582,7 +2588,7 @@ function _TeamPanelRemoved() { /* removed – demo only */
             </select>
           </div>
           <div style={{ display: "flex", gap: SPACE.lg }}>
-            <button onClick={handleInvite} style={{ display: "flex", alignItems: "center", gap: SPACE.sm, padding: "8px 18px", borderRadius: RADIUS.lg, background: C.accent, border: "none", color: "#fff", fontSize: TYPE.body, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+            <button onClick={handleInvite} style={{ display: "flex", alignItems: "center", gap: SPACE.sm, padding: "8px 18px", borderRadius: RADIUS.lg, background: C.accent, border: "none", color: "#fff", fontSize: TYPE.body, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>
               <Send size={13} /> Einladung senden
             </button>
             <button onClick={() => setShowInvite(false)} style={{ padding: `${SPACE.md}px ${SPACE.xxl}px`, borderRadius: RADIUS.lg, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, fontSize: TYPE.body, cursor: "pointer", fontFamily: "inherit" }}>
@@ -2597,7 +2603,7 @@ function _TeamPanelRemoved() { /* removed – demo only */
         {Object.entries(roles).map(([key, r]) => (
           <div key={key} style={{ display: "flex", alignItems: "center", gap: SPACE.sm, fontSize: TYPE.small, color: C.dimmed }}>
             <div style={{ width: 8, height: 8, borderRadius: "50%", background: r.color }} />
-            <span style={{ color: r.color, fontWeight: 600 }}>{r.label}</span>
+            <span style={{ color: r.color, fontWeight: 500 }}>{r.label}</span>
           </div>
         ))}
       </div>
@@ -2611,16 +2617,16 @@ function _TeamPanelRemoved() { /* removed – demo only */
               onMouseOver={(e) => { e.currentTarget.style.background = C.cardHover; e.currentTarget.style.borderColor = r.color + "40"; }}
               onMouseOut={(e) => { e.currentTarget.style.background = C.card; e.currentTarget.style.borderColor = C.border; }}>
               {/* Avatar */}
-              <div style={{ width: 42, height: 42, borderRadius: RADIUS.xxl, background: `linear-gradient(135deg, ${r.color}, ${r.color}80)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: TYPE.labelLg, fontWeight: 800, color: "#fff", flexShrink: 0 }}>
+              <div style={{ width: 42, height: 42, borderRadius: RADIUS.xxl, background: `linear-gradient(135deg, ${r.color}, ${r.color}80)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: TYPE.labelLg, fontWeight: 700, color: "#fff", flexShrink: 0 }}>
                 {m.avatar}
               </div>
               {/* Info */}
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: TYPE.bodyLg, fontWeight: 700, color: C.white }}>{m.name}</div>
+                <div style={{ fontSize: TYPE.bodyLg, fontWeight: 600, color: C.white }}>{m.name}</div>
                 <div style={{ fontSize: TYPE.small, color: C.dimmed, marginTop: 2 }}>{m.email}</div>
               </div>
               {/* Role Badge */}
-              <div style={{ display: "flex", alignItems: "center", gap: SPACE.sm, fontSize: TYPE.caption, fontWeight: 700, color: r.color, background: r.bg, padding: `${SPACE.xs}px ${SPACE.xl}px`, borderRadius: RADIUS.lg, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: SPACE.sm, fontSize: TYPE.caption, fontWeight: 600, color: r.color, background: r.bg, padding: `${SPACE.xs}px ${SPACE.xl}px`, borderRadius: RADIUS.lg, textTransform: "uppercase", letterSpacing: "0.06em" }}>
                 {m.role === "owner" ? <Shield size={12} /> : null}
                 {r.label}
               </div>
@@ -2649,14 +2655,14 @@ function _TeamPanelRemoved() { /* removed – demo only */
 
       {/* Info box */}
       <div style={{ marginTop: 24, padding: 16, background: C.card, borderRadius: RADIUS.xxl, border: `1px solid ${C.border}` }}>
-        <div style={{ fontSize: TYPE.body, fontWeight: 700, color: C.white, marginBottom: 8, display: "flex", alignItems: "center", gap: SPACE.sm }}>
+        <div style={{ fontSize: TYPE.body, fontWeight: 600, color: C.white, marginBottom: 8, display: "flex", alignItems: "center", gap: SPACE.sm }}>
           <Shield size={14} color={C.muted} /> Rollen & Berechtigungen
         </div>
         <div style={{ fontSize: TYPE.small, color: C.muted, lineHeight: 1.8 }}>
-          <span style={{ color: C.accent, fontWeight: 700 }}>Inhaber</span> – Voller Zugriff, kann Teammitglieder verwalten und das Dashboard konfigurieren<br />
-          <span style={{ color: C.purple, fontWeight: 700 }}>Admin</span> – Kann Beiträge erstellen, planen und Statistiken einsehen<br />
-          <span style={{ color: C.blue, fontWeight: 700 }}>Redakteur</span> – Kann Beiträge erstellen und planen<br />
-          <span style={{ color: C.dimmed, fontWeight: 700 }}>Betrachter</span> – Kann nur das Dashboard und Statistiken einsehen
+          <span style={{ color: C.accent, fontWeight: 600 }}>Inhaber</span> – Voller Zugriff, kann Teammitglieder verwalten und das Dashboard konfigurieren<br />
+          <span style={{ color: C.purple, fontWeight: 600 }}>Admin</span> – Kann Beiträge erstellen, planen und Statistiken einsehen<br />
+          <span style={{ color: C.blue, fontWeight: 600 }}>Redakteur</span> – Kann Beiträge erstellen und planen<br />
+          <span style={{ color: C.dimmed, fontWeight: 600 }}>Betrachter</span> – Kann nur das Dashboard und Statistiken einsehen
         </div>
       </div>
     </div>
@@ -2843,14 +2849,14 @@ function SkriptePanel({ scripts, onRefresh, loading }) {
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
         <div>
-          <div style={{ fontSize: TYPE.h2, fontWeight: 800, color: C.white, letterSpacing: "-0.02em" }}>Content-Skripte</div>
+          <div style={{ fontSize: TYPE.h2, fontWeight: 700, color: C.white, letterSpacing: "-0.02em" }}>Content-Skripte</div>
           <div style={{ fontSize: TYPE.body, color: C.muted, marginTop: 4 }}>
             {scripts.length} Skript{scripts.length !== 1 ? "e" : ""}{selectedIds.size > 0 ? ` · ${selectedIds.size} ausgewählt` : ""}
           </div>
         </div>
         <div style={{ display: "flex", gap: SPACE.md }}>
           <button onClick={onRefresh} disabled={loading}
-            style={{ display: "flex", alignItems: "center", gap: SPACE.sm, padding: "8px 14px", borderRadius: RADIUS.xl, background: C.card, border: `1px solid ${C.border}`, color: C.muted, fontSize: TYPE.small, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+            style={{ display: "flex", alignItems: "center", gap: SPACE.sm, padding: "8px 14px", borderRadius: RADIUS.xl, background: C.card, border: `1px solid ${C.border}`, color: C.muted, fontSize: TYPE.small, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>
             <RefreshCw size={14} className={loading ? "spin" : ""} style={loading ? { animation: "spin 1s linear infinite" } : {}} /> Aktualisieren
           </button>
           <button onClick={exportPDF} disabled={selectedIds.size === 0 || exporting}
@@ -2859,9 +2865,9 @@ function SkriptePanel({ scripts, onRefresh, loading }) {
               background: selectedIds.size > 0 ? C.accent : C.card,
               border: selectedIds.size > 0 ? "none" : `1px solid ${C.border}`,
               color: selectedIds.size > 0 ? "#fff" : C.dimmed,
-              fontSize: TYPE.body, fontWeight: 700, cursor: selectedIds.size > 0 ? "pointer" : "default",
+              fontSize: TYPE.body, fontWeight: 600, cursor: selectedIds.size > 0 ? "pointer" : "default",
               fontFamily: "inherit", opacity: exporting ? 0.7 : 1,
-              boxShadow: selectedIds.size > 0 ? `0 4px 16px ${C.accentGlow}` : "none",
+              boxShadow: selectedIds.size > 0 ? `inset 0 1px 0 rgba(255,255,255,0.22), 0 4px 16px ${C.accentGlow}` : "none",
             }}>
             {exporting ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <Download size={14} />}
             {exporting ? "Exportiere..." : "PDF exportieren"}
@@ -2879,7 +2885,7 @@ function SkriptePanel({ scripts, onRefresh, loading }) {
           />
         </div>
         <button onClick={selectAll}
-          style={{ display: "flex", alignItems: "center", gap: SPACE.sm, padding: `${SPACE.lg}px ${SPACE.xxl}px`, borderRadius: RADIUS.xl, background: C.card, border: `1px solid ${C.border}`, color: C.muted, fontSize: TYPE.small, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>
+          style={{ display: "flex", alignItems: "center", gap: SPACE.sm, padding: `${SPACE.lg}px ${SPACE.xxl}px`, borderRadius: RADIUS.xl, background: C.card, border: `1px solid ${C.border}`, color: C.muted, fontSize: TYPE.small, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>
           {selectedIds.size === filtered.length && filtered.length > 0 ? <CheckSquare size={14} color={C.accent} /> : <Square size={14} />}
           {selectedIds.size === filtered.length && filtered.length > 0 ? "Auswahl aufheben" : "Alle auswählen"}
         </button>
@@ -2889,7 +2895,7 @@ function SkriptePanel({ scripts, onRefresh, loading }) {
       {scripts.length === 0 && !loading && (
         <div className="glass-panel glass-border" style={{ textAlign: "center", padding: "60px 20px", background: C.glass, borderRadius: RADIUS.shell, boxShadow: "0 20px 48px rgba(0,0,0,0.3)" }}>
           <FileText size={40} color={C.dimmed} style={{ marginBottom: 16 }} />
-          <div style={{ fontSize: TYPE.labelLg, fontWeight: 700, color: C.white, marginBottom: 8 }}>Noch keine Skripte</div>
+          <div style={{ fontSize: TYPE.labelLg, fontWeight: 600, color: C.white, marginBottom: 8 }}>Noch keine Skripte</div>
           <div style={{ fontSize: TYPE.body, color: C.muted, maxWidth: 400, margin: "0 auto", lineHeight: 1.6 }}>
             Skripte werden automatisch über den Make.com Webhook importiert. Konfiguriere dein Szenario mit der Webhook-URL deines Dashboards.
           </div>
@@ -2933,11 +2939,11 @@ function SkriptePanel({ scripts, onRefresh, loading }) {
                 {/* Content */}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: SPACE.lg, marginBottom: 4 }}>
-                    <div style={{ fontSize: TYPE.bodyLg, fontWeight: 700, color: C.white, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <div style={{ fontSize: TYPE.bodyLg, fontWeight: 600, color: C.white, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {s.title || "Skript"}
                     </div>
                     {s.competitor && (
-                      <div style={{ fontSize: TYPE.micro, fontWeight: 600, color: C.muted, background: C.bg, padding: `${SPACE.xxs}px ${SPACE.md}px`, borderRadius: RADIUS.md, whiteSpace: "nowrap" }}>
+                      <div style={{ fontSize: TYPE.micro, fontWeight: 500, color: C.muted, background: C.bg, padding: `${SPACE.xxs}px ${SPACE.md}px`, borderRadius: RADIUS.md, whiteSpace: "nowrap" }}>
                         {s.competitor}
                       </div>
                     )}
@@ -2948,7 +2954,7 @@ function SkriptePanel({ scripts, onRefresh, loading }) {
                 </div>
 
                 {/* Date */}
-                <div style={{ fontSize: TYPE.caption, color: C.dimmed, fontWeight: 600, whiteSpace: "nowrap", marginTop: 2 }}>
+                <div style={{ fontSize: TYPE.caption, color: C.dimmed, fontWeight: 500, whiteSpace: "nowrap", marginTop: 2 }}>
                   {s.date ? new Date(s.date).toLocaleDateString("de-DE", { day: "2-digit", month: "short", year: "numeric" }) : "–"}
                 </div>
 
@@ -2984,12 +2990,12 @@ function SkriptePanel({ scripts, onRefresh, loading }) {
                   <div style={{ display: "flex", gap: SPACE.md, marginTop: 14 }}>
                     {s.originalUrl && (
                       <a href={s.originalUrl} target="_blank" rel="noopener noreferrer"
-                        style={{ display: "flex", alignItems: "center", gap: SPACE.sm, padding: "6px 14px", borderRadius: RADIUS.lg, background: C.bg, border: `1px solid ${C.border}`, color: C.muted, fontSize: TYPE.caption, fontWeight: 600, textDecoration: "none", cursor: "pointer" }}>
+                        style={{ display: "flex", alignItems: "center", gap: SPACE.sm, padding: "6px 14px", borderRadius: RADIUS.lg, background: C.bg, border: `1px solid ${C.border}`, color: C.muted, fontSize: TYPE.caption, fontWeight: 500, textDecoration: "none", cursor: "pointer" }}>
                         <ExternalLink size={12} /> Original ansehen
                       </a>
                     )}
                     <button onClick={() => { navigator.clipboard.writeText(s.script || ""); }}
-                      style={{ display: "flex", alignItems: "center", gap: SPACE.sm, padding: "6px 14px", borderRadius: RADIUS.lg, background: C.bg, border: `1px solid ${C.border}`, color: C.muted, fontSize: TYPE.caption, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+                      style={{ display: "flex", alignItems: "center", gap: SPACE.sm, padding: "6px 14px", borderRadius: RADIUS.lg, background: C.bg, border: `1px solid ${C.border}`, color: C.muted, fontSize: TYPE.caption, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>
                       Skript kopieren
                     </button>
                   </div>
@@ -3051,7 +3057,7 @@ function LogsPanel({ errorLog }) {
     ...logsData.map((l) => ({
       _raw: l,
       id: l.id || l._id || null,
-      action: l.action || l.type || "publishing",
+      action: l.action || l.type || "Veröffentlichung",
       status: l.statusCode || l.status || 200,
       endpoint: l.endpoint || l.url || "POST /api/v1/posts",
       platform: l.platform || l.platforms?.[0] || "—",
@@ -3066,7 +3072,7 @@ function LogsPanel({ errorLog }) {
     ...errorLog.map((e) => ({
       _raw: e,
       id: e.id,
-      action: e.action || "Error",
+      action: e.action || "Fehler",
       status: "ERR",
       endpoint: "—",
       platform: e.platforms?.join(", ") || "—",
@@ -3074,7 +3080,7 @@ function LogsPanel({ errorLog }) {
       created: e.timestamp || "",
       ok: false,
       content: e.error || e.message || "",
-      result: "Failed",
+      result: "Fehlgeschlagen",
       postId: null,
       mediaCount: 0,
     })),
@@ -3088,10 +3094,10 @@ function LogsPanel({ errorLog }) {
     if (!t) return "—";
     try {
       const diff = (Date.now() - new Date(t).getTime()) / 1000;
-      if (diff < 60) return "just now";
-      if (diff < 3600) return `${Math.floor(diff / 60)} minutes ago`;
-      if (diff < 86400) return `about ${Math.floor(diff / 3600)} hours ago`;
-      return `${Math.floor(diff / 86400)} days ago`;
+      if (diff < 60) return "gerade eben";
+      if (diff < 3600) return `vor ${Math.floor(diff / 60)} Minuten`;
+      if (diff < 86400) return `vor etwa ${Math.floor(diff / 3600)} Stunden`;
+      return `vor ${Math.floor(diff / 86400)} Tagen`;
     } catch { return "—"; }
   };
 
@@ -3130,11 +3136,11 @@ function LogsPanel({ errorLog }) {
       if (!jsonStr || jsonStr === "null" || jsonStr === "{}") return null;
       return (
         <div style={{ marginTop: 12 }}>
-          <button onClick={() => toggleSection(key)} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", padding: "10px 14px", background: C.bg, border: `1px solid ${C.border}`, borderRadius: RADIUS.lg, cursor: "pointer", color: C.white, fontSize: TYPE.body, fontWeight: 600, fontFamily: "inherit" }}>
+          <button onClick={() => toggleSection(key)} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", padding: "10px 14px", background: C.bg, border: `1px solid ${C.border}`, borderRadius: RADIUS.lg, cursor: "pointer", color: C.white, fontSize: TYPE.body, fontWeight: 500, fontFamily: "inherit" }}>
             <span>{title}</span>
             <div style={{ display: "flex", alignItems: "center", gap: SPACE.md }}>
               <button onClick={(e) => { e.stopPropagation(); copyToClipboard(jsonStr, key); }} style={{ padding: `${SPACE.xxs}px ${SPACE.md}px`, borderRadius: RADIUS.sm, background: C.card, border: `1px solid ${C.border}`, color: copiedField === key ? C.green : C.dimmed, fontSize: TYPE.caption, cursor: "pointer", fontFamily: "inherit" }}>
-                {copiedField === key ? "Copied!" : "Copy"}
+                {copiedField === key ? "Kopiert!" : "Kopieren"}
               </button>
               <ChevronDown size={14} color={C.dimmed} style={{ transform: expandedSections[key] ? "rotate(180deg)" : "none", transition: "transform 0.2s" }} />
             </div>
@@ -3157,50 +3163,50 @@ function LogsPanel({ errorLog }) {
               <div style={{ width: 28, height: 28, borderRadius: RADIUS.lg, display: "flex", alignItems: "center", justifyContent: "center", background: isSuccess ? C.greenGlow : C.redGlow }}>
                 {isSuccess ? <Check size={14} color={C.green} /> : <X size={14} color={C.redLight} />}
               </div>
-              <span style={{ fontSize: TYPE.labelLg, fontWeight: 700, color: C.white, textTransform: "capitalize" }}>{selectedLog.action}</span>
+              <span style={{ fontSize: TYPE.labelLg, fontWeight: 600, color: C.white, textTransform: "capitalize" }}>{selectedLog.action}</span>
             </div>
             <button onClick={() => setSelectedLog(null)} style={{ width: 28, height: 28, borderRadius: RADIUS.md, background: C.bg, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
               <X size={14} color={C.dimmed} />
             </button>
           </div>
-          <span style={{ fontSize: TYPE.small, fontWeight: 700, padding: "3px 10px", borderRadius: RADIUS.md, color: isSuccess ? C.green : "#fff", background: isSuccess ? C.greenGlow : C.red, border: `1px solid ${isSuccess ? C.green + "30" : C.red + "30"}` }}>
-            {isSuccess ? "SUCCESS" : "FAILED"}
+          <span style={{ fontSize: TYPE.small, fontWeight: 600, padding: "3px 10px", borderRadius: RADIUS.md, color: isSuccess ? C.green : "#fff", background: isSuccess ? C.greenGlow : C.red, border: `1px solid ${isSuccess ? C.green + "30" : C.red + "30"}` }}>
+            {isSuccess ? "ERFOLGREICH" : "FEHLGESCHLAGEN"}
           </span>
         </div>
 
         {detailLoading && (
           <div style={{ padding: 30, textAlign: "center", color: C.dimmed }}>
-            <Loader2 size={16} style={{ animation: "spin 1s linear infinite", display: "inline-block", marginRight: 6 }} /> Loading details...
+            <Loader2 size={16} style={{ animation: "spin 1s linear infinite", display: "inline-block", marginRight: 6 }} /> Details werden geladen...
           </div>
         )}
 
         {/* Detail Fields */}
         <div style={{ padding: "8px 24px 24px" }}>
-          {detailRow("Platform", (
+          {detailRow("Plattform", (
             <span style={{ display: "inline-flex", alignItems: "center", gap: SPACE.sm }}>
               {React.createElement(PIcon, { size: 14, color: pColor })}
               {selectedLog.platform}
             </span>
           ))}
-          {detailRow("Date", formatDate(selectedLog.created))}
-          {detailRow("Status Code", (
-            <span style={{ fontWeight: 700, color: selectedLog.ok ? C.green : C.redLight, background: selectedLog.ok ? C.greenGlow : C.redGlow, padding: "1px 8px", borderRadius: RADIUS.sm, fontFamily: "monospace" }}>
+          {detailRow("Datum", formatDate(selectedLog.created))}
+          {detailRow("Statuscode", (
+            <span style={{ fontWeight: 600, color: selectedLog.ok ? C.green : C.redLight, background: selectedLog.ok ? C.greenGlow : C.redGlow, padding: "1px 8px", borderRadius: RADIUS.sm, fontFamily: "monospace" }}>
               {selectedLog.status}
             </span>
           ))}
-          {detailRow("Type", (d.type || selectedLog.action || "publishing"))}
-          {detailRow("Endpoint", selectedLog.endpoint, true)}
-          {detailRow("Result", (
+          {detailRow("Typ", (d.type || selectedLog.action || "Veröffentlichung"))}
+          {detailRow("Endpunkt", selectedLog.endpoint, true)}
+          {detailRow("Ergebnis", (
             <span style={{ display: "inline-flex", alignItems: "center", gap: SPACE.sm }}>
               {isSuccess ? (
                 <React.Fragment>
-                  <span style={{ color: C.green }}>Published</span>
+                  <span style={{ color: C.green }}>Veröffentlicht</span>
                   {(d.platformPostId || d.platformPostUrl || selectedLog.postId) && (
-                    <span style={{ color: C.dimmed, fontSize: TYPE.caption }}>• Platform Post ID: {d.platformPostId || selectedLog.postId || "—"}</span>
+                    <span style={{ color: C.dimmed, fontSize: TYPE.caption }}>• Plattform-Post-ID: {d.platformPostId || selectedLog.postId || "—"}</span>
                   )}
                 </React.Fragment>
               ) : (
-                <span style={{ color: C.redLight }}>{d.error || d.message || selectedLog.result || "Failed"}</span>
+                <span style={{ color: C.redLight }}>{d.error || d.message || selectedLog.result || "Fehlgeschlagen"}</span>
               )}
             </span>
           ))}
@@ -3208,7 +3214,7 @@ function LogsPanel({ errorLog }) {
           {/* Content Preview */}
           {(selectedLog.content || d.content || d.postContent || d.text) && (
             <div style={{ marginTop: 16 }}>
-              <div style={{ fontSize: TYPE.small, fontWeight: 600, color: C.dimmed, marginBottom: 8 }}>Content</div>
+              <div style={{ fontSize: TYPE.small, fontWeight: 500, color: C.dimmed, marginBottom: 8 }}>Content</div>
               <div style={{ padding: 14, background: C.bg, border: `1px solid ${C.border}`, borderRadius: RADIUS.lg, fontSize: TYPE.small, color: C.white, lineHeight: 1.6, whiteSpace: "pre-wrap", maxHeight: 160, overflowY: "auto" }}>
                 {selectedLog.content || d.content || d.postContent || d.text}
               </div>
@@ -3218,22 +3224,22 @@ function LogsPanel({ errorLog }) {
           {/* Media Count */}
           {(selectedLog.mediaCount > 0 || d.mediaItems?.length > 0) && (
             <div style={{ marginTop: 12 }}>
-              {detailRow("Media", `${selectedLog.mediaCount || d.mediaItems?.length || 0} file(s)`)}
+              {detailRow("Medien", `${selectedLog.mediaCount || d.mediaItems?.length || 0} Datei(en)`)}
             </div>
           )}
 
           {/* Expandable JSON Sections */}
-          {jsonSection("Response Body", d.responseBody || d.response || d.result_data || d.apiResponse, "response")}
-          {jsonSection("Request Body", d.requestBody || d.request || d.payload || d.body, "request")}
+          {jsonSection("Antwort (Response Body)", d.responseBody || d.response || d.result_data || d.apiResponse, "response")}
+          {jsonSection("Anfrage (Request Body)", d.requestBody || d.request || d.payload || d.body, "request")}
 
           {/* Post ID */}
           {(selectedLog.postId || d.postId || d._id) && (
             <div style={{ marginTop: 16 }}>
-              {detailRow("Post ID", (
+              {detailRow("Post-ID", (
                 <span style={{ display: "inline-flex", alignItems: "center", gap: SPACE.sm }}>
                   <span style={{ fontFamily: "monospace", fontSize: TYPE.caption }}>{selectedLog.postId || d.postId || d._id}</span>
                   <button onClick={() => copyToClipboard(selectedLog.postId || d.postId || d._id, "postId")} style={{ padding: "1px 6px", borderRadius: RADIUS.sm, background: C.bg, border: `1px solid ${C.border}`, color: copiedField === "postId" ? C.green : C.dimmed, fontSize: TYPE.micro, cursor: "pointer", fontFamily: "inherit" }}>
-                    {copiedField === "postId" ? "Copied!" : "Copy"}
+                    {copiedField === "postId" ? "Kopiert!" : "Kopieren"}
                   </button>
                 </span>
               ), true)}
@@ -3243,7 +3249,7 @@ function LogsPanel({ errorLog }) {
           {/* Logged At */}
           <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${C.border}30` }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontSize: TYPE.caption, color: C.dimmed }}>Logged at</span>
+              <span style={{ fontSize: TYPE.caption, color: C.dimmed }}>Protokolliert um</span>
               <span style={{ fontSize: TYPE.caption, color: C.dimmed }}>{formatDate(selectedLog.created)}</span>
             </div>
           </div>
@@ -3252,7 +3258,7 @@ function LogsPanel({ errorLog }) {
           {(d.platformPostUrl || d.postUrl) && (
             <div style={{ marginTop: 12 }}>
               <a href={d.platformPostUrl || d.postUrl} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: SPACE.sm, fontSize: TYPE.small, color: C.blue, textDecoration: "none" }}>
-                <ExternalLink size={12} /> View on platform
+                <ExternalLink size={12} /> Auf der Plattform ansehen
               </a>
             </div>
           )}
@@ -3266,38 +3272,38 @@ function LogsPanel({ errorLog }) {
       {/* Main Logs Table */}
       <div style={{ flex: 1, padding: "24px 32px", overflowY: "auto" }}>
         <div style={{ marginBottom: 24 }}>
-          <div style={{ fontSize: TYPE.h2, fontWeight: 800, letterSpacing: "-0.02em", color: C.white }}>Logs</div>
-          <div style={{ fontSize: TYPE.body, color: C.muted, marginTop: 2 }}>View activity logs and debug errors</div>
+          <div style={{ fontSize: TYPE.h2, fontWeight: 700, letterSpacing: "-0.02em", color: C.white }}>Logs</div>
+          <div style={{ fontSize: TYPE.body, color: C.muted, marginTop: 2 }}>Aktivitätsprotokolle und Fehler ansehen</div>
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: SPACE.md, marginBottom: 20, flexWrap: "wrap" }}>
           <div style={{ display: "flex", alignItems: "center", gap: SPACE.md, background: C.card, border: `1px solid ${C.border}`, borderRadius: RADIUS.lg, padding: `${SPACE.md}px ${SPACE.xl}px`, flex: 1, maxWidth: 260 }}>
             <Search size={14} color={C.dimmed} />
-            <input type="text" placeholder="Search logs..." value={logsSearch} onChange={(e) => setLogsSearch(e.target.value)}
+            <input type="text" placeholder="Logs durchsuchen..." value={logsSearch} onChange={(e) => setLogsSearch(e.target.value)}
               style={{ background: "transparent", border: "none", outline: "none", color: C.white, fontSize: TYPE.small, width: "100%", fontFamily: "inherit" }} />
           </div>
-          <button style={{ padding: "8px 14px", borderRadius: RADIUS.lg, background: C.card, border: `1px solid ${C.border}`, color: C.dimmed, fontSize: TYPE.small, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: SPACE.xs }}>Publishing <ChevronDown size={11} /></button>
-          <button style={{ padding: "8px 14px", borderRadius: RADIUS.lg, background: C.card, border: `1px solid ${C.border}`, color: C.dimmed, fontSize: TYPE.small, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: SPACE.xs }}>All platforms <ChevronDown size={11} /></button>
-          <button style={{ padding: "8px 14px", borderRadius: RADIUS.lg, background: C.card, border: `1px solid ${C.border}`, color: C.dimmed, fontSize: TYPE.small, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: SPACE.xs }}>All statuses <ChevronDown size={11} /></button>
-          <button style={{ padding: "8px 14px", borderRadius: RADIUS.lg, background: C.card, border: `1px solid ${C.border}`, color: C.dimmed, fontSize: TYPE.small, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: SPACE.xs }}>Last 7 days <ChevronDown size={11} /></button>
+          <button style={{ padding: "8px 14px", borderRadius: RADIUS.lg, background: C.card, border: `1px solid ${C.border}`, color: C.dimmed, fontSize: TYPE.small, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: SPACE.xs }}>Veröffentlichung <ChevronDown size={11} /></button>
+          <button style={{ padding: "8px 14px", borderRadius: RADIUS.lg, background: C.card, border: `1px solid ${C.border}`, color: C.dimmed, fontSize: TYPE.small, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: SPACE.xs }}>Alle Plattformen <ChevronDown size={11} /></button>
+          <button style={{ padding: "8px 14px", borderRadius: RADIUS.lg, background: C.card, border: `1px solid ${C.border}`, color: C.dimmed, fontSize: TYPE.small, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: SPACE.xs }}>Alle Status <ChevronDown size={11} /></button>
+          <button style={{ padding: "8px 14px", borderRadius: RADIUS.lg, background: C.card, border: `1px solid ${C.border}`, color: C.dimmed, fontSize: TYPE.small, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: SPACE.xs }}>Letzte 7 Tage <ChevronDown size={11} /></button>
           <button onClick={() => { setLogsData([]); fetchLogsData(); }} style={{ width: 34, height: 34, borderRadius: RADIUS.lg, background: C.card, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
             <RefreshCw size={14} color={C.dimmed} style={logsLoading ? { animation: "spin 1s linear infinite" } : {}} />
           </button>
         </div>
 
         <div className="glass-panel glass-border" style={{ background: C.glassStrong, borderRadius: RADIUS.shell, boxShadow: "0 20px 48px rgba(0,0,0,0.3)", overflow: "hidden" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "160px 80px 1fr 140px 180px 160px", padding: `${SPACE.xl}px ${SPACE.xxxl}px`, borderBottom: `1px solid ${C.border}`, fontSize: TYPE.small, fontWeight: 600, color: C.dimmed }}>
-            <div>Action</div><div>Status</div><div>Endpoint</div><div>Platform</div><div>Account</div>
-            <div style={{ display: "flex", alignItems: "center", gap: SPACE.xs }}>Created <ChevronDown size={10} /></div>
+          <div style={{ display: "grid", gridTemplateColumns: "160px 80px 1fr 140px 180px 160px", padding: `${SPACE.xl}px ${SPACE.xxxl}px`, borderBottom: `1px solid ${C.border}`, fontSize: TYPE.small, fontWeight: 500, color: C.dimmed }}>
+            <div>Aktion</div><div>Status</div><div>Endpunkt</div><div>Plattform</div><div>Konto</div>
+            <div style={{ display: "flex", alignItems: "center", gap: SPACE.xs }}>Erstellt <ChevronDown size={10} /></div>
           </div>
 
           {logsLoading && (
             <div style={{ padding: 30, textAlign: "center", color: C.dimmed, fontSize: TYPE.body }}>
-              <Loader2 size={16} style={{ animation: "spin 1s linear infinite", display: "inline-block", marginRight: 6 }} /> Loading logs...
+              <Loader2 size={16} style={{ animation: "spin 1s linear infinite", display: "inline-block", marginRight: 6 }} /> Logs werden geladen...
             </div>
           )}
           {!logsLoading && filteredLogs.length === 0 && (
-            <div style={{ padding: 40, textAlign: "center", color: C.dimmed, fontSize: TYPE.body }}>No logs found.</div>
+            <div style={{ padding: 40, textAlign: "center", color: C.dimmed, fontSize: TYPE.body }}>Keine Logs gefunden.</div>
           )}
 
           {filteredLogs.map((log, i) => {
@@ -3314,7 +3320,7 @@ function LogsPanel({ errorLog }) {
                   </div>
                   <span style={{ color: C.white, fontWeight: 500 }}>{log.action}</span>
                 </div>
-                <div><span style={{ fontSize: TYPE.small, fontWeight: 700, color: log.ok ? C.green : C.redLight, background: log.ok ? C.greenGlow : C.redGlow, padding: `${SPACE.xxs}px ${SPACE.md}px`, borderRadius: RADIUS.sm }}>{log.status}</span></div>
+                <div><span style={{ fontSize: TYPE.small, fontWeight: 600, color: log.ok ? C.green : C.redLight, background: log.ok ? C.greenGlow : C.redGlow, padding: `${SPACE.xxs}px ${SPACE.md}px`, borderRadius: RADIUS.sm }}>{log.status}</span></div>
                 <div style={{ color: C.muted, fontSize: TYPE.small, fontFamily: "monospace", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{log.endpoint}</div>
                 <div style={{ display: "flex", alignItems: "center", gap: SPACE.sm }}>
                   {pIcon && React.createElement(pIcon, { size: 14, color: pColor })}
@@ -3488,10 +3494,10 @@ export default function Dashboard() {
       if (failed.length > 0) {
         const first = failed[0]._error;
         addErrorLog({
-          action: "Analytics laden",
+          action: "Statistiken laden",
           error: first?.status === 402
             ? "Zernio Analytics-Add-on nicht aktiv (HTTP 402)"
-            : `Analytics fuer ${failed.length} Beitrag/Beitraege fehlgeschlagen (HTTP ${first?.status || "?"})`,
+            : `Statistiken für ${failed.length} Beitrag/Beiträge fehlgeschlagen (HTTP ${first?.status || "?"})`,
           response: failed.slice(0, 3),
         });
       }
@@ -3938,7 +3944,7 @@ export default function Dashboard() {
         <div style={{ position: "fixed", top: 20, right: 20, zIndex: 200, background: C.card, border: `1px solid ${notification.color === "green" ? C.green : notification.color === "red" ? C.redLight : C.yellow}`, borderRadius: RADIUS.xxl, padding: `${SPACE.xl}px ${SPACE.xxxl}px`, display: "flex", alignItems: "center", gap: SPACE.lg, boxShadow: "0 8px 32px rgba(0,0,0,0.4)", maxWidth: 480 }}>
           {notification.color === "red" ? <XCircle size={16} color={C.redLight} style={{ flexShrink: 0 }} /> :
            <div style={{ width: 8, height: 8, borderRadius: "50%", background: notification.color === "green" ? C.green : C.yellow, flexShrink: 0 }} />}
-          <span style={{ fontSize: TYPE.body, fontWeight: 600, color: notification.color === "red" ? C.redLight : C.white }}>{notification.text}</span>
+          <span style={{ fontSize: TYPE.body, fontWeight: 500, color: notification.color === "red" ? C.redLight : C.white }}>{notification.text}</span>
         </div>
       )}
 
@@ -3975,12 +3981,12 @@ export default function Dashboard() {
 
         const recentPosts = [...posts].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5);
         const homeStatusConf = {
-          published: { label: "Published", color: C.green },
-          scheduled: { label: "Scheduled", color: C.accent },
-          queued: { label: "Queued", color: C.purple },
-          draft: { label: "Draft", color: C.dimmed },
-          failed: { label: "Failed", color: C.redLight },
-          partial: { label: "Partial", color: C.yellow },
+          published: { label: "Live", color: C.green },
+          scheduled: { label: "Geplant", color: C.accent },
+          queued: { label: "Warteschlange", color: C.purple },
+          draft: { label: "Entwurf", color: C.dimmed },
+          failed: { label: "Fehler", color: C.redLight },
+          partial: { label: "Teilweise", color: C.yellow },
         };
 
         const exportCsv = () => {
@@ -4000,7 +4006,7 @@ export default function Dashboard() {
         const DeltaTag = ({ value }) => value === null ? (
           <span style={{ fontSize: TYPE.small, color: C.dimmed }}>seit Verbindung</span>
         ) : (
-          <div style={{ display: "flex", alignItems: "center", gap: SPACE.xs, fontSize: TYPE.small, fontWeight: 600, color: value >= 0 ? C.green : C.redLight }}>
+          <div style={{ display: "flex", alignItems: "center", gap: SPACE.xs, fontSize: TYPE.small, fontWeight: 500, color: value >= 0 ? C.green : C.redLight }}>
             {value >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />} {value >= 0 ? "+" : ""}{value}%
             <span style={{ color: C.dimmed, fontWeight: 500 }}>ggü. Vormonat</span>
           </div>
@@ -4010,9 +4016,9 @@ export default function Dashboard() {
           <div className="glass-panel" style={{ background: C.glass, border: `1px solid ${C.border}`, borderRadius: RADIUS.xxl, padding: 18 }}>
             <div style={{ display: "flex", alignItems: "center", gap: SPACE.lg, marginBottom: 14 }}>
               <div style={{ width: 32, height: 32, borderRadius: RADIUS.lg, background: iconBg, color: iconColor, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Icon size={16} /></div>
-              <div style={{ fontSize: TYPE.small, fontWeight: 600, color: C.muted }}>{label}</div>
+              <div style={{ fontSize: TYPE.small, fontWeight: 500, color: C.muted }}>{label}</div>
             </div>
-            <div style={{ fontSize: 26, fontWeight: 800, letterSpacing: "-0.01em", color: C.white }}>{value}</div>
+            <div style={{ fontSize: 26, fontWeight: 700, letterSpacing: "-0.01em", color: C.white }}>{value}</div>
             <div style={{ marginTop: 8 }}><DeltaTag value={delta} /></div>
           </div>
         );
@@ -4021,14 +4027,14 @@ export default function Dashboard() {
           <div style={{ padding: "24px 32px" }}>
             <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 24, flexWrap: "wrap", gap: SPACE.xxl }}>
               <div>
-                <div style={{ fontSize: TYPE.h2, fontWeight: 800, letterSpacing: "-0.02em", color: C.white }}>Willkommen zurück, Dariel 👋</div>
+                <div style={{ fontSize: TYPE.h2, fontWeight: 700, letterSpacing: "-0.02em", color: C.white }}>Willkommen zurück, Dariel 👋</div>
                 <div style={{ fontSize: TYPE.body, color: C.muted, marginTop: 6 }}>Behalte den Überblick über deine Content-Performance und Workflows.</div>
               </div>
               <div style={{ display: "flex", gap: SPACE.md }}>
                 <div style={{ display: "flex", alignItems: "center", gap: SPACE.sm, background: C.card, border: `1px solid ${C.border}`, borderRadius: RADIUS.pill, padding: "9px 16px", fontSize: TYPE.small, color: C.muted, fontWeight: 500 }}>
                   <Calendar size={14} /> {now.toLocaleDateString("de-DE", { weekday: "short", day: "numeric", month: "long", year: "numeric" })}
                 </div>
-                <button onClick={exportCsv} style={{ display: "flex", alignItems: "center", gap: SPACE.sm, background: C.accent, border: "none", borderRadius: RADIUS.pill, padding: "9px 18px", color: "#fff", fontSize: TYPE.small, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                <button onClick={exportCsv} style={{ display: "flex", alignItems: "center", gap: SPACE.sm, background: C.accent, border: "none", borderRadius: RADIUS.pill, padding: "9px 18px", color: "#fff", fontSize: TYPE.small, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", boxShadow: `inset 0 1px 0 rgba(255,255,255,0.22), 0 6px 16px ${C.accentGlow}` }}>
                   <Download size={14} /> Export
                 </button>
               </div>
@@ -4043,16 +4049,16 @@ export default function Dashboard() {
             <div className="two-col-grid" style={{ display: "grid", gridTemplateColumns: "1.35fr 1fr", gap: SPACE.xl, marginBottom: SPACE.xl, alignItems: "start" }}>
               <div>
                 <div style={{ display: "flex", gap: SPACE.md, marginBottom: SPACE.xl }}>
-                  <button onClick={() => { setCreateModalInitialDate(""); setShowCreateModal(true); }} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: SPACE.sm, background: `linear-gradient(135deg, ${C.ctaLight}, ${C.cta})`, border: "none", borderRadius: RADIUS.lg, padding: "11px 18px", color: "#fff", fontSize: TYPE.body, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", boxShadow: `0 8px 20px ${C.ctaGlow}` }}>
+                  <button onClick={() => { setCreateModalInitialDate(""); setShowCreateModal(true); }} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: SPACE.sm, background: `linear-gradient(135deg, ${C.ctaLight}, ${C.cta})`, border: "none", borderRadius: RADIUS.lg, padding: "11px 18px", color: "#fff", fontSize: TYPE.body, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", boxShadow: `inset 0 1px 0 rgba(255,255,255,0.22), 0 8px 20px ${C.ctaGlow}` }}>
                     <Plus size={15} /> Neuer Beitrag
                   </button>
-                  <button onClick={() => setActiveTab("calendar")} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: SPACE.sm, background: C.card, border: `1px solid ${C.border}`, borderRadius: RADIUS.lg, padding: "11px 18px", color: C.white, fontSize: TYPE.body, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+                  <button onClick={() => setActiveTab("calendar")} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: SPACE.sm, background: C.card, border: `1px solid ${C.border}`, borderRadius: RADIUS.lg, padding: "11px 18px", color: C.white, fontSize: TYPE.body, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>
                     <Calendar size={15} /> Warteschlange ansehen
                   </button>
                 </div>
 
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                  <div style={{ fontSize: TYPE.body, fontWeight: 700, color: C.white }}>Meine Kanäle</div>
+                  <div style={{ fontSize: TYPE.body, fontWeight: 600, color: C.white }}>Meine Kanäle</div>
                   <div onClick={() => setActiveTab("connections")} style={{ display: "flex", alignItems: "center", gap: SPACE.xs, fontSize: TYPE.small, color: C.muted, cursor: "pointer" }}><Plus size={13} /> Verbinden</div>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: SPACE.md }}>
@@ -4066,20 +4072,20 @@ export default function Dashboard() {
                           <div style={{ width: 26, height: 26, borderRadius: RADIUS.md, background: isIG ? "linear-gradient(135deg,#f58529,#dd2a7b,#8134af)" : "#101216", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                             {isIG ? <Instagram size={13} color="#fff" /> : <TikTokIcon size={13} color="#3ad1c4" />}
                           </div>
-                          <div style={{ fontSize: TYPE.small, fontWeight: 600, color: C.muted }}>{isIG ? "Instagram" : "TikTok"}</div>
+                          <div style={{ fontSize: TYPE.small, fontWeight: 500, color: C.muted }}>{isIG ? "Instagram" : "TikTok"}</div>
                         </div>
-                        <div style={{ fontSize: TYPE.body, fontWeight: 700, color: C.white, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{connected ? `@${acc.name || "mitunsverkaufen"}` : "—"}</div>
-                        <div style={{ fontSize: TYPE.caption, fontWeight: 600, color: connected ? C.green : C.dimmed, marginTop: 5 }}>● {connected ? "Aktiv" : "Nicht verbunden"}</div>
+                        <div style={{ fontSize: TYPE.body, fontWeight: 600, color: C.white, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{connected ? `@${acc.name || "mitunsverkaufen"}` : "—"}</div>
+                        <div style={{ fontSize: TYPE.caption, fontWeight: 500, color: connected ? C.green : C.dimmed, marginTop: 5 }}>● {connected ? "Aktiv" : "Nicht verbunden"}</div>
                       </div>
                     );
                   })}
                   <div className="glass-panel" style={{ background: C.glass, border: `1px solid ${C.border}`, borderRadius: RADIUS.xl, padding: 14, gridColumn: "1 / -1" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: SPACE.md, marginBottom: 10 }}>
                       <div style={{ width: 26, height: 26, borderRadius: RADIUS.md, background: `linear-gradient(135deg, ${C.accent}, ${C.purple})`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Target size={13} color="#fff" /></div>
-                      <div style={{ fontSize: TYPE.small, fontWeight: 600, color: C.muted }}>Monatsziel</div>
+                      <div style={{ fontSize: TYPE.small, fontWeight: 500, color: C.muted }}>Monatsziel</div>
                     </div>
-                    <div style={{ fontSize: TYPE.body, fontWeight: 700, color: C.white }}>{doneCountAll} / {MONTHLY_GOAL} Beiträge</div>
-                    <div style={{ fontSize: TYPE.caption, fontWeight: 600, color: C.accent, marginTop: 5 }}>● Im Plan · {goalPct}%</div>
+                    <div style={{ fontSize: TYPE.body, fontWeight: 600, color: C.white }}>{doneCountAll} / {MONTHLY_GOAL} Beiträge</div>
+                    <div style={{ fontSize: TYPE.caption, fontWeight: 500, color: C.accent, marginTop: 5 }}>● Im Plan · {goalPct}%</div>
                   </div>
                 </div>
               </div>
@@ -4087,7 +4093,7 @@ export default function Dashboard() {
               <div className="glass-panel" style={{ background: C.glass, border: `1px solid ${C.border}`, borderRadius: RADIUS.xxl, padding: 18 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: SPACE.md, marginBottom: 16 }}>
                   <div style={{ width: 32, height: 32, borderRadius: RADIUS.lg, background: C.accentGlow, color: C.accent, display: "flex", alignItems: "center", justifyContent: "center" }}><BarChart3 size={16} /></div>
-                  <div style={{ fontSize: TYPE.body, fontWeight: 700, color: C.white }}>Reichweite je Beitrag</div>
+                  <div style={{ fontSize: TYPE.body, fontWeight: 600, color: C.white }}>Reichweite je Beitrag</div>
                 </div>
                 {chartPosts.length > 0 ? (
                   <ResponsiveContainer width="100%" height={200}>
@@ -4098,7 +4104,7 @@ export default function Dashboard() {
                       <Tooltip cursor={{ fill: C.cardHover }} content={({ active, payload }) => active && payload?.[0] ? (
                         <div style={{ background: C.cardHover, border: `1px solid ${C.border}`, borderRadius: RADIUS.lg, padding: "8px 12px", fontSize: TYPE.small, color: C.white, boxShadow: "0 8px 20px rgba(0,0,0,0.35)" }}>
                           <div style={{ color: C.dimmed, marginBottom: 2 }}>{payload[0].payload.full}</div>
-                          <div style={{ fontWeight: 700 }}>{fmt(payload[0].value)} Reichweite</div>
+                          <div style={{ fontWeight: 600 }}>{fmt(payload[0].value)} Reichweite</div>
                         </div>
                       ) : null} />
                       <Bar dataKey="value" radius={[6, 6, 2, 2]}>
@@ -4116,24 +4122,24 @@ export default function Dashboard() {
               <div className="glass-panel" style={{ background: C.glass, border: `1px solid ${C.border}`, borderRadius: RADIUS.xxl, padding: 18 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: SPACE.md, marginBottom: 16 }}>
                   <div style={{ width: 32, height: 32, borderRadius: RADIUS.lg, background: C.yellowGlow, color: C.yellow, display: "flex", alignItems: "center", justifyContent: "center" }}><Target size={16} /></div>
-                  <div style={{ fontSize: TYPE.body, fontWeight: 700, color: C.white }}>Content-Ziele</div>
+                  <div style={{ fontSize: TYPE.body, fontWeight: 600, color: C.white }}>Content-Ziele</div>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: SPACE.lg }}>
                   <div style={{ width: 32, height: 32, borderRadius: RADIUS.lg, background: C.accentGlow, color: C.accent, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Send size={15} /></div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: TYPE.small, fontWeight: 600, color: C.white, marginBottom: 6 }}>Monatsziel · {doneCountAll} / {MONTHLY_GOAL} Beiträge</div>
+                    <div style={{ fontSize: TYPE.small, fontWeight: 500, color: C.white, marginBottom: 6 }}>Monatsziel · {doneCountAll} / {MONTHLY_GOAL} Beiträge</div>
                     <div style={{ height: 5, background: C.bg, borderRadius: 999, overflow: "hidden" }}>
                       <div style={{ height: "100%", width: `${goalPct}%`, background: C.accent, borderRadius: 999 }} />
                     </div>
                   </div>
-                  <div style={{ fontSize: TYPE.body, fontWeight: 700, color: C.white, flexShrink: 0 }}>{goalPct}%</div>
+                  <div style={{ fontSize: TYPE.body, fontWeight: 600, color: C.white, flexShrink: 0 }}>{goalPct}%</div>
                 </div>
               </div>
 
               <div className="glass-panel" style={{ background: C.glass, border: `1px solid ${C.border}`, borderRadius: RADIUS.xxl, padding: 18 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: SPACE.md, marginBottom: 14 }}>
                   <div style={{ width: 32, height: 32, borderRadius: RADIUS.lg, background: C.purpleGlow, color: C.purple, display: "flex", alignItems: "center", justifyContent: "center" }}><FileText size={16} /></div>
-                  <div style={{ fontSize: TYPE.body, fontWeight: 700, color: C.white, flex: 1 }}>Neueste Beiträge</div>
+                  <div style={{ fontSize: TYPE.body, fontWeight: 600, color: C.white, flex: 1 }}>Neueste Beiträge</div>
                   <div onClick={() => setActiveTab("dashboard")} style={{ display: "flex", alignItems: "center", gap: SPACE.xs, background: C.bg, border: `1px solid ${C.border}`, borderRadius: RADIUS.pill, padding: "6px 12px", fontSize: TYPE.caption, color: C.muted, cursor: "pointer" }}><Filter size={12} /> Alle ansehen</div>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "2.2fr 1fr 0.8fr 1fr", gap: SPACE.md, padding: `0 ${SPACE.xs}px ${SPACE.sm}px`, borderBottom: `1px solid ${C.border}`, fontSize: TYPE.micro, letterSpacing: "0.05em", textTransform: "uppercase", color: C.dimmed }}>
@@ -4149,11 +4155,11 @@ export default function Dashboard() {
                         <div style={{ width: 26, height: 26, borderRadius: RADIUS.md, background: isIG ? "linear-gradient(135deg,#f58529,#dd2a7b)" : "#101216", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                           {isIG ? <Instagram size={12} color="#fff" /> : <TikTokIcon size={12} color="#3ad1c4" />}
                         </div>
-                        <span style={{ fontSize: TYPE.small, fontWeight: 600, color: C.white, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.title}</span>
+                        <span style={{ fontSize: TYPE.small, fontWeight: 500, color: C.white, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.title}</span>
                       </div>
                       <div style={{ fontSize: TYPE.caption, color: C.muted }}>{new Date(p.date).toLocaleDateString("de-DE", { day: "2-digit", month: "short" })}</div>
                       <div style={{ fontSize: TYPE.caption, color: C.muted }}>{p.likes > 0 ? p.likes.toLocaleString("de-DE") : "—"}</div>
-                      <div style={{ display: "flex", alignItems: "center", gap: SPACE.xs, fontSize: TYPE.caption, fontWeight: 600, color: sc.color }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: SPACE.xs, fontSize: TYPE.caption, fontWeight: 500, color: sc.color }}>
                         <span style={{ width: 6, height: 6, borderRadius: "50%", background: sc.color }} />{sc.label}
                       </div>
                     </div>
@@ -4170,15 +4176,15 @@ export default function Dashboard() {
         <div style={{ padding: "24px 32px" }}>
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 24 }}>
             <div>
-              <div style={{ fontSize: TYPE.h2, fontWeight: 800, letterSpacing: "-0.02em", color: C.white }}>Connections</div>
-              <div style={{ fontSize: TYPE.body, color: C.muted, marginTop: 2 }}>Manage profiles and platform integrations</div>
+              <div style={{ fontSize: TYPE.h2, fontWeight: 700, letterSpacing: "-0.02em", color: C.white }}>Verbindungen</div>
+              <div style={{ fontSize: TYPE.body, color: C.muted, marginTop: 2 }}>Profile und Plattform-Integrationen verwalten</div>
             </div>
             <div style={{ display: "flex", gap: SPACE.md }}>
-              <button style={{ display: "flex", alignItems: "center", gap: SPACE.sm, padding: "9px 20px", borderRadius: RADIUS.lg, background: C.accent, border: "none", color: "#fff", fontSize: TYPE.body, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
-                <Plus size={15} /> New Connection
+              <button style={{ display: "flex", alignItems: "center", gap: SPACE.sm, padding: "9px 20px", borderRadius: RADIUS.lg, background: C.accent, border: "none", color: "#fff", fontSize: TYPE.body, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>
+                <Plus size={15} /> Neue Verbindung
               </button>
               <button style={{ padding: "9px 20px", borderRadius: RADIUS.lg, background: C.card, border: `1px solid ${C.border}`, color: C.white, fontSize: TYPE.body, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>
-                New Profile
+                Neues Profil
               </button>
             </div>
           </div>
@@ -4186,14 +4192,14 @@ export default function Dashboard() {
           {/* Filter bar */}
           <div style={{ display: "flex", alignItems: "center", gap: SPACE.xxl, marginBottom: 24 }}>
             <div style={{ display: "flex", alignItems: "center", gap: SPACE.md }}>
-              <span style={{ fontSize: TYPE.bodyLg, fontWeight: 700, color: C.white }}>Platforms</span>
+              <span style={{ fontSize: TYPE.bodyLg, fontWeight: 600, color: C.white }}>Plattformen</span>
               <select style={{ padding: "8px 14px", borderRadius: RADIUS.lg, background: C.card, border: `1px solid ${C.border}`, color: C.white, fontSize: TYPE.body, fontFamily: "inherit", cursor: "pointer", minWidth: 140 }}>
-                <option>All profiles</option>
+                <option>Alle Profile</option>
               </select>
             </div>
             <div style={{ marginLeft: "auto", display: "flex", gap: SPACE.md }}>
-              <button style={{ padding: "7px 14px", borderRadius: RADIUS.lg, background: C.card, border: `1px solid ${C.border}`, color: C.dimmed, fontSize: TYPE.small, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>All platforms</button>
-              <button style={{ padding: "7px 14px", borderRadius: RADIUS.lg, background: C.card, border: `1px solid ${C.border}`, color: C.dimmed, fontSize: TYPE.small, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>All statuses</button>
+              <button style={{ padding: "7px 14px", borderRadius: RADIUS.lg, background: C.card, border: `1px solid ${C.border}`, color: C.dimmed, fontSize: TYPE.small, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>Alle Plattformen</button>
+              <button style={{ padding: "7px 14px", borderRadius: RADIUS.lg, background: C.card, border: `1px solid ${C.border}`, color: C.dimmed, fontSize: TYPE.small, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>Alle Status</button>
             </div>
           </div>
 
@@ -4213,22 +4219,22 @@ export default function Dashboard() {
                   <div style={{ display: "flex", alignItems: "center", gap: SPACE.lg, marginBottom: 4 }}>
                     <Icon size={20} color={color} />
                     <div>
-                      <div style={{ fontSize: TYPE.bodyLg, fontWeight: 700, color: C.white }}>{isIG ? "Instagram" : "TikTok"}</div>
-                      <div style={{ display: "inline-flex", alignItems: "center", gap: SPACE.xs, fontSize: TYPE.micro, fontWeight: 600, color: C.green, background: C.greenGlow, padding: `${SPACE.xxs}px ${SPACE.md}px`, borderRadius: RADIUS.sm, marginTop: 2 }}>
-                        <div style={{ width: 5, height: 5, borderRadius: "50%", background: C.green }} /> connected
+                      <div style={{ fontSize: TYPE.bodyLg, fontWeight: 600, color: C.white }}>{isIG ? "Instagram" : "TikTok"}</div>
+                      <div style={{ display: "inline-flex", alignItems: "center", gap: SPACE.xs, fontSize: TYPE.micro, fontWeight: 500, color: C.green, background: C.greenGlow, padding: `${SPACE.xxs}px ${SPACE.md}px`, borderRadius: RADIUS.sm, marginTop: 2 }}>
+                        <div style={{ width: 5, height: 5, borderRadius: "50%", background: C.green }} /> verbunden
                       </div>
                     </div>
                   </div>
                   {/* Handle */}
-                  <div style={{ fontSize: TYPE.body, fontWeight: 600, color: C.white, marginTop: 10 }}>@{acc.name || "mitunsverkaufen.de"}</div>
+                  <div style={{ fontSize: TYPE.body, fontWeight: 500, color: C.white, marginTop: 10 }}>@{acc.name || "mitunsverkaufen.de"}</div>
                   <div style={{ fontSize: TYPE.caption, color: C.dimmed, marginTop: 2 }}>{acc.connectedAt ? new Date(acc.connectedAt).toLocaleDateString("de-DE") : new Date().toLocaleDateString("de-DE")}</div>
                   {/* Business badge */}
-                  <div style={{ display: "inline-flex", alignItems: "center", gap: SPACE.xs, fontSize: TYPE.micro, fontWeight: 600, color: C.purple, background: C.purpleGlow, padding: "3px 10px", borderRadius: RADIUS.sm, marginTop: 10 }}>
+                  <div style={{ display: "inline-flex", alignItems: "center", gap: SPACE.xs, fontSize: TYPE.micro, fontWeight: 500, color: C.purple, background: C.purpleGlow, padding: "3px 10px", borderRadius: RADIUS.sm, marginTop: 10 }}>
                     <div style={{ width: 5, height: 5, borderRadius: "50%", background: C.purple }} /> Business
                   </div>
                   {/* Disconnect button */}
-                  <button style={{ display: "block", width: "100%", padding: `${SPACE.md}px 0`, borderRadius: RADIUS.lg, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontSize: TYPE.small, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", marginTop: 14, textAlign: "center" }}>
-                    Disconnect
+                  <button style={{ display: "block", width: "100%", padding: `${SPACE.md}px 0`, borderRadius: RADIUS.lg, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontSize: TYPE.small, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", marginTop: 14, textAlign: "center" }}>
+                    Trennen
                   </button>
                 </div>
               );
@@ -4244,19 +4250,19 @@ export default function Dashboard() {
                     <div style={{ display: "flex", alignItems: "center", gap: SPACE.lg, marginBottom: 4 }}>
                       <Icon size={20} color={color} />
                       <div>
-                        <div style={{ fontSize: TYPE.bodyLg, fontWeight: 700, color: C.white }}>{plat}</div>
-                        <div style={{ display: "inline-flex", alignItems: "center", gap: SPACE.xs, fontSize: TYPE.micro, fontWeight: 600, color: isConnected ? C.green : C.yellow, background: isConnected ? C.greenGlow : C.yellowGlow, padding: `${SPACE.xxs}px ${SPACE.md}px`, borderRadius: RADIUS.sm, marginTop: 2 }}>
-                          <div style={{ width: 5, height: 5, borderRadius: "50%", background: isConnected ? C.green : C.yellow }} /> {isConnected ? "connected" : "disconnected"}
+                        <div style={{ fontSize: TYPE.bodyLg, fontWeight: 600, color: C.white }}>{plat}</div>
+                        <div style={{ display: "inline-flex", alignItems: "center", gap: SPACE.xs, fontSize: TYPE.micro, fontWeight: 500, color: isConnected ? C.green : C.yellow, background: isConnected ? C.greenGlow : C.yellowGlow, padding: `${SPACE.xxs}px ${SPACE.md}px`, borderRadius: RADIUS.sm, marginTop: 2 }}>
+                          <div style={{ width: 5, height: 5, borderRadius: "50%", background: isConnected ? C.green : C.yellow }} /> {isConnected ? "verbunden" : "nicht verbunden"}
                         </div>
                       </div>
                     </div>
-                    <div style={{ fontSize: TYPE.body, fontWeight: 600, color: C.white, marginTop: 10 }}>@mitunsverkaufen.de</div>
+                    <div style={{ fontSize: TYPE.body, fontWeight: 500, color: C.white, marginTop: 10 }}>@mitunsverkaufen.de</div>
                     <div style={{ fontSize: TYPE.caption, color: C.dimmed, marginTop: 2 }}>—</div>
-                    <div style={{ display: "inline-flex", alignItems: "center", gap: SPACE.xs, fontSize: TYPE.micro, fontWeight: 600, color: C.purple, background: C.purpleGlow, padding: "3px 10px", borderRadius: RADIUS.sm, marginTop: 10 }}>
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: SPACE.xs, fontSize: TYPE.micro, fontWeight: 500, color: C.purple, background: C.purpleGlow, padding: "3px 10px", borderRadius: RADIUS.sm, marginTop: 10 }}>
                       <div style={{ width: 5, height: 5, borderRadius: "50%", background: C.purple }} /> Business
                     </div>
-                    <button style={{ display: "block", width: "100%", padding: `${SPACE.md}px 0`, borderRadius: RADIUS.lg, background: isConnected ? C.bg : C.accent, border: `1px solid ${isConnected ? C.border : C.accent}`, color: "#fff", fontSize: TYPE.small, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", marginTop: 14, textAlign: "center" }}>
-                      {isConnected ? "Disconnect" : "Connect"}
+                    <button style={{ display: "block", width: "100%", padding: `${SPACE.md}px 0`, borderRadius: RADIUS.lg, background: isConnected ? C.bg : C.accent, border: `1px solid ${isConnected ? C.border : C.accent}`, color: "#fff", fontSize: TYPE.small, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", marginTop: 14, textAlign: "center" }}>
+                      {isConnected ? "Trennen" : "Verbinden"}
                     </button>
                   </div>
                 );
@@ -4387,15 +4393,15 @@ export default function Dashboard() {
           {/* Header */}
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 24 }}>
             <div>
-              <div style={{ fontSize: TYPE.h2, fontWeight: 800, letterSpacing: "-0.02em", color: C.white }}>Analytics</div>
-              <div style={{ fontSize: TYPE.body, color: C.muted, marginTop: 2 }}>View post performance metrics</div>
+              <div style={{ fontSize: TYPE.h2, fontWeight: 700, letterSpacing: "-0.02em", color: C.white }}>Statistiken</div>
+              <div style={{ fontSize: TYPE.body, color: C.muted, marginTop: 2 }}>Leistungskennzahlen deiner Posts</div>
             </div>
             <div style={{ display: "flex", gap: SPACE.md, alignItems: "center" }}>
               {["all", "instagram", "tiktok"].map((p) => {
                 const active = analyticsPlatform === p;
                 const col = p === "instagram" ? C.instagram : p === "tiktok" ? C.tiktok : C.white;
                 return (
-                  <button key={p} onClick={() => setAnalyticsPlatform(p)} style={{ padding: "7px 16px", borderRadius: RADIUS.lg, border: `1px solid ${active ? col + "60" : C.border}`, background: active ? col + "12" : "transparent", color: active ? col : C.dimmed, fontSize: TYPE.small, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+                  <button key={p} onClick={() => setAnalyticsPlatform(p)} style={{ padding: "7px 16px", borderRadius: RADIUS.lg, border: `1px solid ${active ? col + "60" : C.border}`, background: active ? col + "12" : "transparent", color: active ? col : C.dimmed, fontSize: TYPE.small, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>
                     {p === "all" ? "Alle Plattformen" : p === "instagram" ? "Instagram" : "TikTok"}
                   </button>
                 );
@@ -4403,7 +4409,7 @@ export default function Dashboard() {
               {["7d", "30d", "90d"].map((r) => {
                 const active = analyticsRange === r;
                 return (
-                  <button key={r} onClick={() => setAnalyticsRange(r)} style={{ padding: "7px 14px", borderRadius: RADIUS.lg, border: `1px solid ${active ? C.blue + "60" : C.border}`, background: active ? C.blueGlow : "transparent", color: active ? C.blue : C.dimmed, fontSize: TYPE.small, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+                  <button key={r} onClick={() => setAnalyticsRange(r)} style={{ padding: "7px 14px", borderRadius: RADIUS.lg, border: `1px solid ${active ? C.blue + "60" : C.border}`, background: active ? C.blueGlow : "transparent", color: active ? C.blue : C.dimmed, fontSize: TYPE.small, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>
                     {r === "7d" ? "7 Tage" : r === "30d" ? "30 Tage" : "90 Tage"}
                   </button>
                 );
@@ -4425,19 +4431,19 @@ export default function Dashboard() {
           <div className="kpi-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: SPACE.lg, marginBottom: 24 }}>
             {[
               { label: "Likes", icon: Heart, value: fmt(totals.likes), color: C.redLight, change: null },
-              { label: "Comments", icon: MessageCircle, value: fmt(totals.comments), color: C.blue, change: null },
-              { label: "Shares", icon: Share2, value: fmt(totals.shares), color: C.green, change: null },
-              { label: "Views", icon: Eye, value: fmt(totals.views), color: C.purple, change: null },
-              { label: "Impressions", icon: TrendingUp, value: fmt(totals.impressions), color: C.blue, change: null },
-              { label: "Reach", icon: Users, value: fmt(totals.reach), color: C.yellow, change: null },
-              { label: "Clicks", icon: ExternalLink, value: fmt(totals.clicks), color: C.green, change: null },
-              { label: "Eng. Rate", icon: BarChart3, value: `${engRate}%`, color: C.redLight, change: null },
+              { label: "Kommentare", icon: MessageCircle, value: fmt(totals.comments), color: C.blue, change: null },
+              { label: "Geteilt", icon: Share2, value: fmt(totals.shares), color: C.green, change: null },
+              { label: "Aufrufe", icon: Eye, value: fmt(totals.views), color: C.purple, change: null },
+              { label: "Impressionen", icon: TrendingUp, value: fmt(totals.impressions), color: C.blue, change: null },
+              { label: "Reichweite", icon: Users, value: fmt(totals.reach), color: C.yellow, change: null },
+              { label: "Klicks", icon: ExternalLink, value: fmt(totals.clicks), color: C.green, change: null },
+              { label: "Eng.-Rate", icon: BarChart3, value: `${engRate}%`, color: C.redLight, change: null },
             ].map((m) => (
               <div key={m.label} className="glass-panel glass-border" style={{ background: C.glass, borderRadius: RADIUS.xxl, boxShadow: "0 12px 28px rgba(0,0,0,0.25)", padding: "14px 16px", display: "flex", alignItems: "center", gap: SPACE.lg }}>
                 <div style={{ color: m.color, display: "flex", alignItems: "center" }}><m.icon size={16} /></div>
                 <div>
                   <div style={{ fontSize: TYPE.caption, color: C.dimmed, fontWeight: 500, marginBottom: 2 }}>{m.label}</div>
-                  <div style={{ fontSize: TYPE.h4, fontWeight: 800, color: C.white }}>{m.value}</div>
+                  <div style={{ fontSize: TYPE.h4, fontWeight: 700, color: C.white }}>{m.value}</div>
                 </div>
               </div>
             ))}
@@ -4445,7 +4451,7 @@ export default function Dashboard() {
 
           {/* ── Daily Chart ────────────────────────────────────── */}
           <div className="glass-panel glass-border" style={{ background: C.glass, borderRadius: RADIUS.shell, boxShadow: "0 20px 48px rgba(0,0,0,0.35)", padding: 20, marginBottom: 20 }}>
-            <div style={{ fontSize: TYPE.bodyLg, fontWeight: 700, marginBottom: 16, color: C.white }}>Tägliche Performance</div>
+            <div style={{ fontSize: TYPE.bodyLg, fontWeight: 600, marginBottom: 16, color: C.white }}>Tägliche Performance</div>
             {chartData.length > 0 ? (
               <ResponsiveContainer width="100%" height={260}>
                 <LineChart data={chartData}>
@@ -4454,8 +4460,8 @@ export default function Dashboard() {
                   <YAxis tick={{ fill: C.dimmed, fontSize: TYPE.micro }} axisLine={false} tickLine={false} tickFormatter={fmt} />
                   <Tooltip contentStyle={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: RADIUS.xl, fontSize: TYPE.small, color: C.white }} />
                   <Line type="monotone" dataKey="likes" name="Likes" stroke={C.redLight} strokeWidth={2} dot={false} />
-                  <Line type="monotone" dataKey="comments" name="Comments" stroke={C.blue} strokeWidth={2} dot={false} />
-                  <Line type="monotone" dataKey="views" name="Views" stroke={C.purple} strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="comments" name="Kommentare" stroke={C.blue} strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="views" name="Aufrufe" stroke={C.purple} strokeWidth={2} dot={false} />
                 </LineChart>
               </ResponsiveContainer>
             ) : (
@@ -4466,10 +4472,10 @@ export default function Dashboard() {
           <div className="two-col-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: SPACE.xxxl, marginBottom: 20 }}>
             {/* ── Best Time to Post (green heatmap like Zernio) ── */}
             <div className="glass-panel glass-border" style={{ background: C.glass, borderRadius: RADIUS.shell, boxShadow: "0 20px 48px rgba(0,0,0,0.35)", padding: 20 }}>
-              <div style={{ fontSize: TYPE.bodyLg, fontWeight: 700, marginBottom: 14, color: C.white }}>Best Time to Post</div>
+              <div style={{ fontSize: TYPE.bodyLg, fontWeight: 600, marginBottom: 14, color: C.white }}>Beste Zeit zum Posten</div>
               <div style={{ display: "grid", gridTemplateColumns: `36px repeat(7, 1fr)`, gap: SPACE.xs }}>
                 <div />
-                {dayLabels.map((d) => <div key={d} style={{ textAlign: "center", fontSize: TYPE.micro, color: C.dimmed, fontWeight: 600, paddingBottom: 6 }}>{d}</div>)}
+                {dayLabels.map((d) => <div key={d} style={{ textAlign: "center", fontSize: TYPE.micro, color: C.dimmed, fontWeight: 500, paddingBottom: 6 }}>{d}</div>)}
                 {[6, 9, 12, 15, 18, 21].map((h) => (
                   <React.Fragment key={h}>
                     <div style={{ fontSize: TYPE.micro, color: C.dimmed, lineHeight: "26px", textAlign: "right", paddingRight: 6 }}>{h < 10 ? "0" : ""}{h}:00</div>
@@ -4490,19 +4496,19 @@ export default function Dashboard() {
                 ))}
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: SPACE.sm, marginTop: 12, justifyContent: "center" }}>
-                <div style={{ fontSize: TYPE.micro, color: C.dimmed }}>Fewer</div>
+                <div style={{ fontSize: TYPE.micro, color: C.dimmed }}>Weniger</div>
                 {[0.1, 0.25, 0.45, 0.65, 0.85].map((o) => <div key={o} style={{ width: 14, height: 14, borderRadius: RADIUS.sm, background: `rgba(34,197,94,${o})` }} />)}
-                <div style={{ fontSize: TYPE.micro, color: C.dimmed }}>More</div>
+                <div style={{ fontSize: TYPE.micro, color: C.dimmed }}>Mehr</div>
               </div>
               {/* Best times badges */}
               {Object.entries(btMap).length > 0 && (() => {
                 const sorted = Object.entries(btMap).sort((a, b) => b[1] - a[1]).slice(0, 3);
                 return (
                   <div style={{ display: "flex", gap: SPACE.sm, marginTop: 12, justifyContent: "center" }}>
-                    <span style={{ fontSize: TYPE.caption, color: C.dimmed, marginRight: 4 }}>Best time:</span>
+                    <span style={{ fontSize: TYPE.caption, color: C.dimmed, marginRight: 4 }}>Beste Zeit:</span>
                     {sorted.map(([key]) => {
                       const [d, h] = key.split("-").map(Number);
-                      return <span key={key} style={{ fontSize: TYPE.caption, fontWeight: 600, color: C.green, background: C.green + "15", padding: `${SPACE.xxs}px ${SPACE.lg}px`, borderRadius: RADIUS.md, border: `1px solid ${C.green}25` }}>{dayLabels[d]} {h}:00</span>;
+                      return <span key={key} style={{ fontSize: TYPE.caption, fontWeight: 500, color: C.green, background: C.green + "15", padding: `${SPACE.xxs}px ${SPACE.lg}px`, borderRadius: RADIUS.md, border: `1px solid ${C.green}25` }}>{dayLabels[d]} {h}:00</span>;
                     })}
                   </div>
                 );
@@ -4511,7 +4517,7 @@ export default function Dashboard() {
 
             {/* ── Top Performing Posts ──────────────────────────── */}
             <div className="glass-panel glass-border" style={{ background: C.glass, borderRadius: RADIUS.shell, boxShadow: "0 20px 48px rgba(0,0,0,0.35)", padding: 20 }}>
-              <div style={{ fontSize: TYPE.bodyLg, fontWeight: 700, marginBottom: 14, color: C.white }}>Top Performing Posts</div>
+              <div style={{ fontSize: TYPE.bodyLg, fontWeight: 600, marginBottom: 14, color: C.white }}>Top Posts</div>
               <div style={{ display: "flex", flexDirection: "column", gap: SPACE.md }}>
                 {topPosts.length === 0 && <div style={{ color: C.dimmed, fontSize: TYPE.small, padding: 20, textAlign: "center" }}>Keine veröffentlichten Posts</div>}
                 {topPosts.map((p, i) => {
@@ -4523,12 +4529,12 @@ export default function Dashboard() {
                       onMouseOver={(e) => e.currentTarget.style.background = C.bg}
                       onMouseOut={(e) => e.currentTarget.style.background = "transparent"}
                       onClick={() => setSelectedPost(p)}>
-                      <div style={{ width: 22, height: 22, borderRadius: RADIUS.md, background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: TYPE.caption, fontWeight: 700, color: C.dimmed, flexShrink: 0 }}>{i + 1}</div>
+                      <div style={{ width: 22, height: 22, borderRadius: RADIUS.md, background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: TYPE.caption, fontWeight: 600, color: C.dimmed, flexShrink: 0 }}>{i + 1}</div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: TYPE.small, color: C.white, fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.title}</div>
                         <div style={{ fontSize: TYPE.micro, color: C.dimmed }}>{postDate}</div>
                       </div>
-                      <div style={{ fontSize: TYPE.small, fontWeight: 700, color: C.green, background: C.greenGlow, padding: "3px 10px", borderRadius: RADIUS.md, flexShrink: 0 }}>ER {pER}%</div>
+                      <div style={{ fontSize: TYPE.small, fontWeight: 600, color: C.green, background: C.greenGlow, padding: "3px 10px", borderRadius: RADIUS.md, flexShrink: 0 }}>ER {pER}%</div>
                       <div style={{ display: "flex", alignItems: "center", gap: SPACE.xs, flexShrink: 0 }}>
                         <Heart size={11} color={C.dimmed} /><span style={{ fontSize: TYPE.caption, color: C.dimmed }}>{p.likes || 0}</span>
                       </div>
@@ -4542,7 +4548,7 @@ export default function Dashboard() {
           {/* ── Platform Breakdown (Zernio style cards) ────────── */}
           {platformCards.length > 0 && (
             <div style={{ background: C.card, borderRadius: RADIUS.xxxl, border: `1px solid ${C.border}`, padding: 20, marginBottom: 20 }}>
-              <div style={{ fontSize: TYPE.bodyLg, fontWeight: 700, marginBottom: 14, color: C.white }}>Platform Breakdown</div>
+              <div style={{ fontSize: TYPE.bodyLg, fontWeight: 600, marginBottom: 14, color: C.white }}>Plattform-Übersicht</div>
               <div style={{ display: "flex", flexDirection: "column", gap: SPACE.md }}>
                 {platformCards.map((pc) => {
                   const isIG = pc.platform.toLowerCase().includes("instagram");
@@ -4556,7 +4562,7 @@ export default function Dashboard() {
                       <div style={{ display: "flex", alignItems: "center", gap: SPACE.md, minWidth: 140 }}>
                         {isIG ? <Instagram size={16} color={color} /> : <TikTokIcon size={16} color={color} />}
                         <div>
-                          <div style={{ fontSize: TYPE.body, fontWeight: 700, color: color }}>{isIG ? "Instagram" : isTT ? "TikTok" : pc.name}</div>
+                          <div style={{ fontSize: TYPE.body, fontWeight: 600, color: color }}>{isIG ? "Instagram" : isTT ? "TikTok" : pc.name}</div>
                           <div style={{ fontSize: TYPE.micro, color: C.dimmed }}>{pc.postCount} posts</div>
                         </div>
                       </div>
@@ -4569,11 +4575,11 @@ export default function Dashboard() {
                         ].map((s, si) => (
                           <div key={si} style={{ display: "flex", alignItems: "center", gap: SPACE.xs }}>
                             <s.icon size={12} color={C.dimmed} />
-                            <span style={{ fontSize: TYPE.small, color: C.white, fontWeight: 600 }}>{fmt(s.val)}</span>
+                            <span style={{ fontSize: TYPE.small, color: C.white, fontWeight: 500 }}>{fmt(s.val)}</span>
                           </div>
                         ))}
                       </div>
-                      <div style={{ fontSize: TYPE.small, fontWeight: 700, color: C.green, background: C.greenGlow, padding: `${SPACE.xs}px ${SPACE.xl}px`, borderRadius: RADIUS.md }}>ER {er}%</div>
+                      <div style={{ fontSize: TYPE.small, fontWeight: 600, color: C.green, background: C.greenGlow, padding: `${SPACE.xs}px ${SPACE.xl}px`, borderRadius: RADIUS.md }}>ER {er}%</div>
                     </div>
                   );
                 })}
@@ -4584,7 +4590,7 @@ export default function Dashboard() {
           {/* ── Content Decay Chart ────────────────────────────── */}
           {decayData.length > 0 && (
             <div style={{ background: C.card, borderRadius: RADIUS.xxxl, border: `1px solid ${C.border}`, padding: 20 }}>
-              <div style={{ fontSize: TYPE.bodyLg, fontWeight: 700, marginBottom: 4, color: C.white }}>Content Performance Decay</div>
+              <div style={{ fontSize: TYPE.bodyLg, fontWeight: 600, marginBottom: 4, color: C.white }}>Content-Leistungsverlauf</div>
               <div style={{ fontSize: TYPE.caption, color: C.dimmed, marginBottom: 14 }}>Wie schnell erreicht ein Post seine finale Reichweite?</div>
               <ResponsiveContainer width="100%" height={200}>
                 <AreaChart data={decayData}>
@@ -4598,7 +4604,7 @@ export default function Dashboard() {
                   <XAxis dataKey="bucket_label" tick={{ fill: C.dimmed, fontSize: TYPE.micro }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fill: C.dimmed, fontSize: TYPE.micro }} axisLine={false} tickLine={false} domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
                   <Tooltip contentStyle={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: RADIUS.xl, fontSize: TYPE.small, color: C.white }} formatter={(v) => [`${v}%`, "Erreicht"]} />
-                  <Area type="monotone" dataKey="avg_pct_of_final" name="Performance" stroke={C.purple} fill="url(#gradDecay)" strokeWidth={2} dot={{ r: 3, fill: C.purple }} />
+                  <Area type="monotone" dataKey="avg_pct_of_final" name="Leistung" stroke={C.purple} fill="url(#gradDecay)" strokeWidth={2} dot={{ r: 3, fill: C.purple }} />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -4610,15 +4616,15 @@ export default function Dashboard() {
       {/* Settings Tab */}
       {activeTab === "settings" && (
         <div style={{ padding: "24px 32px", maxWidth: 800 }}>
-          <div style={{ fontSize: TYPE.h2, fontWeight: 800, letterSpacing: "-0.02em", marginBottom: 4, color: C.white }}>Settings</div>
-          <div style={{ fontSize: TYPE.body, color: C.muted, marginBottom: 24 }}>API connection, team access, and notification settings</div>
+          <div style={{ fontSize: TYPE.h2, fontWeight: 700, letterSpacing: "-0.02em", marginBottom: 4, color: C.white }}>Einstellungen</div>
+          <div style={{ fontSize: TYPE.body, color: C.muted, marginBottom: 24 }}>API-Verbindung, Team-Zugriff und Benachrichtigungseinstellungen</div>
 
           {/* API Status */}
           <div style={{ background: C.card, borderRadius: RADIUS.xxxl, border: `1px solid ${C.border}`, padding: 20, marginBottom: 16 }}>
-            <div style={{ fontSize: TYPE.bodyLg, fontWeight: 700, marginBottom: 12 }}>Late API Status</div>
+            <div style={{ fontSize: TYPE.bodyLg, fontWeight: 600, marginBottom: 12 }}>Late-API-Status</div>
             <div style={{ display: "flex", alignItems: "center", gap: SPACE.md, fontSize: TYPE.body, marginBottom: 16 }}>
               {isConnected ? <Wifi size={14} color={C.green} /> : <WifiOff size={14} color={C.yellow} />}
-              <span style={{ color: isConnected ? C.green : C.yellow, fontWeight: 600 }}>{isConnected ? `Verbunden · ${accounts.length} Account${accounts.length !== 1 ? "s" : ""}` : "Nicht verbunden – Demo-Modus"}</span>
+              <span style={{ color: isConnected ? C.green : C.yellow, fontWeight: 500 }}>{isConnected ? `Verbunden · ${accounts.length} Account${accounts.length !== 1 ? "s" : ""}` : "Nicht verbunden – Demo-Modus"}</span>
               <button onClick={() => { fetchAccounts(); fetchPosts(); }} style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: SPACE.sm, padding: "6px 14px", borderRadius: RADIUS.lg, background: C.bg, border: `1px solid ${C.border}`, color: C.muted, fontSize: TYPE.small, cursor: "pointer", fontFamily: "inherit" }}>
                 <RefreshCw size={12} /> Neu laden
               </button>
@@ -4627,14 +4633,14 @@ export default function Dashboard() {
             {/* Connected Accounts List */}
             {accounts.length > 0 && (
               <div style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: TYPE.small, fontWeight: 700, color: C.dimmed, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Verbundene Accounts</div>
+                <div style={{ fontSize: TYPE.small, fontWeight: 600, color: C.dimmed, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Verbundene Accounts</div>
                 {accounts.map((a, i) => (
                   <div key={i} style={{ display: "flex", alignItems: "center", gap: SPACE.lg, padding: `${SPACE.md}px ${SPACE.xl}px`, borderRadius: RADIUS.lg, background: C.bg, border: `1px solid ${C.border}`, marginBottom: 6 }}>
                     <div style={{ width: 28, height: 28, borderRadius: RADIUS.lg, background: a.platform === "instagram" ? C.instagram + "20" : C.tiktok + "20", display: "flex", alignItems: "center", justifyContent: "center" }}>
                       {a.platform === "instagram" ? <Instagram size={14} color={C.instagram} /> : <TikTokIcon size={14} color={C.tiktok} />}
                     </div>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: TYPE.body, fontWeight: 600, color: C.white }}>{a.name}</div>
+                      <div style={{ fontSize: TYPE.body, fontWeight: 500, color: C.white }}>{a.name}</div>
                       <div style={{ fontSize: TYPE.caption, color: C.dimmed }}>{a.platform} · ID: {a.accountId || a.id || "?"}</div>
                     </div>
                     <Check size={14} color={C.green} />
@@ -4647,10 +4653,10 @@ export default function Dashboard() {
           {/* API Debug Panel */}
           <div style={{ background: C.card, borderRadius: RADIUS.xxxl, border: `1px solid ${C.border}`, padding: 20 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-              <div style={{ fontSize: TYPE.bodyLg, fontWeight: 700 }}>API Debug</div>
+              <div style={{ fontSize: TYPE.bodyLg, fontWeight: 600 }}>API-Diagnose</div>
               <div style={{ fontSize: TYPE.caption, color: C.dimmed, background: C.bg, padding: "3px 10px", borderRadius: RADIUS.md }}>Für Fehlerbehebung</div>
             </div>
-            <div style={{ fontSize: TYPE.small, color: C.muted, marginBottom: 10 }}>Rohe API-Antwort von <span style={{ color: C.blue, fontWeight: 600 }}>/api/v1/accounts</span>:</div>
+            <div style={{ fontSize: TYPE.small, color: C.muted, marginBottom: 10 }}>Rohe API-Antwort von <span style={{ color: C.blue, fontWeight: 500 }}>/api/v1/accounts</span>:</div>
             <pre style={{ background: C.bg, borderRadius: RADIUS.xl, border: `1px solid ${C.border}`, padding: 14, fontSize: TYPE.caption, color: C.muted, overflow: "auto", maxHeight: 300, whiteSpace: "pre-wrap", wordBreak: "break-all", lineHeight: 1.6, margin: 0 }}>
               {debugInfo ? JSON.stringify(debugInfo, null, 2) : "Wird geladen..."}
             </pre>
@@ -4661,9 +4667,9 @@ export default function Dashboard() {
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
               <div style={{ display: "flex", alignItems: "center", gap: SPACE.md }}>
                 <AlertCircle size={16} color={C.redLight} />
-                <div style={{ fontSize: TYPE.bodyLg, fontWeight: 700 }}>Fehler-Protokoll</div>
+                <div style={{ fontSize: TYPE.bodyLg, fontWeight: 600 }}>Fehler-Protokoll</div>
                 {errorLog.length > 0 && (
-                  <div style={{ fontSize: TYPE.caption, fontWeight: 700, color: "#fff", background: C.red, padding: `${SPACE.xxs}px ${SPACE.md}px`, borderRadius: RADIUS.xl }}>{errorLog.length}</div>
+                  <div style={{ fontSize: TYPE.caption, fontWeight: 600, color: "#fff", background: C.red, padding: `${SPACE.xxs}px ${SPACE.md}px`, borderRadius: RADIUS.xl }}>{errorLog.length}</div>
                 )}
               </div>
               {errorLog.length > 0 && (
@@ -4690,7 +4696,7 @@ export default function Dashboard() {
                       <div onClick={() => setExpandedError(isExpanded ? null : entry.id)} style={{ display: "flex", alignItems: "center", gap: SPACE.lg, padding: "10px 14px", cursor: "pointer" }}>
                         <div style={{ width: 6, height: 6, borderRadius: RADIUS.sm, background: C.redLight, flexShrink: 0 }} />
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: TYPE.small, fontWeight: 600, color: C.white, marginBottom: 2 }}>{entry.action}</div>
+                          <div style={{ fontSize: TYPE.small, fontWeight: 500, color: C.white, marginBottom: 2 }}>{entry.action}</div>
                           <div style={{ fontSize: TYPE.caption, color: C.redLight, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{entry.error}</div>
                         </div>
                         <div style={{ fontSize: TYPE.micro, color: C.dimmed, whiteSpace: "nowrap", flexShrink: 0 }}>{timeStr}</div>
@@ -4699,36 +4705,36 @@ export default function Dashboard() {
                       {isExpanded && (
                         <div style={{ padding: "0 14px 12px", borderTop: `1px solid ${C.border}` }}>
                           <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "4px 12px", padding: `${SPACE.lg}px 0`, fontSize: TYPE.caption }}>
-                            <span style={{ color: C.dimmed, fontWeight: 600 }}>Aktion:</span>
+                            <span style={{ color: C.dimmed, fontWeight: 500 }}>Aktion:</span>
                             <span style={{ color: C.white }}>{entry.action}</span>
-                            <span style={{ color: C.dimmed, fontWeight: 600 }}>Fehler:</span>
+                            <span style={{ color: C.dimmed, fontWeight: 500 }}>Fehler:</span>
                             <span style={{ color: C.redLight }}>{entry.error}</span>
                             {entry.platforms && <>
-                              <span style={{ color: C.dimmed, fontWeight: 600 }}>Plattformen:</span>
+                              <span style={{ color: C.dimmed, fontWeight: 500 }}>Plattformen:</span>
                               <span style={{ color: C.white }}>{entry.platforms.join(", ")}</span>
                             </>}
                             {entry.content && <>
-                              <span style={{ color: C.dimmed, fontWeight: 600 }}>Inhalt:</span>
+                              <span style={{ color: C.dimmed, fontWeight: 500 }}>Inhalt:</span>
                               <span style={{ color: C.muted }}>{entry.content}...</span>
                             </>}
                             {entry.scheduledFor && <>
-                              <span style={{ color: C.dimmed, fontWeight: 600 }}>Geplant für:</span>
+                              <span style={{ color: C.dimmed, fontWeight: 500 }}>Geplant für:</span>
                               <span style={{ color: C.white }}>{entry.scheduledFor}</span>
                             </>}
                             {entry.postTitle && <>
-                              <span style={{ color: C.dimmed, fontWeight: 600 }}>Beitrag:</span>
+                              <span style={{ color: C.dimmed, fontWeight: 500 }}>Beitrag:</span>
                               <span style={{ color: C.white }}>{entry.postTitle}</span>
                             </>}
                             {entry.mediaCount > 0 && <>
-                              <span style={{ color: C.dimmed, fontWeight: 600 }}>Medien:</span>
+                              <span style={{ color: C.dimmed, fontWeight: 500 }}>Medien:</span>
                               <span style={{ color: C.white }}>{entry.mediaCount} Datei(en)</span>
                             </>}
-                            <span style={{ color: C.dimmed, fontWeight: 600 }}>Zeitpunkt:</span>
+                            <span style={{ color: C.dimmed, fontWeight: 500 }}>Zeitpunkt:</span>
                             <span style={{ color: C.white }}>{ts.toLocaleString("de-DE")}</span>
                           </div>
                           {entry.response && (
                             <div>
-                              <div style={{ fontSize: TYPE.caption, color: C.dimmed, fontWeight: 600, marginBottom: 4 }}>API-Antwort:</div>
+                              <div style={{ fontSize: TYPE.caption, color: C.dimmed, fontWeight: 500, marginBottom: 4 }}>API-Antwort:</div>
                               <pre style={{ background: C.card, borderRadius: RADIUS.lg, border: `1px solid ${C.border}`, padding: 10, fontSize: TYPE.micro, color: C.muted, overflow: "auto", maxHeight: 180, whiteSpace: "pre-wrap", wordBreak: "break-all", lineHeight: 1.5, margin: 0 }}>
                                 {JSON.stringify(entry.response, null, 2)}
                               </pre>
@@ -4752,12 +4758,12 @@ export default function Dashboard() {
         {/* Zernio-style Posts header */}
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 20 }}>
           <div>
-            <div style={{ fontSize: TYPE.h2, fontWeight: 800, letterSpacing: "-0.02em", color: C.white }}>Posts</div>
-            <div style={{ fontSize: TYPE.body, color: C.muted, marginTop: 2 }}>Manage your scheduled and published content</div>
+            <div style={{ fontSize: TYPE.h2, fontWeight: 700, letterSpacing: "-0.02em", color: C.white }}>Posts</div>
+            <div style={{ fontSize: TYPE.body, color: C.muted, marginTop: 2 }}>Verwalte deine geplanten und veröffentlichten Posts</div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: SPACE.md }}>
-            <button onClick={() => { setCreateModalInitialDate(""); setShowCreateModal(true); }} style={{ display: "flex", alignItems: "center", gap: SPACE.sm, background: `linear-gradient(135deg, ${C.ctaLight}, ${C.cta})`, border: "none", borderRadius: RADIUS.pill, padding: "9px 20px", color: "#fff", fontSize: TYPE.body, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", boxShadow: `0 8px 20px ${C.ctaGlow}` }}>
-              <Plus size={15} /> Create post
+            <button onClick={() => { setCreateModalInitialDate(""); setShowCreateModal(true); }} style={{ display: "flex", alignItems: "center", gap: SPACE.sm, background: `linear-gradient(135deg, ${C.ctaLight}, ${C.cta})`, border: "none", borderRadius: RADIUS.pill, padding: "9px 20px", color: "#fff", fontSize: TYPE.body, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", boxShadow: `inset 0 1px 0 rgba(255,255,255,0.22), 0 8px 20px ${C.ctaGlow}` }}>
+              <Plus size={15} /> Post erstellen
             </button>
           </div>
         </div>
@@ -4765,21 +4771,21 @@ export default function Dashboard() {
         {/* ── Zernio-Filterleiste ── */}
         <div style={{ display: "flex", alignItems: "center", gap: SPACE.md, marginBottom: 20, flexWrap: "wrap" }}>
           <FilterDropdown
-            label="All posts" value={statusFilter} onChange={setStatusFilter} width={180}
+            label="Alle Posts" value={statusFilter} onChange={setStatusFilter} width={180}
             options={[
-              { key: "all", label: "All posts" },
-              { key: "draft", label: "Draft" },
-              { key: "scheduled", label: "Scheduled" },
-              { key: "queued", label: "Queued" },
-              { key: "published", label: "Published" },
-              { key: "failed", label: "Failed" },
-              { key: "partial", label: "Partial" },
+              { key: "all", label: "Alle Posts" },
+              { key: "draft", label: "Entwurf" },
+              { key: "scheduled", label: "Geplant" },
+              { key: "queued", label: "Warteschlange" },
+              { key: "published", label: "Veröffentlicht" },
+              { key: "failed", label: "Fehlgeschlagen" },
+              { key: "partial", label: "Teilweise" },
             ]} />
 
           <FilterDropdown
-            label="All platforms" value={platformFilter2} onChange={setPlatformFilter2} width={200}
+            label="Alle Plattformen" value={platformFilter2} onChange={setPlatformFilter2} width={200}
             options={[
-              { key: "all", label: "All platforms" },
+              { key: "all", label: "Alle Plattformen" },
               { key: "tiktok", label: "TikTok", icon: TikTokIcon, color: C.tiktok },
               { key: "instagram", label: "Instagram", icon: Instagram, color: C.instagram },
               { key: "facebook", label: "Facebook", icon: Facebook },
@@ -4788,33 +4794,33 @@ export default function Dashboard() {
             ]} />
 
           <FilterDropdown
-            label="All profiles" value={profileFilter} onChange={setProfileFilter} searchable width={200}
+            label="Alle Profile" value={profileFilter} onChange={setProfileFilter} searchable width={200}
             options={[
-              { key: "all", label: "All profiles" },
+              { key: "all", label: "Alle Profile" },
               ...profileOptions.map((p) => ({ key: p, label: p, dot: C.accent })),
             ]} />
 
           <FilterDropdown
-            label="All users" value={userFilter} onChange={setUserFilter} width={180}
+            label="Alle Nutzer" value={userFilter} onChange={setUserFilter} width={180}
             options={[
-              { key: "all", label: "All users" },
+              { key: "all", label: "Alle Nutzer" },
               ...userOptions.map((u) => ({ key: u, label: u })),
             ]} />
 
           <FilterDropdown
-            label="All dates" value={dateFilter} onChange={setDateFilter} icon={Calendar} width={180}
+            label="Alle Termine" value={dateFilter} onChange={setDateFilter} icon={Calendar} width={180}
             options={[
-              { key: "all", label: "All dates" },
-              { key: "today", label: "Today" },
-              { key: "tomorrow", label: "Tomorrow" },
-              { key: "this_week", label: "This week" },
-              { key: "next_week", label: "Next week" },
-              { key: "this_month", label: "This month" },
+              { key: "all", label: "Alle Termine" },
+              { key: "today", label: "Heute" },
+              { key: "tomorrow", label: "Morgen" },
+              { key: "this_week", label: "Diese Woche" },
+              { key: "next_week", label: "Nächste Woche" },
+              { key: "this_month", label: "Diesen Monat" },
             ]} />
 
           <div style={{ display: "flex", alignItems: "center", gap: SPACE.md, background: C.card, border: `1px solid ${C.border}`, borderRadius: RADIUS.lg, padding: `${SPACE.md}px ${SPACE.xl}px` }}>
             <Search size={14} color={C.dimmed} />
-            <input type="text" placeholder="Search..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+            <input type="text" placeholder="Suchen..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
               style={{ background: "transparent", border: "none", outline: "none", color: C.white, fontSize: TYPE.body, width: 110, fontFamily: "inherit" }} />
           </div>
 
@@ -4825,24 +4831,24 @@ export default function Dashboard() {
             </button>
 
             <FilterDropdown
-              label="Scheduled (new)" value={sortBy} onChange={setSortBy} icon={ArrowUpDown} width={330} align="right"
+              label="Geplant (neu)" value={sortBy} onChange={setSortBy} icon={ArrowUpDown} width={330} align="right"
               options={[
-                { key: "scheduled_desc", label: "Scheduled (newest first)" },
-                { key: "scheduled_asc", label: "Scheduled (oldest first)" },
-                { key: "created_desc", label: "Created (newest first)" },
-                { key: "created_asc", label: "Created (oldest first)" },
+                { key: "scheduled_desc", label: "Geplant (neueste zuerst)" },
+                { key: "scheduled_asc", label: "Geplant (älteste zuerst)" },
+                { key: "created_desc", label: "Erstellt (neueste zuerst)" },
+                { key: "created_asc", label: "Erstellt (älteste zuerst)" },
                 { key: "status", label: "Status" },
-                { key: "platform", label: "Platform" },
-                { key: "_div", label: "By metric · published only", divider: true },
-                { key: "engagement", label: "Most engagement (likes+comments+shares+saves)" },
-                { key: "likes", label: "Most likes" },
-                { key: "comments", label: "Most comments" },
-                { key: "shares", label: "Most shares" },
-                { key: "views", label: "Most views" },
-                { key: "impressions", label: "Most impressions" },
-                { key: "reach", label: "Most reach" },
-                { key: "saves", label: "Most saves" },
-                { key: "clicks", label: "Most clicks" },
+                { key: "platform", label: "Plattform" },
+                { key: "_div", label: "Nach Kennzahl · nur veröffentlicht", divider: true },
+                { key: "engagement", label: "Meistes Engagement (Likes+Kommentare+Shares+Gespeichert)" },
+                { key: "likes", label: "Meiste Likes" },
+                { key: "comments", label: "Meiste Kommentare" },
+                { key: "shares", label: "Meiste Shares" },
+                { key: "views", label: "Meiste Aufrufe" },
+                { key: "impressions", label: "Meiste Impressionen" },
+                { key: "reach", label: "Meiste Reichweite" },
+                { key: "saves", label: "Meiste Speicherungen" },
+                { key: "clicks", label: "Meiste Klicks" },
               ]} />
 
             {/* Ansichts-Umschalter */}
@@ -4869,7 +4875,7 @@ export default function Dashboard() {
                 <button onClick={() => setGridCols(Math.max(2, gridCols - 1))} disabled={gridCols <= 2} style={{ width: 26, height: 26, borderRadius: RADIUS.md, border: "none", background: "transparent", color: gridCols <= 2 ? C.border : C.dimmed, cursor: gridCols <= 2 ? "default" : "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
                   <Minus size={13} />
                 </button>
-                <span style={{ fontSize: TYPE.body, color: C.muted, minWidth: 14, textAlign: "center", fontWeight: 600 }}>{gridCols}</span>
+                <span style={{ fontSize: TYPE.body, color: C.muted, minWidth: 14, textAlign: "center", fontWeight: 500 }}>{gridCols}</span>
                 <button onClick={() => setGridCols(Math.min(6, gridCols + 1))} disabled={gridCols >= 6} style={{ width: 26, height: 26, borderRadius: RADIUS.md, border: "none", background: "transparent", color: gridCols >= 6 ? C.border : C.dimmed, cursor: gridCols >= 6 ? "default" : "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
                   <Plus size={13} />
                 </button>
@@ -4884,7 +4890,7 @@ export default function Dashboard() {
         {/* Post Count */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
           <div style={{ fontSize: TYPE.small, color: C.dimmed }}>
-            {filtered.length > 0 ? `${pageStart + 1}–${Math.min(pageStart + PER_PAGE, filtered.length)} of ${filtered.length}` : "No posts"}
+            {filtered.length > 0 ? `${pageStart + 1}–${Math.min(pageStart + PER_PAGE, filtered.length)} von ${filtered.length}` : "Keine Posts"}
           </div>
         </div>
 
@@ -4903,12 +4909,12 @@ export default function Dashboard() {
             const primaryColor = postPlats.includes("instagram") ? C.instagram : C.tiktok;
             const isSelected = selectedPost?.id === post.id;
             const statusConf = {
-              published: { label: "published", color: C.green },
-              scheduled: { label: "scheduled", color: C.blue },
-              queued: { label: "queued", color: C.purple },
-              draft: { label: "draft", color: C.dimmed },
-              failed: { label: "failed", color: C.redLight },
-              partial: { label: "partial", color: C.yellow },
+              published: { label: "Live", color: C.green },
+              scheduled: { label: "Geplant", color: C.blue },
+              queued: { label: "Warteschlange", color: C.purple },
+              draft: { label: "Entwurf", color: C.dimmed },
+              failed: { label: "Fehler", color: C.redLight },
+              partial: { label: "Teilweise", color: C.yellow },
             };
             const sc = statusConf[post.status] || statusConf.draft;
             const pid = String(post.id);
@@ -4916,13 +4922,13 @@ export default function Dashboard() {
 
             // Metriken – nur anzeigen, was tatsächlich Werte hat
             const metrics = [
-              { key: "likes", icon: Heart, value: post.likes },
-              { key: "comments", icon: MessageCircle, value: post.comments },
-              { key: "shares", icon: Share2, value: post.shares },
-              { key: "views", icon: Eye, value: post.views },
-              { key: "reach", icon: UsersRound, value: post.reach },
-              { key: "saves", icon: Bookmark, value: post.saves },
-              { key: "clicks", icon: MousePointerClick, value: post.clicks },
+              { key: "likes", label: "Likes", icon: Heart, value: post.likes },
+              { key: "comments", label: "Kommentare", icon: MessageCircle, value: post.comments },
+              { key: "shares", label: "Geteilt", icon: Share2, value: post.shares },
+              { key: "views", label: "Aufrufe", icon: Eye, value: post.views },
+              { key: "reach", label: "Reichweite", icon: UsersRound, value: post.reach },
+              { key: "saves", label: "Gespeichert", icon: Bookmark, value: post.saves },
+              { key: "clicks", label: "Klicks", icon: MousePointerClick, value: post.clicks },
             ].filter((m) => m.value > 0);
 
             const fmtNum = (n) => n >= 1000 ? (n / 1000).toFixed(1).replace(".0", "") + "K" : String(n);
@@ -4965,9 +4971,9 @@ export default function Dashboard() {
 
                     {/* Datum + Uhrzeit */}
                     <div style={{ fontSize: TYPE.small, color: C.muted, marginBottom: 5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                      {new Date(post.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                      {new Date(post.date).toLocaleDateString("de-DE", { day: "2-digit", month: "short", year: "numeric" })}
                       {", "}
-                      {new Date(post.date).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true })}
+                      {new Date(post.date).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}
                     </div>
 
                     {/* User · Profil · Post-ID */}
@@ -5024,11 +5030,11 @@ export default function Dashboard() {
 
                 {/* Fußzeile: Status + Metriken */}
                 <div style={{ display: "flex", alignItems: "center", gap: SPACE.lg, padding: "0 14px", height: 40, borderTop: `1px solid ${C.border}`, flexShrink: 0, overflow: "hidden" }}>
-                  <div style={{ display: "inline-flex", alignItems: "center", fontSize: TYPE.caption, fontWeight: 600, color: sc.color, background: sc.color + "18", padding: "3px 9px", borderRadius: RADIUS.md, flexShrink: 0 }}>
+                  <div style={{ display: "inline-flex", alignItems: "center", fontSize: TYPE.caption, fontWeight: 500, color: sc.color, background: sc.color + "18", padding: "3px 9px", borderRadius: RADIUS.md, flexShrink: 0 }}>
                     {sc.label}
                   </div>
                   {metrics.map((m) => (
-                    <div key={m.key} title={m.key} style={{ display: "inline-flex", alignItems: "center", gap: SPACE.xs, fontSize: TYPE.caption, color: C.muted, flexShrink: 0 }}>
+                    <div key={m.key} title={m.label} style={{ display: "inline-flex", alignItems: "center", gap: SPACE.xs, fontSize: TYPE.caption, color: C.muted, flexShrink: 0 }}>
                       <m.icon size={11} />
                       {fmtNum(m.value)}
                     </div>
@@ -5065,7 +5071,7 @@ export default function Dashboard() {
                     background: n === safePage ? C.cardHover : "transparent",
                     border: `1px solid ${n === safePage ? C.dimmed + "60" : "transparent"}`,
                     color: n === safePage ? C.white : C.muted, fontSize: TYPE.body,
-                    fontWeight: n === safePage ? 700 : 500, cursor: "pointer", fontFamily: "inherit",
+                    fontWeight: n === safePage ? 600 : 500, cursor: "pointer", fontFamily: "inherit",
                   }}>{n}</button>
                 </React.Fragment>
               ))}
@@ -5083,11 +5089,11 @@ export default function Dashboard() {
           <div style={{ marginTop: 32, padding: 24, background: C.card, borderRadius: RADIUS.xxxl, border: `1px solid ${C.border}`, display: "flex", gap: SPACE.xxl, alignItems: "flex-start" }}>
             <div style={{ width: 44, height: 44, borderRadius: RADIUS.xxl, background: C.blueGlow, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><BarChart3 size={22} color={C.blue} /></div>
             <div>
-              <div style={{ fontSize: TYPE.label, fontWeight: 700, color: C.white, marginBottom: 8 }}>Zernio API verbinden – 3 Schritte</div>
+              <div style={{ fontSize: TYPE.label, fontWeight: 600, color: C.white, marginBottom: 8 }}>Zernio API verbinden – 3 Schritte</div>
               <div style={{ fontSize: TYPE.body, color: C.muted, lineHeight: 1.8 }}>
-                <span style={{ color: C.blue, fontWeight: 700 }}>1.</span> Erstelle einen Account auf <span style={{ color: C.blue, fontWeight: 600 }}>zernio.com</span> und verbinde Instagram + TikTok<br />
-                <span style={{ color: C.blue, fontWeight: 700 }}>2.</span> Kopiere deinen API-Key unter Settings → API<br />
-                <span style={{ color: C.blue, fontWeight: 700 }}>3.</span> Füge ihn als <span style={{ color: C.green, fontWeight: 600 }}>LATE_API_KEY</span> in deinen Vercel Environment Variables ein und deploye erneut
+                <span style={{ color: C.blue, fontWeight: 600 }}>1.</span> Erstelle einen Account auf <span style={{ color: C.blue, fontWeight: 500 }}>zernio.com</span> und verbinde Instagram + TikTok<br />
+                <span style={{ color: C.blue, fontWeight: 600 }}>2.</span> Kopiere deinen API-Key unter Einstellungen → API<br />
+                <span style={{ color: C.blue, fontWeight: 600 }}>3.</span> Füge ihn als <span style={{ color: C.green, fontWeight: 500 }}>LATE_API_KEY</span> in deine Vercel-Umgebungsvariablen ein und deploye erneut
               </div>
             </div>
           </div>
