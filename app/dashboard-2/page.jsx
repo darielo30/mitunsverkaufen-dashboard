@@ -118,7 +118,7 @@ function buildDashboardData(accounts, posts) {
 	const reachRows = [...published]
 		.sort((x, y) => new Date(x.publishedAt || x.date) - new Date(y.publishedAt || y.date))
 		.slice(-8)
-		.map((p) => ({ label: p.title.length > 14 ? p.title.slice(0, 13) + "…" : p.title, reach: p.reach || p.views || 0 }));
+		.map((p) => ({ label: p.title.length > 14 ? p.title.slice(0, 13) + "…" : p.title, full: p.title, reach: p.reach || p.views || 0 }));
 
 	const last7Days = Array.from({ length: 7 }, (_, i) => {
 		const d = new Date(now);

@@ -6,7 +6,7 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/components/ui/card";
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { ChartContainer, ChartTooltip } from "@/components/ui/chart";
 import { Delta, DeltaIcon, DeltaValue } from "@/components/delta";
 import { DashboardCard } from "@/components/dashboard-card";
 
@@ -77,13 +77,17 @@ export function ReachChart({ rows, growthPct }) {
 							<XAxis
 								axisLine={false}
 								dataKey="label"
-								interval={0}
 								tickFormatter={(value) => String(value)}
 								tickLine={false}
 								tickMargin={10}
 							/>
 							<ChartTooltip
-								content={<ChartTooltipContent hideLabel />}
+								content={({ active, payload }) => active && payload?.[0] ? (
+									<div className="rounded-lg border bg-background px-3 py-2 text-xs shadow-md">
+										<div className="mb-1 text-muted-foreground">{payload[0].payload.full}</div>
+										<div className="font-medium tabular-nums">{payload[0].value.toLocaleString("de-DE")} Reichweite</div>
+									</div>
+								) : null}
 								cursor={false}
 							/>
 							<Bar
