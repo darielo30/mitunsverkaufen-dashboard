@@ -40,15 +40,17 @@ export default function RootLayout({ children }) {
           .glass-border { position: relative; }
 
           /* ── Framed app shell (desktop only) ──────────────────────
-             Matches the reference: the whole app floats as one rounded,
-             shadowed card on a darker page background instead of running
-             edge-to-edge. Below 1024px this collapses back to a normal
-             full-bleed page — a floating frame has no room to read as
-             premium on a phone, and the sidebar needs to stay a true
-             fixed-position off-canvas drawer there. */
+             The whole app floats as one rounded, shadowed card with a
+             sliver of breathing room top/bottom, but always spans the
+             full viewport width — no max-width, so it reads identically
+             on every monitor instead of leaving side gaps on wide ones
+             while looking full-bleed on narrower ones. Below 1024px this
+             collapses back to a normal full-bleed page — a floating frame
+             has no room to read as premium on a phone, and the sidebar
+             needs to stay a true fixed-position off-canvas drawer there. */
           @media (min-width: 1024px) {
             .app-shell {
-              max-width: 1680px; margin: 28px auto; height: calc(100vh - 56px);
+              margin: 28px 0; height: calc(100vh - 56px);
               border-radius: 28px; overflow: hidden;
               border: 1px solid rgba(255,255,255,0.07);
               box-shadow: 0 40px 90px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.05);

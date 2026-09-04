@@ -886,15 +886,11 @@ function CreatePostModal({ onClose, onSubmit, isSubmitting, accounts, initialDat
   // Keyed by account id (not platform) – multiple accounts can share a
   // platform now (e.g. two TikTok accounts under different profiles), so a
   // post target has to identify the specific account, not just "tiktok".
-  // Defaults to the original Instagram + TikTok "Business" accounts so the
-  // everyday workflow is unchanged; newer accounts (a second profile, a new
-  // platform) are opt-in per post rather than silently included.
+  // All connected accounts are preselected by default; toggle any off per post.
   const [selectedAccountIds, setSelectedAccountIds] = useState(() => {
     const defaults = {};
     accounts.forEach((a) => {
-      if ((a.platform === "instagram" || a.platform === "tiktok") && (!a.profileName || a.profileName === "Business")) {
-        defaults[a.id || a.accountId] = true;
-      }
+      defaults[a.id || a.accountId] = true;
     });
     return defaults;
   });
