@@ -42,7 +42,7 @@ const darkTheme = {
   purpleGlow: "rgba(139,92,246,0.12)", teal: "#14B8A6", tealGlow: "rgba(20,184,166,0.14)",
   yellow: "#EAB308",
   yellowGlow: "rgba(234,179,8,0.12)", white: "#F5F7FA", muted: "#94A3B8",
-  dimmed: "#64748B", instagram: "#E1306C", tiktok: "#00F2EA",
+  dimmed: "#64748B", instagram: "#E1306C", tiktok: "#00F2EA", youtube: "#FF0000",
 };
 const lightTheme = {
   bg: "#F3F4F6", bgSoft: "#E5E7EB", card: "#FFFFFF", cardHover: "#F9FAFB",
@@ -57,7 +57,7 @@ const lightTheme = {
   purpleGlow: "rgba(124,58,237,0.08)", teal: "#0F9C8C", tealGlow: "rgba(15,156,140,0.10)",
   yellow: "#CA8A04",
   yellowGlow: "rgba(202,138,4,0.08)", white: "#111827", muted: "#6B7280",
-  dimmed: "#9CA3AF", instagram: "#E1306C", tiktok: "#00B8A9",
+  dimmed: "#9CA3AF", instagram: "#E1306C", tiktok: "#00B8A9", youtube: "#FF0000",
 };
 let C = darkTheme;
 
@@ -85,6 +85,17 @@ function TikTokIcon({ size = 24, color = "#00F2EA" }) {
     </svg>
   );
 }
+
+// Maps a Late/Zernio platform key to its icon + label. `color` is read lazily
+// (via a getter) since `C` is reassigned when the theme toggles.
+const PLATFORM_META = {
+  instagram: { label: "Instagram", icon: Instagram, get color() { return C.instagram; } },
+  tiktok: { label: "TikTok", icon: TikTokIcon, get color() { return C.tiktok; } },
+  youtube: { label: "YouTube", icon: Youtube, get color() { return C.youtube; } },
+  facebook: { label: "Facebook", icon: Facebook, get color() { return C.accent; } },
+  linkedin: { label: "LinkedIn", icon: Linkedin, get color() { return C.accent; } },
+};
+const platformMeta = (p) => PLATFORM_META[p] || { label: p ? p[0].toUpperCase() + p.slice(1) : "Unbekannt", icon: Globe, get color() { return C.muted; } };
 
 const fmt = (n) => {
   if (n >= 1000000) return (n / 1000000).toFixed(1) + "M";
@@ -872,7 +883,21 @@ function FilterDropdown({ label, value, options, onChange, icon: LeadIcon, searc
 
 function CreatePostModal({ onClose, onSubmit, isSubmitting, accounts, initialDate }) {
   const [content, setContent] = useState("");
-  const [platforms, setPlatforms] = useState({ instagram: true, tiktok: true });
+  // Keyed by account id (not platform) – multiple accounts can share a
+  // platform now (e.g. two TikTok accounts under different profiles), so a
+  // post target has to identify the specific account, not just "tiktok".
+  // Defaults to the original Instagram + TikTok "Business" accounts so the
+  // everyday workflow is unchanged; newer accounts (a second profile, a new
+  // platform) are opt-in per post rather than silently included.
+  const [selectedAccountIds, setSelectedAccountIds] = useState(() => {
+    const defaults = {};
+    accounts.forEach((a) => {
+      if ((a.platform === "instagram" || a.platform === "tiktok") && (!a.profileName || a.profileName === "Business")) {
+        defaults[a.id || a.accountId] = true;
+      }
+    });
+    return defaults;
+  });
   const [scheduleDate, setScheduleDate] = useState(initialDate || "");
   const [scheduleTime, setScheduleTime] = useState("");
   const [postNow, setPostNow] = useState(false);
@@ -1019,7 +1044,7 @@ function CreatePostModal({ onClose, onSubmit, isSubmitting, accounts, initialDat
   };
 
   // ── Submit-Voraussetzungen ────────────────────────────────────
-  const selectedPlatformKeys = Object.entries(platforms).filter(([, v]) => v).map(([k]) => k);
+  const selectedAccounts = accounts.filter((a) => selectedAccountIds[a.id || a.accountId]);
   const mediaUploading = isUploading || mediaFiles.some((f) => f.uploading);
   const readyMedia = mediaFiles.filter((f) => f.url && f.url !== "local");
   const hasMedia = readyMedia.length > 0;
@@ -1027,7 +1052,7 @@ function CreatePostModal({ onClose, onSubmit, isSubmitting, accounts, initialDat
   let blockReason = null;
   if (isSubmitting) blockReason = null;
   else if (!content.trim()) blockReason = "Caption fehlt";
-  else if (selectedPlatformKeys.length === 0) blockReason = "Keine Plattform ausgewählt";
+  else if (selectedAccounts.length === 0) blockReason = "Kein Account ausgewählt";
   else if (mediaUploading) blockReason = "Video wird noch hochgeladen…";
   else if (!hasMedia) blockReason = "Video oder Bild erforderlich";
   else if (!postNow && (!scheduleDate || !scheduleTime)) blockReason = "Datum & Uhrzeit fehlen";
@@ -1036,7 +1061,6 @@ function CreatePostModal({ onClose, onSubmit, isSubmitting, accounts, initialDat
 
   const handleSubmit = () => {
     if (!canSubmit) return;
-    const selectedPlatforms = selectedPlatformKeys;
 
     let scheduledFor = null;
     if (!postNow && scheduleDate && scheduleTime) {
@@ -1046,9 +1070,9 @@ function CreatePostModal({ onClose, onSubmit, isSubmitting, accounts, initialDat
     const mediaItems = mediaFiles.filter((f) => f.url && f.url !== "local").map((f) => ({ type: f.type, url: f.url }));
     const cleanCollabs = collabs.map((c) => c.trim().replace(/^@/, "")).filter(Boolean);
 
-    const platformsPayload = selectedPlatforms.map((p) => {
-      const account = accounts.find((a) => a.platform === p);
-      const entry = { platform: p, accountId: account?.id || account?.accountId || undefined };
+    const platformsPayload = selectedAccounts.map((account) => {
+      const p = account.platform;
+      const entry = { platform: p, accountId: account.id || account.accountId || undefined };
 
       // Instagram-specific: collaborators
       if (p === "instagram" && cleanCollabs.length > 0) {
@@ -1091,36 +1115,27 @@ function CreatePostModal({ onClose, onSubmit, isSubmitting, accounts, initialDat
 
         <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: SPACE.xxxl, flex: 1, overflowY: "auto" }}>
 
-          {/* Platform Selection */}
+          {/* Platform Selection – one chip per connected account, not per platform,
+              since a platform can have more than one account (e.g. two TikToks). */}
           <div>
-            <div style={{ fontSize: TYPE.body, fontWeight: 500, color: C.muted, marginBottom: 8 }}>Plattformen</div>
-            <div style={{ display: "flex", gap: SPACE.lg }}>
-              {[{ key: "instagram", label: "Instagram", icon: Instagram, color: C.instagram }, { key: "tiktok", label: "TikTok", icon: TikTokIcon, color: C.tiktok }].map((p) => {
-                const account = accounts.find((a) => a.platform === p.key);
+            <div style={{ fontSize: TYPE.body, fontWeight: 500, color: C.muted, marginBottom: 8 }}>Accounts</div>
+            <div style={{ display: "flex", gap: SPACE.lg, flexWrap: "wrap" }}>
+              {accounts.map((acc) => {
+                const id = acc.id || acc.accountId;
+                const meta = platformMeta(acc.platform);
+                const isSelected = !!selectedAccountIds[id];
                 return (
-                  <div key={p.key} style={{ position: "relative" }}>
-                    <button onClick={() => setPlatforms({ ...platforms, [p.key]: !platforms[p.key] })} style={{
-                      display: "flex", alignItems: "center", gap: SPACE.md, padding: "10px 18px", borderRadius: RADIUS.xl,
-                      border: `1.5px solid ${platforms[p.key] ? p.color : C.border}`,
-                      background: platforms[p.key] ? p.color + "15" : "transparent",
-                      color: platforms[p.key] ? p.color : C.dimmed,
-                      fontSize: TYPE.body, fontWeight: 500, cursor: "pointer", transition: "all 0.2s", fontFamily: "inherit",
-                      opacity: account ? 1 : 0.5,
-                    }}>
-                      <p.icon size={16} />{p.label}
-                      {account && platforms[p.key] && <Check size={14} />}
-                      {!account && (
-                        <span title={`${p.label}-Account nicht verbunden`}
-                          style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 18, height: 18, borderRadius: "50%", background: C.yellowGlow, color: C.yellow, fontSize: TYPE.caption, fontWeight: 700, cursor: "help" }}>!</span>
-                      )}
-                    </button>
-                    {!account && platforms[p.key] && (
-                      <div style={{ position: "absolute", top: "100%", left: 0, marginTop: 6, background: C.card, border: `1px solid ${C.yellow}40`, borderRadius: RADIUS.xl, padding: `${SPACE.md}px ${SPACE.xl}px`, width: 240, boxShadow: "0 8px 24px rgba(0,0,0,0.4)", zIndex: 10 }}>
-                        <div style={{ fontSize: TYPE.small, color: C.yellow, fontWeight: 500, marginBottom: 4 }}>{p.label}-Account nicht verbunden</div>
-                        <div style={{ fontSize: TYPE.caption, color: C.muted, lineHeight: 1.5 }}>Verbinde deinen {p.label}-Account in deinem Late Dashboard unter Settings.</div>
-                      </div>
-                    )}
-                  </div>
+                  <button key={id} onClick={() => setSelectedAccountIds({ ...selectedAccountIds, [id]: !isSelected })} style={{
+                    display: "flex", alignItems: "center", gap: SPACE.md, padding: "10px 18px", borderRadius: RADIUS.xl,
+                    border: `1.5px solid ${isSelected ? meta.color : C.border}`,
+                    background: isSelected ? meta.color + "15" : "transparent",
+                    color: isSelected ? meta.color : C.dimmed,
+                    fontSize: TYPE.body, fontWeight: 500, cursor: "pointer", transition: "all 0.2s", fontFamily: "inherit",
+                  }}>
+                    <meta.icon size={16} />
+                    <span>{meta.label}{acc.profileName ? <span style={{ opacity: 0.7 }}> · {acc.profileName}</span> : null}</span>
+                    {isSelected && <Check size={14} />}
+                  </button>
                 );
               })}
             </div>
@@ -1976,13 +1991,15 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
     } catch { return typeof t === "string" ? t : ""; }
   };
 
+  const PLATFORM_ABBR = { instagram: "IG", tiktok: "TT", youtube: "YT", facebook: "FB", linkedin: "LI" };
   const PlatformBadge = ({ platform }) => {
     const p = (platform || "instagram").toLowerCase();
-    const col = p === "instagram" ? C.instagram : C.tiktok;
+    const meta = platformMeta(p);
+    const Icon = meta.icon;
     return (
-      <div style={{ display: "inline-flex", alignItems: "center", gap: SPACE.xs, padding: `${SPACE.xxs}px ${SPACE.md}px`, borderRadius: RADIUS.md, background: col + "15", fontSize: TYPE.micro, fontWeight: 500, color: col }}>
-        {p === "instagram" ? <Instagram size={10} /> : <TikTokIcon size={10} />}
-        {p === "instagram" ? "IG" : "TT"}
+      <div style={{ display: "inline-flex", alignItems: "center", gap: SPACE.xs, padding: `${SPACE.xxs}px ${SPACE.md}px`, borderRadius: RADIUS.md, background: meta.color + "15", fontSize: TYPE.micro, fontWeight: 500, color: meta.color }}>
+        <Icon size={10} />
+        {PLATFORM_ABBR[p] || p.slice(0, 2).toUpperCase()}
       </div>
     );
   };
@@ -2442,7 +2459,7 @@ function CalendarPanel({ posts, onSelectPost, onNewPost }) {
                       onMouseOver={(e) => { e.currentTarget.style.background = statusColor(p.status) + "30"; showTooltip(e, p); }}
                       onMouseOut={(e) => { e.currentTarget.style.background = statusColor(p.status) + "15"; hideTooltip(); }}>
                       <span style={{ display: "inline-flex", gap: SPACE.xs, alignItems: "center" }}>
-                        {plats.map((pl) => pl === "instagram" ? <Instagram key={pl} size={9} /> : <TikTokIcon key={pl} size={9} color={statusColor(p.status)} />)}
+                        {plats.map((pl) => { const Icon = platformMeta(pl).icon; return <Icon key={pl} size={9} color={statusColor(p.status)} />; })}
                       </span>{" "}
                       {p.title?.substring(0, 20) || "Post"}
                     </div>
@@ -2506,10 +2523,7 @@ function CalendarPanel({ posts, onSelectPost, onNewPost }) {
             </div>
             {tPlats.length > 0 && (
               <div style={{ display: "flex", gap: SPACE.sm, marginTop: 8, paddingTop: 8, borderTop: `1px solid ${C.border}` }}>
-                {tPlats.map((pl) => pl === "instagram"
-                  ? <Instagram key={pl} size={13} color={C.instagram} />
-                  : <TikTokIcon key={pl} size={13} color={C.tiktok} />
-                )}
+                {tPlats.map((pl) => { const Icon = platformMeta(pl).icon; return <Icon key={pl} size={13} color={platformMeta(pl).color} />; })}
               </div>
             )}
           </div>
@@ -3642,6 +3656,7 @@ export default function Dashboard() {
         accountId: a.accountId || a.id || a._id,
         platform: (a.platform || a.provider || a.type || "").toLowerCase(),
         name: a.name || a.username || a.displayName || a.handle || "Unbekannt",
+        profileName: (typeof a.profileId === "object" ? a.profileId?.name : a.profileName) || undefined,
       }));
 
       if (normalized.length > 0) {
@@ -4075,19 +4090,21 @@ export default function Dashboard() {
                   <div onClick={() => setActiveTab("connections")} style={{ display: "flex", alignItems: "center", gap: SPACE.xs, fontSize: TYPE.small, color: C.muted, cursor: "pointer" }}><Plus size={13} /> Verbinden</div>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: SPACE.md }}>
-                  {["instagram", "tiktok"].map((plat) => {
-                    const acc = accounts.find((a) => a.platform === plat);
-                    const connected = isConnected && !!acc;
-                    const isIG = plat === "instagram";
+                  {(isConnected && accounts.length > 0 ? accounts : [{ platform: "instagram" }, { platform: "tiktok" }]).map((acc, i) => {
+                    const connected = isConnected && !!acc.id;
+                    const meta = platformMeta(acc.platform);
+                    const Icon = meta.icon;
                     return (
-                      <div key={plat} className="glass-panel" style={{ background: C.glass, border: `1px solid ${C.border}`, borderRadius: RADIUS.xl, padding: 14 }}>
+                      <div key={acc.id || acc.accountId || i} className="glass-panel" style={{ background: C.glass, border: `1px solid ${C.border}`, borderRadius: RADIUS.xl, padding: 14 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: SPACE.md, marginBottom: 10 }}>
-                          <div style={{ width: 26, height: 26, borderRadius: RADIUS.md, background: isIG ? "linear-gradient(135deg,#f58529,#dd2a7b,#8134af)" : "#101216", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                            {isIG ? <Instagram size={13} color="#fff" /> : <TikTokIcon size={13} color="#3ad1c4" />}
+                          <div style={{ width: 26, height: 26, borderRadius: RADIUS.md, background: meta.color, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                            <Icon size={13} color="#fff" />
                           </div>
-                          <div style={{ fontSize: TYPE.small, fontWeight: 500, color: C.muted }}>{isIG ? "Instagram" : "TikTok"}</div>
+                          <div style={{ fontSize: TYPE.small, fontWeight: 500, color: C.muted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                            {meta.label}{acc.profileName ? ` · ${acc.profileName}` : ""}
+                          </div>
                         </div>
-                        <div style={{ fontSize: TYPE.body, fontWeight: 600, color: C.white, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{connected ? `@${acc.name || "mitunsverkaufen"}` : "—"}</div>
+                        <div style={{ fontSize: TYPE.body, fontWeight: 600, color: C.white, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{connected ? `@${acc.username || acc.name || "mitunsverkaufen"}` : "—"}</div>
                         <div style={{ fontSize: TYPE.caption, fontWeight: 500, color: connected ? C.green : C.dimmed, marginTop: 5 }}>● {connected ? "Aktiv" : "Nicht verbunden"}</div>
                       </div>
                     );
@@ -4160,13 +4177,14 @@ export default function Dashboard() {
                 </div>
                 {recentPosts.length === 0 && <div style={{ padding: "20px 0", textAlign: "center", color: C.dimmed, fontSize: TYPE.small }}>Noch keine Beiträge</div>}
                 {recentPosts.map((p) => {
-                  const isIG = (p.platforms || [])[0] === "instagram";
+                  const postMeta = platformMeta((p.platforms || [])[0]);
+                  const PostIcon = postMeta.icon;
                   const sc = homeStatusConf[p.status] || homeStatusConf.draft;
                   return (
                     <div key={p.id} onClick={() => setSelectedPost(p)} style={{ display: "grid", gridTemplateColumns: "2.2fr 1fr 0.8fr 1fr", gap: SPACE.md, alignItems: "center", padding: `${SPACE.md}px ${SPACE.xs}px`, borderBottom: `1px solid ${C.border}`, cursor: "pointer" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: SPACE.md, minWidth: 0 }}>
-                        <div style={{ width: 26, height: 26, borderRadius: RADIUS.md, background: isIG ? "linear-gradient(135deg,#f58529,#dd2a7b)" : "#101216", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                          {isIG ? <Instagram size={12} color="#fff" /> : <TikTokIcon size={12} color="#3ad1c4" />}
+                        <div style={{ width: 26, height: 26, borderRadius: RADIUS.md, background: postMeta.color, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                          <PostIcon size={12} color="#fff" />
                         </div>
                         <span style={{ fontSize: TYPE.small, fontWeight: 500, color: C.white, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.title}</span>
                       </div>
@@ -4216,42 +4234,59 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Connection Cards */}
-          <div style={{ display: "flex", gap: SPACE.xxl, flexWrap: "wrap" }}>
-            {accounts.length > 0 ? accounts.map((acc, i) => {
-              const isIG = acc.platform === "instagram";
-              const color = isIG ? C.instagram : C.tiktok;
-              const Icon = isIG ? Instagram : TikTokIcon;
-              return (
-                <div key={i} style={{ width: 240, background: C.card, borderRadius: RADIUS.xxl, border: `1px solid ${C.border}`, padding: "18px 20px", position: "relative" }}>
-                  {/* Info icon top right */}
-                  <div style={{ position: "absolute", top: 14, right: 14, cursor: "pointer" }}>
-                    <AlertCircle size={16} color={C.dimmed} />
-                  </div>
-                  {/* Platform header */}
-                  <div style={{ display: "flex", alignItems: "center", gap: SPACE.lg, marginBottom: 4 }}>
-                    <Icon size={20} color={color} />
-                    <div>
-                      <div style={{ fontSize: TYPE.bodyLg, fontWeight: 600, color: C.white }}>{isIG ? "Instagram" : "TikTok"}</div>
-                      <div style={{ display: "inline-flex", alignItems: "center", gap: SPACE.xs, fontSize: TYPE.micro, fontWeight: 500, color: C.green, background: C.greenGlow, padding: `${SPACE.xxs}px ${SPACE.md}px`, borderRadius: RADIUS.sm, marginTop: 2 }}>
-                        <div style={{ width: 5, height: 5, borderRadius: "50%", background: C.green }} /> verbunden
-                      </div>
-                    </div>
-                  </div>
-                  {/* Handle */}
-                  <div style={{ fontSize: TYPE.body, fontWeight: 500, color: C.white, marginTop: 10 }}>@{acc.name || "mitunsverkaufen.de"}</div>
-                  <div style={{ fontSize: TYPE.caption, color: C.dimmed, marginTop: 2 }}>{acc.connectedAt ? new Date(acc.connectedAt).toLocaleDateString("de-DE") : new Date().toLocaleDateString("de-DE")}</div>
-                  {/* Business badge */}
-                  <div style={{ display: "inline-flex", alignItems: "center", gap: SPACE.xs, fontSize: TYPE.micro, fontWeight: 500, color: C.purple, background: C.purpleGlow, padding: "3px 10px", borderRadius: RADIUS.sm, marginTop: 10 }}>
-                    <div style={{ width: 5, height: 5, borderRadius: "50%", background: C.purple }} /> Business
-                  </div>
-                  {/* Disconnect button */}
-                  <button style={{ display: "block", width: "100%", padding: `${SPACE.md}px 0`, borderRadius: RADIUS.lg, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontSize: TYPE.small, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", marginTop: 14, textAlign: "center" }}>
-                    Trennen
-                  </button>
+          {/* Connection Cards – grouped by profile so multiple accounts per platform (e.g. two TikTok accounts under different profiles) stay distinguishable */}
+          {accounts.length > 0 ? (
+            Object.entries(
+              accounts.reduce((groups, acc) => {
+                const key = acc.profileName || "Weitere";
+                (groups[key] = groups[key] || []).push(acc);
+                return groups;
+              }, {})
+            ).map(([profileName, profileAccounts]) => (
+              <div key={profileName} style={{ marginBottom: SPACE.xxl }}>
+                <div style={{ display: "flex", alignItems: "center", gap: SPACE.sm, fontSize: TYPE.small, fontWeight: 600, color: C.muted, marginBottom: SPACE.lg }}>
+                  <Users size={13} /> {profileName}
                 </div>
-              );
-            }) : (
+                <div style={{ display: "flex", gap: SPACE.xxl, flexWrap: "wrap" }}>
+                  {profileAccounts.map((acc) => {
+                    const meta = platformMeta(acc.platform);
+                    const Icon = meta.icon;
+                    return (
+                      <div key={acc.id || acc.accountId} style={{ width: 240, background: C.card, borderRadius: RADIUS.xxl, border: `1px solid ${C.border}`, padding: "18px 20px", position: "relative" }}>
+                        {/* Info icon top right */}
+                        <div style={{ position: "absolute", top: 14, right: 14, cursor: "pointer" }}>
+                          <AlertCircle size={16} color={C.dimmed} />
+                        </div>
+                        {/* Platform header */}
+                        <div style={{ display: "flex", alignItems: "center", gap: SPACE.lg, marginBottom: 4 }}>
+                          <Icon size={20} color={meta.color} />
+                          <div>
+                            <div style={{ fontSize: TYPE.bodyLg, fontWeight: 600, color: C.white }}>{meta.label}</div>
+                            <div style={{ display: "inline-flex", alignItems: "center", gap: SPACE.xs, fontSize: TYPE.micro, fontWeight: 500, color: C.green, background: C.greenGlow, padding: `${SPACE.xxs}px ${SPACE.md}px`, borderRadius: RADIUS.sm, marginTop: 2 }}>
+                              <div style={{ width: 5, height: 5, borderRadius: "50%", background: C.green }} /> verbunden
+                            </div>
+                          </div>
+                        </div>
+                        {/* Handle */}
+                        <div style={{ fontSize: TYPE.body, fontWeight: 500, color: C.white, marginTop: 10 }}>@{acc.username || acc.name || "mitunsverkaufen.de"}</div>
+                        <div style={{ fontSize: TYPE.caption, color: C.dimmed, marginTop: 2 }}>{acc.connectedAt ? new Date(acc.connectedAt).toLocaleDateString("de-DE") : new Date().toLocaleDateString("de-DE")}</div>
+                        {/* Profile badge */}
+                        <div style={{ display: "inline-flex", alignItems: "center", gap: SPACE.xs, fontSize: TYPE.micro, fontWeight: 500, color: C.purple, background: C.purpleGlow, padding: "3px 10px", borderRadius: RADIUS.sm, marginTop: 10 }}>
+                          <div style={{ width: 5, height: 5, borderRadius: "50%", background: C.purple }} /> {profileName}
+                        </div>
+                        {/* Disconnect button */}
+                        <button style={{ display: "block", width: "100%", padding: `${SPACE.md}px 0`, borderRadius: RADIUS.lg, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontSize: TYPE.small, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", marginTop: 14, textAlign: "center" }}>
+                          Trennen
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))
+          ) : (
+            <div style={{ display: "flex", gap: SPACE.xxl, flexWrap: "wrap" }}>
+            {(
               /* Demo connection cards when not connected */
               ["Instagram", "TikTok"].map((plat) => {
                 const isIG = plat === "Instagram";
@@ -4282,6 +4317,7 @@ export default function Dashboard() {
               })
             )}
           </div>
+          )}
         </div>
       )}
 
@@ -4564,18 +4600,19 @@ export default function Dashboard() {
               <div style={{ fontSize: TYPE.bodyLg, fontWeight: 600, marginBottom: 14, color: C.white }}>Plattform-Übersicht</div>
               <div style={{ display: "flex", flexDirection: "column", gap: SPACE.md }}>
                 {platformCards.map((pc) => {
-                  const isIG = pc.platform.toLowerCase().includes("instagram");
-                  const isTT = pc.platform.toLowerCase().includes("tiktok");
-                  const color = isIG ? C.instagram : isTT ? C.tiktok : C.blue;
+                  const key = pc.platform.toLowerCase();
+                  const detected = ["instagram", "tiktok", "youtube", "facebook", "linkedin"].find((k) => key.includes(k));
+                  const meta = detected ? platformMeta(detected) : { label: pc.name, icon: Globe, color: C.blue };
+                  const Icon = meta.icon;
                   const m = pc.metrics;
                   const eng = (m.likes || 0) + (m.comments || 0) + (m.shares || 0);
                   const er = m.impressions > 0 ? ((eng / m.impressions) * 100).toFixed(2) : m.reach > 0 ? ((eng / m.reach) * 100).toFixed(2) : "–";
                   return (
                     <div key={pc.key} style={{ display: "flex", alignItems: "center", gap: SPACE.xxl, padding: `${SPACE.xl}px ${SPACE.xxl}px`, borderRadius: RADIUS.xl, background: C.bg, border: `1px solid ${C.border}` }}>
                       <div style={{ display: "flex", alignItems: "center", gap: SPACE.md, minWidth: 140 }}>
-                        {isIG ? <Instagram size={16} color={color} /> : <TikTokIcon size={16} color={color} />}
+                        <Icon size={16} color={meta.color} />
                         <div>
-                          <div style={{ fontSize: TYPE.body, fontWeight: 600, color: color }}>{isIG ? "Instagram" : isTT ? "TikTok" : pc.name}</div>
+                          <div style={{ fontSize: TYPE.body, fontWeight: 600, color: meta.color }}>{meta.label}</div>
                           <div style={{ fontSize: TYPE.micro, color: C.dimmed }}>{pc.postCount} posts</div>
                         </div>
                       </div>
@@ -4647,18 +4684,22 @@ export default function Dashboard() {
             {accounts.length > 0 && (
               <div style={{ marginBottom: 16 }}>
                 <div style={{ fontSize: TYPE.small, fontWeight: 600, color: C.dimmed, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Verbundene Accounts</div>
-                {accounts.map((a, i) => (
+                {accounts.map((a, i) => {
+                  const meta = platformMeta(a.platform);
+                  const Icon = meta.icon;
+                  return (
                   <div key={i} style={{ display: "flex", alignItems: "center", gap: SPACE.lg, padding: `${SPACE.md}px ${SPACE.xl}px`, borderRadius: RADIUS.lg, background: C.bg, border: `1px solid ${C.border}`, marginBottom: 6 }}>
-                    <div style={{ width: 28, height: 28, borderRadius: RADIUS.lg, background: a.platform === "instagram" ? C.instagram + "20" : C.tiktok + "20", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      {a.platform === "instagram" ? <Instagram size={14} color={C.instagram} /> : <TikTokIcon size={14} color={C.tiktok} />}
+                    <div style={{ width: 28, height: 28, borderRadius: RADIUS.lg, background: meta.color + "20", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <Icon size={14} color={meta.color} />
                     </div>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: TYPE.body, fontWeight: 500, color: C.white }}>{a.name}</div>
+                      <div style={{ fontSize: TYPE.body, fontWeight: 500, color: C.white }}>{a.name}{a.profileName ? ` · ${a.profileName}` : ""}</div>
                       <div style={{ fontSize: TYPE.caption, color: C.dimmed }}>{a.platform} · ID: {a.accountId || a.id || "?"}</div>
                     </div>
                     <Check size={14} color={C.green} />
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
