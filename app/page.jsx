@@ -1890,6 +1890,7 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
   const [loadingConvoMessages, setLoadingConvoMessages] = useState(false);
   const [loadingMoreMessages, setLoadingMoreMessages] = useState(false);
   const [convoCursor, setConvoCursor] = useState(null);
+  const messagesScrollRef = useRef(null);
   const [selectedCommentedPost, setSelectedCommentedPost] = useState(null);
   const [postComments, setPostComments] = useState([]);
   const [commentReplyingId, setCommentReplyingId] = useState(null);
@@ -2049,6 +2050,13 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
     } catch (err) { setApiError(err.message); }
     finally { setLoadingMoreMessages(false); }
   };
+
+  // Öffnet den Chat unten (neueste Nachricht), statt bei der ältesten
+  useEffect(() => {
+    if (!loadingConvoMessages && messagesScrollRef.current) {
+      messagesScrollRef.current.scrollTop = messagesScrollRef.current.scrollHeight;
+    }
+  }, [loadingConvoMessages, selectedConvo]);
 
   const handleReply = async (conversationId) => {
     if (!replyText.trim() || !selectedConvo) return;
@@ -2504,7 +2512,7 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
                   </div>
 
                   {/* Messages area */}
-                  <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px", display: "flex", flexDirection: "column", gap: SPACE.md }}>
+                  <div ref={messagesScrollRef} style={{ flex: 1, overflowY: "auto", padding: "20px 24px", display: "flex", flexDirection: "column", gap: SPACE.md }}>
                     {loadingConvoMessages && (
                       <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: C.dimmed, fontSize: TYPE.small }}>
                         <Loader2 size={16} style={{ animation: "spin 1s linear infinite", marginRight: 6 }} /> Verlauf wird geladen...
@@ -2523,8 +2531,10 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
                       </div>
                     )}
 
-                    {convoMessages.map((msg, mi) => {
-                      const prevMsg = convoMessages[mi - 1];
+                    {/* Manche Message-Events (Reaktionen, gelöschte/nicht unterstützte Inhalte) kommen ohne
+                        Text und ohne Attachment zurück und hätten sonst nur einen leeren Tages-Trenner erzeugt */}
+                    {convoMessages.filter((m) => m.text || (m.attachments || []).length > 0).map((msg, mi, visible) => {
+                      const prevMsg = visible[mi - 1];
                       const showDivider = !prevMsg || new Date(prevMsg.createdAt).toDateString() !== new Date(msg.createdAt).toDateString();
                       const isOwn = msg.isOwn;
                       const sharedAttachment = (msg.attachments || []).length > 0;
