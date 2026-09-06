@@ -2096,7 +2096,7 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
           ].map((v) => {
             const active = inboxView === v.key;
             return (
-              <button key={v.key} onClick={() => { setInboxView(v.key); setSelectedComment(null); setSelectedConvo(null); }} style={{
+              <button key={v.key} onClick={() => { setInboxView(v.key); setSelectedCommentedPost(null); setSelectedConvo(null); }} style={{
                 display: "flex", alignItems: "center", gap: SPACE.sm, padding: `${SPACE.lg}px ${SPACE.xxxl}px`, fontSize: TYPE.body, fontWeight: 500,
                 color: active ? C.white : C.dimmed, background: "transparent", border: "none",
                 borderBottom: active ? `2px solid ${C.accent}` : "2px solid transparent",
