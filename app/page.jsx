@@ -1975,7 +1975,10 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
     fetchDMs();
   }, [inboxView, platformFilter]);
 
-  // Fetch the full message thread for the selected conversation
+  // Fetch the conversation detail for the selected conversation. Note: Zernio's
+  // conversation endpoint returns the conversation record (participant, last
+  // message preview, status) — not a full per-message thread — so the detail
+  // pane shows that summary rather than a fabricated chat log.
   useEffect(() => {
     if (!selectedConvo) { setConvoMessages([]); return; }
     const fetchMessages = async () => {
@@ -1985,8 +1988,9 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
         const data = await res.json();
         if (data.error) { setApiError(data.error); setConvoMessages([]); return; }
         const raw = data._raw || data;
-        const msgs = Array.isArray(raw) ? raw : (raw.messages || raw.data || raw.items || []);
-        setConvoMessages(msgs);
+        const detail = Array.isArray(raw) ? null : (raw.data && !Array.isArray(raw.data) ? raw.data : raw);
+        const msgs = Array.isArray(raw) ? raw : (Array.isArray(raw.messages) ? raw.messages : (Array.isArray(raw.data) ? raw.data : (Array.isArray(raw.items) ? raw.items : [])));
+        setConvoMessages(msgs.length > 0 ? msgs : (detail ? [{ text: detail.lastMessage, createdAt: detail.lastMessageAt || detail.updatedTime, isOwn: false, isSummary: true }] : []));
       } catch (err) {
         setApiError(err.message);
         setConvoMessages([]);
@@ -2333,6 +2337,16 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
                     )}
                     {!loadingConvoMessages && convoMessages.length === 0 && (
                       <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: C.dimmed, fontSize: TYPE.small }}>Keine Nachrichten in dieser Konversation.</div>
+                    )}
+                    {!loadingConvoMessages && convoMessages.some((m) => m.isSummary) && (
+                      <div style={{ padding: "10px 14px", borderRadius: RADIUS.lg, background: C.yellowGlow, border: `1px solid ${C.yellow}30`, fontSize: TYPE.caption, color: C.yellow, display: "flex", alignItems: "center", justifyContent: "space-between", gap: SPACE.md }}>
+                        <span>Nur die letzte Nachricht ist über die API abrufbar – für den vollen Verlauf direkt auf der Plattform öffnen.</span>
+                        {selectedConvo.url && (
+                          <a href={selectedConvo.url} target="_blank" rel="noopener noreferrer" style={{ color: C.yellow, flexShrink: 0, display: "flex", alignItems: "center", gap: 3 }}>
+                            <ExternalLink size={11} />
+                          </a>
+                        )}
+                      </div>
                     )}
                     {convoMessages.map((msg, mi) => {
                       const isOwn = msg.isOwn || msg.direction === "outgoing" || msg.from === "self" || msg.sender === "business";
