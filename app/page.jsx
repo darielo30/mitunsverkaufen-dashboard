@@ -4466,16 +4466,20 @@ export default function Dashboard() {
         // Top performing posts (sort by engagement)
         const topPosts = [...posts].filter((p) => p.status === "published").sort((a, b) => ((b.likes || 0) + (b.comments || 0) + (b.shares || 0)) - ((a.likes || 0) + (a.comments || 0) + (a.shares || 0))).slice(0, 5);
 
-        // Platform breakdown cards
-        const platformCards = [];
-        if (breakdown) {
-          Object.entries(breakdown).forEach(([key, metrics]) => {
-            // Detect platform from key (could be platform name, accountId, or profileId)
-            const acct = accounts.find((a) => a.accountId === key || a.id === key || a.profileId === key);
-            const platName = acct?.platform || (key.toLowerCase().includes("instagram") ? "instagram" : key.toLowerCase().includes("tiktok") ? "tiktok" : key);
-            platformCards.push({ key, platform: platName, name: acct?.name || platName, metrics, postCount: metrics.postCount || metrics.posts || "–" });
-          });
-        }
+        // Platform breakdown cards — Zernio's platformBreakdown is an array of
+        // {platform, postCount, likes, ...} rows, not a map keyed by account
+        // (Object.entries() on that array previously produced index keys
+        // "0"/"1"/"2" as the "platform name", which is why every row showed
+        // a bare number instead of Instagram/TikTok/YouTube).
+        const platformCards = Array.isArray(breakdown)
+          ? breakdown.map((b, i) => ({ key: b.platform || i, platform: b.platform, name: platformMeta(b.platform).label, metrics: b, postCount: b.postCount ?? b.posts ?? "–" }))
+          : breakdown
+          ? Object.entries(breakdown).map(([key, metrics]) => {
+              const acct = accounts.find((a) => a.accountId === key || a.id === key || a.profileId === key);
+              const platName = acct?.platform || (key.toLowerCase().includes("instagram") ? "instagram" : key.toLowerCase().includes("tiktok") ? "tiktok" : key);
+              return { key, platform: platName, name: acct?.name || platName, metrics, postCount: metrics.postCount || metrics.posts || "–" };
+            })
+          : [];
 
         // Content decay
         const decayRaw = analyticsData.decay || {};
