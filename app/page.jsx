@@ -1884,9 +1884,12 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
   useEffect(() => { if (defaultView) setInboxView(defaultView); }, [defaultView]);
   const [conversations, setConversations] = useState([]);
   const [loadingDMs, setLoadingDMs] = useState(false);
+  const [dmSearch, setDmSearch] = useState("");
   const [selectedConvo, setSelectedConvo] = useState(null);
   const [convoMessages, setConvoMessages] = useState([]);
   const [loadingConvoMessages, setLoadingConvoMessages] = useState(false);
+  const [loadingMoreMessages, setLoadingMoreMessages] = useState(false);
+  const [convoCursor, setConvoCursor] = useState(null);
   const [selectedCommentedPost, setSelectedCommentedPost] = useState(null);
   const [postComments, setPostComments] = useState([]);
   const [commentReplyingId, setCommentReplyingId] = useState(null);
@@ -1990,31 +1993,62 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
     fetchDMs();
   }, [inboxView, platformFilter]);
 
-  // Fetch the conversation detail for the selected conversation. Note: Zernio's
-  // conversation endpoint returns the conversation record (participant, last
-  // message preview, status) — not a full per-message thread — so the detail
-  // pane shows that summary rather than a fabricated chat log.
+  const mapMsg = (m) => ({
+    id: m.id,
+    text: m.message || m.text || "",
+    attachments: m.attachments || [],
+    isOwn: m.direction === "outgoing",
+    createdAt: m.createdAt || m.sentAt,
+    read: m.deliveryStatus === "read",
+  });
+
+  // Zernio paginates a conversation's messages oldest-first with a forward
+  // cursor, so reaching "now" means walking pages forward rather than back.
+  // Capped at 10 pages (~1000 messages) per open; loadMoreMessages continues
+  // from there on request instead of hammering very long-lived threads.
   useEffect(() => {
-    if (!selectedConvo) { setConvoMessages([]); return; }
+    if (!selectedConvo) { setConvoMessages([]); setConvoCursor(null); return; }
     const fetchMessages = async () => {
       setLoadingConvoMessages(true);
+      setConvoMessages([]);
+      let all = [];
+      let cursor = null;
       try {
-        const res = await fetch(`/api/late?action=inbox-conversation&conversationId=${encodeURIComponent(selectedConvo.id)}&accountId=${encodeURIComponent(selectedConvo.accountId)}`);
-        const data = await res.json();
-        if (data.error) { setApiError(data.error); setConvoMessages([]); return; }
-        const raw = data._raw || data;
-        const detail = Array.isArray(raw) ? null : (raw.data && !Array.isArray(raw.data) ? raw.data : raw);
-        const msgs = Array.isArray(raw) ? raw : (Array.isArray(raw.messages) ? raw.messages : (Array.isArray(raw.data) ? raw.data : (Array.isArray(raw.items) ? raw.items : [])));
-        setConvoMessages(msgs.length > 0 ? msgs : (detail ? [{ text: detail.lastMessage, createdAt: detail.lastMessageAt || detail.updatedTime, isOwn: false, isSummary: true }] : []));
+        for (let page = 0; page < 10; page++) {
+          const url = `/api/late?action=inbox-conversation&conversationId=${encodeURIComponent(selectedConvo.id)}&accountId=${encodeURIComponent(selectedConvo.accountId)}` + (cursor ? `&cursor=${encodeURIComponent(cursor)}` : "");
+          const res = await fetch(url);
+          const data = await res.json();
+          if (data.error) { setApiError(data.error); break; }
+          const raw = data._raw || data;
+          all = all.concat(raw.messages || []);
+          if (!raw.pagination?.hasMore) { cursor = null; break; }
+          cursor = raw.pagination.nextCursor;
+        }
       } catch (err) {
         setApiError(err.message);
-        setConvoMessages([]);
       } finally {
+        setConvoMessages(all.map(mapMsg));
+        setConvoCursor(cursor);
         setLoadingConvoMessages(false);
       }
     };
     fetchMessages();
   }, [selectedConvo]);
+
+  const loadMoreMessages = async () => {
+    if (!selectedConvo || !convoCursor) return;
+    setLoadingMoreMessages(true);
+    try {
+      const url = `/api/late?action=inbox-conversation&conversationId=${encodeURIComponent(selectedConvo.id)}&accountId=${encodeURIComponent(selectedConvo.accountId)}&cursor=${encodeURIComponent(convoCursor)}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.error) { setApiError(data.error); return; }
+      const raw = data._raw || data;
+      setConvoMessages((prev) => [...prev, ...(raw.messages || []).map(mapMsg)]);
+      setConvoCursor(raw.pagination?.hasMore ? raw.pagination.nextCursor : null);
+    } catch (err) { setApiError(err.message); }
+    finally { setLoadingMoreMessages(false); }
+  };
 
   const handleReply = async (conversationId) => {
     if (!replyText.trim() || !selectedConvo) return;
@@ -2028,7 +2062,7 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
       if (data.error) { setApiError(data.error); }
       else {
         setReplyText("");
-        setConvoMessages((prev) => [...prev, { text: replyText, isOwn: true, createdAt: new Date().toISOString() }]);
+        setConvoMessages((prev) => [...prev, { id: `local-${Date.now()}`, text: replyText, attachments: [], isOwn: true, createdAt: new Date().toISOString(), read: false }]);
       }
     } catch (err) { setApiError(err.message); }
     finally { setSendingReply(false); }
@@ -2338,60 +2372,106 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
         )}
 
         {/* ── DMs VIEW ─────────────────────────────────────── */}
-        {inboxView === "dms" && (
+        {inboxView === "dms" && (() => {
+          const filteredConvos = dmSearch.trim()
+            ? conversations.filter((c) => {
+                const name = (c.participantName || c.participant?.username || c.name || "").toLowerCase();
+                const handle = (c.participantUsername || "").toLowerCase();
+                const last = typeof c.lastMessage === "string" ? c.lastMessage : "";
+                const q = dmSearch.toLowerCase();
+                return name.includes(q) || handle.includes(q) || last.toLowerCase().includes(q);
+              })
+            : conversations;
+
+          const AvatarWithBadge = ({ picture, name, platform, size }) => {
+            const meta = platformMeta(platform);
+            const PIcon = meta.icon;
+            return (
+              <div style={{ position: "relative", width: size, height: size, flexShrink: 0 }}>
+                <div style={{ width: size, height: size, borderRadius: "50%", background: meta.color + "20", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+                  {picture
+                    ? <img src={picture} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={(e) => { e.currentTarget.style.display = "none"; }} />
+                    : <span style={{ fontSize: TYPE.label, fontWeight: 600, color: meta.color }}>{(name || "?")[0].toUpperCase()}</span>
+                  }
+                </div>
+                <div style={{ position: "absolute", bottom: -2, right: -2, width: 16, height: 16, borderRadius: "50%", background: meta.color, border: `2px solid ${C.card}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <PIcon size={8} color="#fff" />
+                </div>
+              </div>
+            );
+          };
+
+          const formatDayDivider = (t) => {
+            if (!t) return "";
+            const d = new Date(t);
+            const today = new Date();
+            const isToday = d.toDateString() === today.toDateString();
+            const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
+            if (isToday) return "Heute";
+            if (d.toDateString() === yesterday.toDateString()) return "Gestern";
+            return d.toLocaleDateString("de-DE", { weekday: "short", day: "numeric", month: "short" });
+          };
+
+          return (
           <React.Fragment>
             {/* Left: Conversations List */}
-            <div style={listPanelStyle}>
-              {loadingDMs && (
-                <div style={{ padding: 30, textAlign: "center", color: C.dimmed, fontSize: TYPE.body }}>
-                  <Loader2 size={16} style={{ animation: "spin 1s linear infinite", display: "inline-block", marginRight: 6 }} /> Wird geladen...
+            <div style={{ ...listPanelStyle, display: "flex", flexDirection: "column" }}>
+              <div style={{ padding: "14px 16px 10px", borderBottom: `1px solid ${C.border}` }}>
+                <div style={{ display: "flex", alignItems: "center", gap: SPACE.md, background: C.bg, border: `1px solid ${C.border}`, borderRadius: RADIUS.lg, padding: "8px 12px" }}>
+                  <Search size={13} color={C.dimmed} />
+                  <input type="text" value={dmSearch} onChange={(e) => setDmSearch(e.target.value)} placeholder="Nachrichten durchsuchen..."
+                    style={{ flex: 1, background: "transparent", border: "none", outline: "none", color: C.white, fontSize: TYPE.small, fontFamily: "inherit" }} />
                 </div>
-              )}
-              {!loadingDMs && conversations.length === 0 && (
-                <div style={{ padding: 40, textAlign: "center", color: C.dimmed, fontSize: TYPE.body }}>
-                  <Send size={32} color={C.border} style={{ marginBottom: 12 }} />
-                  <div>{isConnected ? "Keine Nachrichten vorhanden." : "Verbinde die API, um Nachrichten zu laden."}</div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 12 }}>
+                  <span style={{ fontSize: TYPE.caption, fontWeight: 600, color: C.dimmed, textTransform: "uppercase", letterSpacing: "0.04em" }}>Konversationen</span>
+                  <span style={{ fontSize: TYPE.caption, color: C.dimmed }}>Neueste zuerst</span>
                 </div>
-              )}
-              {conversations.map((convo, i) => {
-                const active = selectedConvo?.id === convo.id;
-                const pc = (convo.platform || "instagram") === "instagram" ? C.instagram : C.tiktok;
-                const lastMsgText = typeof convo.lastMessage === "string" ? convo.lastMessage : (convo.lastMessage?.text || convo.lastMessage?.content || convo.lastMessage?.message);
-                const name = convo.participantName || convo.participant?.username || convo.participant?.name || convo.name || "Unbekannt";
-                return (
-                  <div key={convo.id || i} onClick={() => setSelectedConvo(convo)} style={listItemStyle(active)}
-                    onMouseOver={(e) => { if (!active) e.currentTarget.style.background = C.cardHover; }}
-                    onMouseOut={(e) => { if (!active) e.currentTarget.style.background = "transparent"; }}>
-                    {/* Avatar */}
-                    <div style={{ width: 38, height: 38, borderRadius: "50%", background: pc + "20", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, position: "relative" }}>
-                      {(convo.participantPicture || convo.participant?.profilePicture)
-                        ? <img src={convo.participantPicture || convo.participant?.profilePicture} alt="" style={{ width: 38, height: 38, borderRadius: "50%", objectFit: "cover" }} />
-                        : <span style={{ fontSize: TYPE.label, fontWeight: 600, color: pc }}>{name[0].toUpperCase()}</span>
-                      }
-                      {convo.unreadCount > 0 && <div style={{ position: "absolute", top: -1, right: -1, width: 10, height: 10, borderRadius: "50%", background: C.accent, border: `2px solid ${C.bg}` }} />}
-                    </div>
-                    {/* Content */}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 2 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: SPACE.sm }}>
-                          <span style={{ fontSize: TYPE.body, fontWeight: 600, color: C.white }}>{name}</span>
-                          <PlatformBadge platform={convo.platform} />
-                        </div>
-                        <span style={{ fontSize: TYPE.micro, color: C.dimmed, flexShrink: 0 }}>
-                          {formatTime(convo.updatedTime || convo.updatedAt)}
-                        </span>
-                      </div>
-                      <div style={{ fontSize: TYPE.small, color: C.muted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                        {lastMsgText || "Keine Nachricht"}
-                      </div>
-                    </div>
+              </div>
+
+              <div style={{ flex: 1, overflowY: "auto" }}>
+                {loadingDMs && (
+                  <div style={{ padding: 30, textAlign: "center", color: C.dimmed, fontSize: TYPE.body }}>
+                    <Loader2 size={16} style={{ animation: "spin 1s linear infinite", display: "inline-block", marginRight: 6 }} /> Wird geladen...
                   </div>
-                );
-              })}
+                )}
+                {!loadingDMs && filteredConvos.length === 0 && (
+                  <div style={{ padding: 40, textAlign: "center", color: C.dimmed, fontSize: TYPE.body }}>
+                    <Send size={32} color={C.border} style={{ marginBottom: 12 }} />
+                    <div>{isConnected ? "Keine Nachrichten vorhanden." : "Verbinde die API, um Nachrichten zu laden."}</div>
+                  </div>
+                )}
+                {filteredConvos.map((convo, i) => {
+                  const active = selectedConvo?.id === convo.id;
+                  const lastMsgText = typeof convo.lastMessage === "string" ? convo.lastMessage : (convo.lastMessage?.text || convo.lastMessage?.content || convo.lastMessage?.message);
+                  const name = convo.participantName || convo.participant?.username || convo.participant?.name || convo.name || "Unbekannt";
+                  return (
+                    <div key={convo.id || i} onClick={() => setSelectedConvo(convo)} style={listItemStyle(active)}
+                      onMouseOver={(e) => { if (!active) e.currentTarget.style.background = C.cardHover; }}
+                      onMouseOut={(e) => { if (!active) e.currentTarget.style.background = "transparent"; }}>
+                      <AvatarWithBadge picture={convo.participantPicture || convo.participant?.profilePicture} name={name} platform={convo.platform} size={38} />
+                      {/* Content */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 2, gap: SPACE.sm }}>
+                          <span style={{ fontSize: TYPE.body, fontWeight: 600, color: C.white, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{name}</span>
+                          <span style={{ fontSize: TYPE.micro, color: C.dimmed, flexShrink: 0 }}>
+                            {formatTime(convo.updatedTime || convo.updatedAt)}
+                          </span>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: SPACE.sm }}>
+                          <div style={{ fontSize: TYPE.small, color: C.muted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flex: 1 }}>
+                            {lastMsgText || "Keine Nachricht"}
+                          </div>
+                          {convo.unreadCount > 0 && <div style={{ width: 7, height: 7, borderRadius: "50%", background: C.accent, flexShrink: 0 }} />}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
 
             {/* Right: Chat Detail */}
-            <div style={detailPanelStyle}>
+            <div style={{ ...detailPanelStyle, background: C.bg }}>
               {!selectedConvo ? (
                 <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: C.dimmed, gap: SPACE.xl }}>
                   <Send size={40} color={C.border} />
@@ -2401,71 +2481,96 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
               ) : (
                 <React.Fragment>
                   {/* Chat header */}
-                  <div style={{ display: "flex", alignItems: "center", gap: SPACE.xxl, padding: "16px 24px", borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
-                    <div style={{ width: 38, height: 38, borderRadius: "50%", background: ((selectedConvo.platform || "instagram") === "instagram" ? C.instagram : C.tiktok) + "20", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      {(selectedConvo.participantPicture || selectedConvo.participant?.profilePicture)
-                        ? <img src={selectedConvo.participantPicture || selectedConvo.participant?.profilePicture} alt="" style={{ width: 38, height: 38, borderRadius: "50%", objectFit: "cover" }} />
-                        : <span style={{ fontSize: TYPE.label, fontWeight: 600, color: (selectedConvo.platform || "instagram") === "instagram" ? C.instagram : C.tiktok }}>{(selectedConvo.participantName || selectedConvo.participant?.username || selectedConvo.name || "U")[0].toUpperCase()}</span>
-                      }
-                    </div>
-                    <div>
-                      <div style={{ display: "flex", alignItems: "center", gap: SPACE.md }}>
-                        <span style={{ fontSize: TYPE.label, fontWeight: 600, color: C.white }}>{selectedConvo.participantName || selectedConvo.participant?.username || selectedConvo.name || "Unbekannt"}</span>
-                        <PlatformBadge platform={selectedConvo.platform} />
+                  <div style={{ display: "flex", alignItems: "center", gap: SPACE.xxl, padding: "16px 24px", borderBottom: `1px solid ${C.border}`, flexShrink: 0, background: C.card }}>
+                    <AvatarWithBadge
+                      picture={selectedConvo.participantPicture || selectedConvo.participant?.profilePicture}
+                      name={selectedConvo.participantName || selectedConvo.participant?.username || selectedConvo.name}
+                      platform={selectedConvo.platform} size={38} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: TYPE.label, fontWeight: 700, color: C.white, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {selectedConvo.participantName || selectedConvo.participant?.username || selectedConvo.name || "Unbekannt"}
                       </div>
-                      <div style={{ fontSize: TYPE.caption, color: C.dimmed, marginTop: 1 }}>{selectedConvo.participantUsername ? `@${selectedConvo.participantUsername}` : "Konversation"}</div>
+                      <div style={{ fontSize: TYPE.caption, color: C.dimmed, marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {selectedConvo.participantUsername ? `@${selectedConvo.participantUsername}` : ""}
+                        {selectedConvo.accountUsername ? ` · Antwort als @${selectedConvo.accountUsername}` : ""}
+                      </div>
                     </div>
+                    {selectedConvo.url && (
+                      <a href={selectedConvo.url} target="_blank" rel="noopener noreferrer" title="Auf der Plattform öffnen"
+                        style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: RADIUS.lg, background: C.bg, border: `1px solid ${C.border}`, color: C.dimmed, flexShrink: 0 }}>
+                        <ExternalLink size={13} />
+                      </a>
+                    )}
                   </div>
 
                   {/* Messages area */}
-                  <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px", display: "flex", flexDirection: "column", gap: SPACE.lg }}>
+                  <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px", display: "flex", flexDirection: "column", gap: SPACE.md }}>
                     {loadingConvoMessages && (
                       <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: C.dimmed, fontSize: TYPE.small }}>
-                        <Loader2 size={16} style={{ animation: "spin 1s linear infinite", marginRight: 6 }} /> Wird geladen...
+                        <Loader2 size={16} style={{ animation: "spin 1s linear infinite", marginRight: 6 }} /> Verlauf wird geladen...
                       </div>
                     )}
                     {!loadingConvoMessages && convoMessages.length === 0 && (
                       <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: C.dimmed, fontSize: TYPE.small }}>Keine Nachrichten in dieser Konversation.</div>
                     )}
-                    {!loadingConvoMessages && convoMessages.some((m) => m.isSummary) && (
-                      <div style={{ padding: "10px 14px", borderRadius: RADIUS.lg, background: C.yellowGlow, border: `1px solid ${C.yellow}30`, fontSize: TYPE.caption, color: C.yellow, display: "flex", alignItems: "center", justifyContent: "space-between", gap: SPACE.md }}>
-                        <span>Nur die letzte Nachricht ist über die API abrufbar – für den vollen Verlauf direkt auf der Plattform öffnen.</span>
-                        {selectedConvo.url && (
-                          <a href={selectedConvo.url} target="_blank" rel="noopener noreferrer" style={{ color: C.yellow, flexShrink: 0, display: "flex", alignItems: "center", gap: 3 }}>
-                            <ExternalLink size={11} />
-                          </a>
-                        )}
+
+                    {!loadingConvoMessages && convoCursor && (
+                      <div style={{ textAlign: "center", marginBottom: 4 }}>
+                        <button onClick={loadMoreMessages} disabled={loadingMoreMessages} style={{ padding: "6px 16px", borderRadius: RADIUS.pill, background: C.card, border: `1px solid ${C.border}`, color: C.muted, fontSize: TYPE.caption, fontWeight: 500, cursor: loadingMoreMessages ? "wait" : "pointer", fontFamily: "inherit" }}>
+                          {loadingMoreMessages ? <Loader2 size={11} style={{ animation: "spin 1s linear infinite", display: "inline-block", marginRight: 5 }} /> : null}
+                          Neuere Nachrichten laden
+                        </button>
                       </div>
                     )}
+
                     {convoMessages.map((msg, mi) => {
-                      const isOwn = msg.isOwn || msg.direction === "outgoing" || msg.from === "self" || msg.sender === "business";
+                      const prevMsg = convoMessages[mi - 1];
+                      const showDivider = !prevMsg || new Date(prevMsg.createdAt).toDateString() !== new Date(msg.createdAt).toDateString();
+                      const isOwn = msg.isOwn;
+                      const sharedAttachment = (msg.attachments || []).length > 0;
                       return (
-                        <div key={mi} style={{ display: "flex", justifyContent: isOwn ? "flex-end" : "flex-start" }}>
-                          <div style={{
-                            maxWidth: "65%", padding: "10px 14px",
-                            borderRadius: isOwn ? "14px 14px 4px 14px" : "14px 14px 14px 4px",
-                            background: isOwn ? C.accent : C.card,
-                            border: isOwn ? "none" : `1px solid ${C.border}`,
-                          }}>
-                            <div style={{ fontSize: TYPE.body, color: isOwn ? "#fff" : C.white, lineHeight: 1.5 }}>
-                              {msg.text || msg.content || msg.message}
+                        <React.Fragment key={msg.id || mi}>
+                          {showDivider && (
+                            <div style={{ textAlign: "center", margin: "8px 0" }}>
+                              <span style={{ fontSize: TYPE.caption, color: C.dimmed, background: C.card, border: `1px solid ${C.border}`, padding: "3px 12px", borderRadius: RADIUS.pill }}>{formatDayDivider(msg.createdAt)}</span>
                             </div>
-                            <div style={{ fontSize: TYPE.micro, color: isOwn ? "rgba(255,255,255,0.6)" : C.dimmed, marginTop: 4, textAlign: isOwn ? "right" : "left" }}>
-                              {formatTime(msg.createdAt || msg.createdTime || msg.timestamp)}
+                          )}
+                          <div style={{ display: "flex", flexDirection: "column", alignItems: isOwn ? "flex-end" : "flex-start" }}>
+                            {sharedAttachment ? (
+                              <a href={msg.attachments[0].url || msg.attachments[0].payload?.url} target="_blank" rel="noopener noreferrer" style={{
+                                display: "flex", alignItems: "center", gap: SPACE.sm, maxWidth: "70%", padding: "10px 14px",
+                                borderRadius: RADIUS.lg, background: C.card, border: `1px solid ${C.border}`, textDecoration: "none",
+                              }}>
+                                <ExternalLink size={13} color={C.dimmed} />
+                                <span style={{ fontSize: TYPE.small, fontWeight: 500, color: C.white }}>Geteilter Inhalt</span>
+                              </a>
+                            ) : msg.text ? (
+                              <div style={{
+                                maxWidth: "65%", padding: "10px 14px",
+                                borderRadius: isOwn ? "14px 14px 4px 14px" : "14px 14px 14px 4px",
+                                background: isOwn ? "#4A2024" : C.card,
+                                border: isOwn ? "none" : `1px solid ${C.border}`,
+                              }}>
+                                <div style={{ fontSize: TYPE.body, color: "#fff", lineHeight: 1.5 }}>{msg.text}</div>
+                              </div>
+                            ) : null}
+                            <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: TYPE.micro, color: C.dimmed, marginTop: 3 }}>
+                              {formatTime(msg.createdAt)}
+                              {isOwn && <Check size={10} color={msg.read ? C.accent : C.dimmed} />}
                             </div>
                           </div>
-                        </div>
+                        </React.Fragment>
                       );
                     })}
                   </div>
 
                   {/* Reply input */}
-                  <div style={{ padding: "12px 24px 16px", borderTop: `1px solid ${C.border}`, flexShrink: 0 }}>
+                  <div style={{ padding: "12px 24px 16px", borderTop: `1px solid ${C.border}`, flexShrink: 0, background: C.card }}>
                     <div style={{ display: "flex", gap: SPACE.md }}>
                       <input type="text" value={replyText} onChange={(e) => setReplyText(e.target.value)}
                         onKeyDown={(e) => { if (e.key === "Enter" && !sendingReply) handleReply(selectedConvo.id); }}
                         placeholder="Nachricht schreiben..."
-                        style={{ flex: 1, padding: "11px 16px", borderRadius: RADIUS.xxl, background: C.card, border: `1px solid ${C.border}`, color: C.white, fontSize: TYPE.body, fontFamily: "inherit", outline: "none" }} />
+                        style={{ flex: 1, padding: "11px 16px", borderRadius: RADIUS.xxl, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontSize: TYPE.body, fontFamily: "inherit", outline: "none" }} />
                       <button onClick={() => handleReply(selectedConvo.id)} disabled={sendingReply || !replyText.trim()}
                         style={{ padding: "11px 20px", borderRadius: RADIUS.xxl, background: C.accent, border: "none", color: "#fff", fontSize: TYPE.body, fontWeight: 500, cursor: sendingReply ? "wait" : "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: SPACE.sm, opacity: !replyText.trim() ? 0.5 : 1 }}>
                         {sendingReply ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <Send size={14} />}
@@ -2476,7 +2581,8 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
               )}
             </div>
           </React.Fragment>
-        )}
+          );
+        })()}
       </div>
     </div>
   );

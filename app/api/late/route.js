@@ -371,8 +371,11 @@ export async function GET(request) {
     if (action === "inbox-conversation") {
       const conversationId = searchParams.get("conversationId");
       const accountId = searchParams.get("accountId");
+      const cursor = searchParams.get("cursor");
       if (!conversationId || !accountId) return Response.json({ error: "conversationId and accountId required" }, { status: 400 });
-      const res = await fetch(`${BASE}/inbox/conversations/${encodeURIComponent(conversationId)}/messages?accountId=${encodeURIComponent(accountId)}`, { headers: authHeaders() });
+      const params = new URLSearchParams({ accountId });
+      if (cursor) params.set("cursor", cursor);
+      const res = await fetch(`${BASE}/inbox/conversations/${encodeURIComponent(conversationId)}/messages?${params}`, { headers: authHeaders() });
       const rawText = await res.text();
       let data;
       try { data = JSON.parse(rawText); } catch { return Response.json({ error: `Inbox API non-JSON: ${rawText.substring(0, 300)}` }, { status: 500 }); }
