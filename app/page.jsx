@@ -1889,6 +1889,9 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
   const [loadingConvoMessages, setLoadingConvoMessages] = useState(false);
   const [selectedCommentedPost, setSelectedCommentedPost] = useState(null);
   const [postComments, setPostComments] = useState([]);
+  const [commentReplyingId, setCommentReplyingId] = useState(null);
+  const [commentReplyText, setCommentReplyText] = useState("");
+  const [sendingCommentReply, setSendingCommentReply] = useState(false);
   const [loadingPostComments, setLoadingPostComments] = useState(false);
   const [replyText, setReplyText] = useState("");
   const [sendingReply, setSendingReply] = useState(false);
@@ -1947,6 +1950,7 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
           text: c.text || c.content || c.message || c.body || "",
           time: c.createdTime || c.createdAt || c.timestamp || c.created || "",
           likes: c.likeCount ?? c.likes ?? 0,
+          liked: c.liked || c.isLiked || false,
           replies: c.replies || c.children || [],
         }));
         setPostComments(mapped);
@@ -2026,6 +2030,49 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
       }
     } catch (err) { setApiError(err.message); }
     finally { setSendingReply(false); }
+  };
+
+  const toggleLikeComment = async (comment) => {
+    if (!selectedCommentedPost) return;
+    const wasLiked = comment.liked;
+    // Optimistisches Update, damit der Klick sofort reagiert
+    setPostComments((prev) => prev.map((c) => c.id === comment.id ? { ...c, liked: !wasLiked, likes: Math.max(0, c.likes + (wasLiked ? -1 : 1)) } : c));
+    try {
+      const res = await fetch("/api/late", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: wasLiked ? "unlike-comment" : "like-comment", postId: selectedCommentedPost.id, commentId: comment.id, accountId: selectedCommentedPost.accountId }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        // Bei Fehler zurückrollen
+        setPostComments((prev) => prev.map((c) => c.id === comment.id ? { ...c, liked: wasLiked, likes: comment.likes } : c));
+        setApiError(data.error);
+      }
+    } catch (err) {
+      setPostComments((prev) => prev.map((c) => c.id === comment.id ? { ...c, liked: wasLiked, likes: comment.likes } : c));
+      setApiError(err.message);
+    }
+  };
+
+  const sendCommentReply = async (comment) => {
+    if (!commentReplyText.trim() || !selectedCommentedPost) return;
+    setSendingCommentReply(true);
+    try {
+      const res = await fetch("/api/late", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reply-comment", postId: selectedCommentedPost.id, commentId: comment.id, accountId: selectedCommentedPost.accountId, message: commentReplyText }),
+      });
+      const data = await res.json();
+      if (data.error) { setApiError(data.error); }
+      else {
+        setPostComments((prev) => prev.map((c) => c.id === comment.id
+          ? { ...c, replies: [...(c.replies || []), { text: commentReplyText, username: "Du", createdAt: new Date().toISOString() }] }
+          : c));
+        setCommentReplyText("");
+        setCommentReplyingId(null);
+      }
+    } catch (err) { setApiError(err.message); }
+    finally { setSendingCommentReply(false); }
   };
 
   // Always use real API data (no demo fallback)
@@ -2224,17 +2271,40 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
                           }
                           <span style={{ fontSize: TYPE.small, fontWeight: 600, color: C.white }}>{c.user}</span>
                           <span style={{ fontSize: TYPE.micro, color: C.dimmed }}>{formatTime(c.time)}</span>
-                          {c.likes > 0 && <span style={{ fontSize: TYPE.micro, color: C.dimmed, marginLeft: "auto", display: "flex", alignItems: "center", gap: 3 }}><Heart size={10} />{c.likes}</span>}
                           <button onClick={async () => {
                             try {
                               await fetch("/api/late", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "hide-comment", postId: selectedCommentedPost.id, commentId: c.id, accountId: selectedCommentedPost.accountId }) });
                               setPostComments((prev) => prev.filter((pc2) => pc2.id !== c.id));
                             } catch {}
-                          }} title="Ausblenden" style={{ background: "none", border: "none", color: C.dimmed, cursor: "pointer", padding: 2, flexShrink: 0 }}>
+                          }} title="Ausblenden" style={{ background: "none", border: "none", color: C.dimmed, cursor: "pointer", padding: 2, flexShrink: 0, marginLeft: "auto" }}>
                             <EyeOff size={12} />
                           </button>
                         </div>
                         <div style={{ fontSize: TYPE.body, color: C.muted, lineHeight: 1.5 }}>{c.text || "Kein Text"}</div>
+
+                        {/* Like & Reply Aktionen */}
+                        <div style={{ display: "flex", alignItems: "center", gap: SPACE.xl, marginTop: 8 }}>
+                          <button onClick={() => toggleLikeComment(c)} style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "none", cursor: "pointer", padding: "2px 0", color: c.liked ? C.redLight : C.dimmed, fontSize: TYPE.caption, fontWeight: 500, fontFamily: "inherit" }}>
+                            <Heart size={12} fill={c.liked ? C.redLight : "none"} /> {c.likes > 0 ? c.likes : "Gefällt mir"}
+                          </button>
+                          <button onClick={() => { setCommentReplyingId(commentReplyingId === c.id ? null : c.id); setCommentReplyText(""); }} style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "none", cursor: "pointer", padding: "2px 0", color: C.dimmed, fontSize: TYPE.caption, fontWeight: 500, fontFamily: "inherit" }}>
+                            <MessageCircle size={12} /> Antworten
+                          </button>
+                        </div>
+
+                        {commentReplyingId === c.id && (
+                          <div style={{ display: "flex", gap: SPACE.sm, marginTop: 10 }}>
+                            <input type="text" autoFocus value={commentReplyText} onChange={(e) => setCommentReplyText(e.target.value)}
+                              onKeyDown={(e) => { if (e.key === "Enter" && !sendingCommentReply) sendCommentReply(c); if (e.key === "Escape") setCommentReplyingId(null); }}
+                              placeholder="Antwort schreiben..."
+                              style={{ flex: 1, padding: "7px 12px", borderRadius: RADIUS.lg, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontSize: TYPE.small, fontFamily: "inherit", outline: "none" }} />
+                            <button onClick={() => sendCommentReply(c)} disabled={sendingCommentReply || !commentReplyText.trim()}
+                              style={{ padding: "7px 14px", borderRadius: RADIUS.lg, background: C.accent, border: "none", color: "#fff", fontSize: TYPE.small, fontWeight: 500, cursor: sendingCommentReply ? "wait" : "pointer", fontFamily: "inherit", opacity: !commentReplyText.trim() ? 0.5 : 1 }}>
+                              {sendingCommentReply ? <Loader2 size={12} style={{ animation: "spin 1s linear infinite" }} /> : <Send size={12} />}
+                            </button>
+                          </div>
+                        )}
+
                         {c.replies && c.replies.length > 0 && (
                           <div style={{ display: "flex", flexDirection: "column", gap: SPACE.sm, paddingLeft: 16, borderLeft: `2px solid ${C.border}`, marginTop: 10 }}>
                             {c.replies.map((r, ri) => (

@@ -575,6 +575,38 @@ export async function POST(request) {
       return Response.json(data);
     }
 
+    // ── Reply to a comment ──────────────────────────────────
+    if (action === "reply-comment") {
+      const { postId, commentId, accountId, message } = body;
+      if (!postId || !commentId || !accountId || !message) return Response.json({ error: "postId, commentId, accountId and message required" }, { status: 400 });
+      const res = await fetch(`${BASE}/inbox/comments/${postId}/${commentId}/reply`, {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({ accountId, message }),
+      });
+      const rawText = await res.text();
+      let data;
+      try { data = JSON.parse(rawText); } catch { return Response.json({ error: rawText.substring(0, 300) }, { status: 500 }); }
+      if (!res.ok) return Response.json({ error: data.message || data.error || "Fehler beim Antworten", details: data }, { status: res.status });
+      return Response.json(data);
+    }
+
+    // ── Like/unlike a comment ────────────────────────────────
+    if (action === "like-comment" || action === "unlike-comment") {
+      const { postId, commentId, accountId } = body;
+      if (!postId || !commentId || !accountId) return Response.json({ error: "postId, commentId and accountId required" }, { status: 400 });
+      const verb = action === "like-comment" ? "like" : "unlike";
+      const res = await fetch(`${BASE}/inbox/comments/${postId}/${commentId}/${verb}?accountId=${encodeURIComponent(accountId)}`, {
+        method: "POST",
+        headers: authHeaders(),
+      });
+      const rawText = await res.text();
+      let data;
+      try { data = JSON.parse(rawText); } catch { return Response.json({ error: rawText.substring(0, 300) }, { status: 500 }); }
+      if (!res.ok) return Response.json({ error: data.message || data.error || "Fehler", details: data }, { status: res.status });
+      return Response.json(data);
+    }
+
     return Response.json({ error: "Unknown action" }, { status: 400 });
   } catch (err) {
     console.error("[Late API] Exception:", err);
