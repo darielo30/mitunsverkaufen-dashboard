@@ -372,7 +372,7 @@ export async function GET(request) {
       const conversationId = searchParams.get("conversationId");
       const accountId = searchParams.get("accountId");
       if (!conversationId || !accountId) return Response.json({ error: "conversationId and accountId required" }, { status: 400 });
-      const res = await fetch(`${BASE}/inbox/conversations/${encodeURIComponent(conversationId)}?accountId=${encodeURIComponent(accountId)}`, { headers: authHeaders() });
+      const res = await fetch(`${BASE}/inbox/conversations/${encodeURIComponent(conversationId)}/messages?accountId=${encodeURIComponent(accountId)}`, { headers: authHeaders() });
       const rawText = await res.text();
       let data;
       try { data = JSON.parse(rawText); } catch { return Response.json({ error: `Inbox API non-JSON: ${rawText.substring(0, 300)}` }, { status: 500 }); }
