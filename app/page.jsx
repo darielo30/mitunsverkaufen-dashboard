@@ -132,6 +132,15 @@ const TIMEZONES = [
   { value: "Asia/Tokyo", label: "Tokio (GMT+9)", short: "JST" },
 ];
 
+// Monatliche Posting-Ziele pro angebundenem Account (nicht pro Plattform,
+// da TikTok Business und TikTok Ludewig getrennt gezählt werden).
+const CHANNEL_GOALS = [
+  { accountId: "699131b1fd3d49fbfa3facfd", platform: "instagram", label: "Instagram · Business", goal: 30 },
+  { accountId: "699728918ab8ae478b36765e", platform: "tiktok", label: "TikTok · Business", goal: 30 },
+  { accountId: "6a9ad92577555aae01db0b32", platform: "tiktok", label: "TikTok · Ludewig", goal: 30 },
+  { accountId: "6a9ad9c477555aae01db0f8d", platform: "youtube", label: "YouTube", goal: 4 },
+];
+
 // ── Demo Data ───────────────────────────────────────────────────
 const demoPerformance = [
   { month: "Sep", views: 42000, likes: 3200, comments: 890, shares: 420 },
@@ -3482,6 +3491,7 @@ export default function Dashboard() {
             const pa = pl.analytics || pl.metrics || pl.stats || {};
             return {
               platform: name,
+              accountId: pl.accountId?._id || pl.accountId || undefined,
               status: pl.status || p.status || "draft",
               publishedAt: pl.publishedAt || pl.postedAt || pl.completedAt || undefined,
               url: urls[name],
@@ -3665,9 +3675,6 @@ export default function Dashboard() {
   const totalLikes = filtered.reduce((a, p) => a + p.likes, 0);
   const totalComments = filtered.reduce((a, p) => a + p.comments, 0);
   const totalShares = filtered.reduce((a, p) => a + p.shares, 0);
-  const MONTHLY_GOAL = 30;
-  const doneCount = filtered.filter((p) => p.done).length;
-  const progress = Math.min(100, Math.round((filtered.length / MONTHLY_GOAL) * 100));
 
   // Restrained atmospheric glow behind the whole app (dark mode only) — the
   // cards sit on top of this instead of a flat page background. Kept as a
@@ -3741,7 +3748,16 @@ export default function Dashboard() {
         const impLast = sumOf(lastMonth, "impressions") || reachLast;
         const engRateLast = impLast > 0 ? (engLast / impLast) * 100 : 0;
 
-        const doneCountAll = posts.filter((p) => p.done).length;
+        // Monatsziel: pro Account, nur Beiträge, die in diesem Kalendermonat
+        // tatsächlich veröffentlicht wurden (nicht die Gesamthistorie).
+        const channelProgress = CHANNEL_GOALS.map((ch) => {
+          const count = posts.reduce((sum, p) => sum + (p.platformDetails || []).filter((pd) =>
+            pd.accountId === ch.accountId && pd.status === "published" && monthKey(pd.publishedAt || p.date) === thisMonthKey
+          ).length, 0);
+          return { ...ch, count, pct: Math.min(100, Math.round((count / ch.goal) * 100)) };
+        });
+        const doneCountAll = channelProgress.reduce((a, c) => a + c.count, 0);
+        const MONTHLY_GOAL = channelProgress.reduce((a, c) => a + c.goal, 0);
         const goalPct = Math.min(100, Math.round((doneCountAll / MONTHLY_GOAL) * 100));
 
         const chartPosts = [...published]
@@ -3895,17 +3911,26 @@ export default function Dashboard() {
               <div className="glass-panel" style={{ background: C.glass, border: `1px solid ${C.border}`, borderRadius: RADIUS.xxl, padding: 18 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: SPACE.md, marginBottom: 16 }}>
                   <div style={{ width: 32, height: 32, borderRadius: RADIUS.lg, background: C.yellowGlow, color: C.yellow, display: "flex", alignItems: "center", justifyContent: "center" }}><Target size={16} /></div>
-                  <div style={{ fontSize: TYPE.body, fontWeight: 600, color: C.white }}>Content-Ziele</div>
+                  <div style={{ fontSize: TYPE.body, fontWeight: 600, color: C.white, flex: 1 }}>Content-Ziele</div>
+                  <div style={{ fontSize: TYPE.caption, color: C.dimmed }}>{now.toLocaleDateString("de-DE", { month: "long" })}</div>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: SPACE.lg }}>
-                  <div style={{ width: 32, height: 32, borderRadius: RADIUS.lg, background: C.accentGlow, color: C.accent, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Send size={15} /></div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: TYPE.small, fontWeight: 500, color: C.white, marginBottom: 6 }}>Monatsziel · {doneCountAll} / {MONTHLY_GOAL} Beiträge</div>
-                    <div style={{ height: 5, background: C.bg, borderRadius: 999, overflow: "hidden" }}>
-                      <div style={{ height: "100%", width: `${goalPct}%`, background: C.accent, borderRadius: 999 }} />
-                    </div>
-                  </div>
-                  <div style={{ fontSize: TYPE.body, fontWeight: 600, color: C.white, flexShrink: 0 }}>{goalPct}%</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: SPACE.lg }}>
+                  {channelProgress.map((ch) => {
+                    const meta = platformMeta(ch.platform);
+                    const Icon = meta.icon;
+                    return (
+                      <div key={ch.accountId} style={{ display: "flex", alignItems: "center", gap: SPACE.lg }}>
+                        <div style={{ width: 28, height: 28, borderRadius: RADIUS.lg, background: meta.color + "20", color: meta.color, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Icon size={13} /></div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: TYPE.small, fontWeight: 500, color: C.white, marginBottom: 6, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{ch.label} · {ch.count} / {ch.goal} Beiträge</div>
+                          <div style={{ height: 5, background: C.bg, borderRadius: 999, overflow: "hidden" }}>
+                            <div style={{ height: "100%", width: `${ch.pct}%`, background: ch.pct >= 100 ? C.green : meta.color, borderRadius: 999 }} />
+                          </div>
+                        </div>
+                        <div style={{ fontSize: TYPE.small, fontWeight: 600, color: C.white, flexShrink: 0 }}>{ch.pct}%</div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
