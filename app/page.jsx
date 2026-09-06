@@ -7,7 +7,7 @@ import {
   Users, Search, X, Clock, Send, Loader2,
   RefreshCw, Wifi, WifiOff, Upload, FileVideo, Trash2, ChevronLeft, ChevronRight,
   Globe, SkipForward, SkipBack, Scissors,
-  LayoutDashboard, Bell, Settings, UserPlus, AlertCircle, XCircle, UsersRound, Shield, ExternalLink,
+  LayoutDashboard, Bell, BellOff, Settings, UserPlus, AlertCircle, XCircle, UsersRound, Shield, ExternalLink,
   Sun, Moon, FileText, CheckSquare, Square, Download, EyeOff, Sparkles,
   Kanban, Lightbulb, PenLine, Wand2, Rocket, GripVertical, Pencil,
   Bookmark, Copy, List, LayoutGrid, Minus, MousePointerClick, ArrowUpDown, Facebook, Youtube, Linkedin, Menu,
@@ -911,7 +911,10 @@ function CreatePostModal({ onClose, onSubmit, isSubmitting, accounts, initialDat
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiError, setAiError] = useState(null);
   const [aiResults, setAiResults] = useState(null); // { instagram, tiktok }
-  const [includeHashtags, setIncludeHashtags] = useState(false);
+  const [includeHashtags, setIncludeHashtags] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try { return !!JSON.parse(localStorage.getItem("appSettings") || "{}").defaultIncludeHashtags; } catch { return false; }
+  });
   const fileInputRef = useRef(null);
   const thumbInputRef = useRef(null);
 
@@ -1703,7 +1706,7 @@ function ContentPipelinePanel() {
   );
 }
 
-function Sidebar({ activeTab, onTabChange, unreadCount, errorCount, isDarkMode, onToggleTheme, isOpen, onClose }) {
+function Sidebar({ activeTab, onTabChange, unreadCount, isDarkMode, onToggleTheme, isOpen, onClose }) {
   const [expandedMenu, setExpandedMenu] = useState(null);
 
   // Sidebar colors — dark-glass: translucent frosted fill + accent-tinted
@@ -1736,12 +1739,9 @@ function Sidebar({ activeTab, onTabChange, unreadCount, errorCount, isDarkMode, 
         { key: "comments", label: "Kommentare" },
       ],
     },
-    { key: "ads", icon: TrendingUp, label: "Ads", disabled: true },
-    { key: "skripte", icon: FileText, label: "Skripte" },
     { key: "pipeline", icon: Kanban, label: "Content-Pipeline" },
-    { key: "webhooks", icon: RefreshCw, label: "Webhooks", disabled: true },
     { key: "logs", icon: Shield, label: "Logs" },
-    { key: "settings", icon: Settings, label: "Einstellungen", badge: errorCount },
+    { key: "settings", icon: Settings, label: "Einstellungen" },
   ];
 
   const navItemStyle = (isActive, disabled) => ({
@@ -1865,7 +1865,9 @@ function Sidebar({ activeTab, onTabChange, unreadCount, errorCount, isDarkMode, 
 // ── Notification Panel ──────────────────────────────────────────
 function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultView }) {
   const [platformFilter, setPlatformFilter] = useState("all");
-  const [apiComments, setApiComments] = useState([]);
+  // Posts that have comments (Zernio's list endpoint returns posts + a
+  // comment count, not individual comment text — see fetchPostComments below).
+  const [commentedPosts, setCommentedPosts] = useState([]);
   const [loadingComments, setLoadingComments] = useState(false);
   const [apiError, setApiError] = useState(null);
   const [inboxView, setInboxView] = useState(defaultView || "dms"); // "comments" | "dms"
@@ -1874,13 +1876,17 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
   const [conversations, setConversations] = useState([]);
   const [loadingDMs, setLoadingDMs] = useState(false);
   const [selectedConvo, setSelectedConvo] = useState(null);
-  const [selectedComment, setSelectedComment] = useState(null);
+  const [convoMessages, setConvoMessages] = useState([]);
+  const [loadingConvoMessages, setLoadingConvoMessages] = useState(false);
+  const [selectedCommentedPost, setSelectedCommentedPost] = useState(null);
+  const [postComments, setPostComments] = useState([]);
+  const [loadingPostComments, setLoadingPostComments] = useState(false);
   const [replyText, setReplyText] = useState("");
   const [sendingReply, setSendingReply] = useState(false);
 
-  // Always fetch real comments from Zernio Inbox API (no isConnected gate)
+  // Fetch the list of posts that have comments (with counts + preview)
   useEffect(() => {
-    const fetchComments = async () => {
+    const fetchCommentedPosts = async () => {
       setLoadingComments(true);
       setApiError(null);
       try {
@@ -1891,34 +1897,59 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
         const data = await res.json();
         if (data.error) { setApiError(data.error); setLoadingComments(false); return; }
         const raw = data._raw || data;
-        const comments = Array.isArray(raw) ? raw : (raw.comments || raw.data || raw.items || []);
-        const mapped = comments.map((c, i) => ({
-          id: c.id || c._id || `api-${i}`,
-          type: "comment",
-          user: c.author?.username || c.author?.name || c.username || c.from?.username || "Unbekannt",
-          avatar: c.author?.profilePicture || c.author?.avatar || c.from?.profilePicture || null,
-          text: c.text || c.content || c.message || c.body || "",
-          post: c.postTitle || c.postContent?.substring(0, 60) || c.post?.content?.substring(0, 60) || "Beitrag",
-          postId: c.postId || c.post?.id || c.post?._id || null,
-          postThumbnail: c.post?.thumbnail || c.post?.mediaItems?.[0]?.url || null,
-          commentId: c.id || c._id || c.commentId || null,
-          time: c.createdAt || c.timestamp || c.created || "",
-          timeFormatted: c.createdAt ? new Date(c.createdAt).toLocaleString("de-DE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "",
-          read: c.read || c.seen || false,
+        const items = Array.isArray(raw) ? raw : (raw.data || raw.comments || raw.items || []);
+        const mapped = items.map((c, i) => ({
+          id: c.id || c._id || `post-${i}`,
+          accountId: c.accountId || c.account_id || null,
+          postCaption: c.content || c.postContent || c.text || "Beitrag",
+          thumbnail: c.picture || c.thumbnail || null,
+          time: c.createdTime || c.createdAt || c.timestamp || "",
           platform: (c.platform || c.source || "instagram").toLowerCase(),
-          replies: c.replies || c.children || [],
-          likes: c.likes || c.likeCount || 0,
-          isApi: true,
+          commentCount: c.commentCount ?? c.comment_count ?? 0,
+          likeCount: c.likeCount ?? c.like_count ?? 0,
+          permalink: c.permalink || c.url || null,
         }));
-        setApiComments(mapped);
+        setCommentedPosts(mapped);
       } catch (err) {
         setApiError(err.message);
       } finally {
         setLoadingComments(false);
       }
     };
-    fetchComments();
+    fetchCommentedPosts();
   }, [platformFilter]);
+
+  // Fetch the actual comments for the selected post
+  useEffect(() => {
+    if (!selectedCommentedPost) { setPostComments([]); return; }
+    const fetchPostComments = async () => {
+      setLoadingPostComments(true);
+      setApiError(null);
+      try {
+        const res = await fetch(`/api/late?action=inbox-post-comments&postId=${encodeURIComponent(selectedCommentedPost.id)}&accountId=${encodeURIComponent(selectedCommentedPost.accountId)}`);
+        const data = await res.json();
+        if (data.error) { setApiError(data.error); setPostComments([]); return; }
+        const raw = data._raw || data;
+        const items = Array.isArray(raw) ? raw : (raw.data || raw.comments || raw.items || []);
+        const mapped = items.map((c, i) => ({
+          id: c.id || c._id || `c-${i}`,
+          user: c.username || c.author?.username || c.author?.name || c.from?.username || c.user || "Unbekannt",
+          avatar: c.profilePicture || c.author?.profilePicture || c.author?.avatar || c.from?.profilePicture || null,
+          text: c.text || c.content || c.message || c.body || "",
+          time: c.createdTime || c.createdAt || c.timestamp || c.created || "",
+          likes: c.likeCount ?? c.likes ?? 0,
+          replies: c.replies || c.children || [],
+        }));
+        setPostComments(mapped);
+      } catch (err) {
+        setApiError(err.message);
+        setPostComments([]);
+      } finally {
+        setLoadingPostComments(false);
+      }
+    };
+    fetchPostComments();
+  }, [selectedCommentedPost]);
 
   // Always fetch DM conversations (no isConnected gate)
   useEffect(() => {
@@ -1944,24 +1975,48 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
     fetchDMs();
   }, [inboxView, platformFilter]);
 
+  // Fetch the full message thread for the selected conversation
+  useEffect(() => {
+    if (!selectedConvo) { setConvoMessages([]); return; }
+    const fetchMessages = async () => {
+      setLoadingConvoMessages(true);
+      try {
+        const res = await fetch(`/api/late?action=inbox-conversation&conversationId=${encodeURIComponent(selectedConvo.id)}&accountId=${encodeURIComponent(selectedConvo.accountId)}`);
+        const data = await res.json();
+        if (data.error) { setApiError(data.error); setConvoMessages([]); return; }
+        const raw = data._raw || data;
+        const msgs = Array.isArray(raw) ? raw : (raw.messages || raw.data || raw.items || []);
+        setConvoMessages(msgs);
+      } catch (err) {
+        setApiError(err.message);
+        setConvoMessages([]);
+      } finally {
+        setLoadingConvoMessages(false);
+      }
+    };
+    fetchMessages();
+  }, [selectedConvo]);
+
   const handleReply = async (conversationId) => {
-    if (!replyText.trim()) return;
+    if (!replyText.trim() || !selectedConvo) return;
     setSendingReply(true);
     try {
       const res = await fetch("/api/late", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "inbox-reply", conversationId, message: replyText }),
+        body: JSON.stringify({ action: "inbox-reply", conversationId, accountId: selectedConvo.accountId, message: replyText }),
       });
       const data = await res.json();
       if (data.error) { setApiError(data.error); }
-      else { setReplyText(""); }
+      else {
+        setReplyText("");
+        setConvoMessages((prev) => [...prev, { text: replyText, isOwn: true, createdAt: new Date().toISOString() }]);
+      }
     } catch (err) { setApiError(err.message); }
     finally { setSendingReply(false); }
   };
 
   // Always use real API data (no demo fallback)
-  const allNotifs = apiComments;
-  const filtered = platformFilter === "all" ? allNotifs : allNotifs.filter((n) => n.platform === platformFilter);
+  const filtered = platformFilter === "all" ? commentedPosts : commentedPosts.filter((n) => n.platform === platformFilter);
   const isDemo = false; // removed demo mode – always live
 
   // Zernio-style split panel styles
@@ -2067,40 +2122,39 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
         {/* ── COMMENTS VIEW ────────────────────────────────── */}
         {inboxView === "comments" && (
           <React.Fragment>
-            {/* Left: Comment List */}
+            {/* Left: Posts with comments */}
             <div style={listPanelStyle}>
               {filtered.length === 0 && !loadingComments && (
                 <div style={{ padding: 40, textAlign: "center", color: C.dimmed, fontSize: TYPE.body }}>
                   <MessageCircle size={32} color={C.border} style={{ marginBottom: 12 }} />
-                  <div>Keine Kommentare vorhanden.</div>
+                  <div>Keine Beiträge gefunden.</div>
                 </div>
               )}
               {filtered.map((n, idx) => {
-                const active = selectedComment?.id === n.id;
-                const pc = n.platform === "instagram" ? C.instagram : C.tiktok;
+                const active = selectedCommentedPost?.id === n.id;
+                const pc = n.platform === "instagram" ? C.instagram : n.platform === "youtube" ? C.red : C.tiktok;
                 return (
-                  <div key={n.id || idx} onClick={() => setSelectedComment(n)} style={listItemStyle(active)}
+                  <div key={n.id || idx} onClick={() => setSelectedCommentedPost(n)} style={listItemStyle(active)}
                     onMouseOver={(e) => { if (!active) e.currentTarget.style.background = C.cardHover; }}
                     onMouseOut={(e) => { if (!active) e.currentTarget.style.background = "transparent"; }}>
-                    {/* Avatar */}
-                    <div style={{ width: 38, height: 38, borderRadius: "50%", background: pc + "20", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, position: "relative" }}>
-                      {n.avatar
-                        ? <img src={n.avatar} alt="" style={{ width: 38, height: 38, borderRadius: "50%", objectFit: "cover" }} />
-                        : <span style={{ fontSize: TYPE.label, fontWeight: 600, color: pc }}>{(n.user || "?")[0].toUpperCase()}</span>
+                    {/* Thumbnail */}
+                    <div style={{ width: 38, height: 38, borderRadius: RADIUS.lg, background: pc + "20", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden" }}>
+                      {n.thumbnail
+                        ? <img src={n.thumbnail} alt="" style={{ width: 38, height: 38, objectFit: "cover" }} />
+                        : <MessageCircle size={16} color={pc} />
                       }
-                      {!n.read && <div style={{ position: "absolute", top: -1, right: -1, width: 10, height: 10, borderRadius: "50%", background: C.accent, border: `2px solid ${C.bg}` }} />}
                     </div>
                     {/* Content */}
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: SPACE.sm, marginBottom: 2 }}>
-                        <span style={{ fontSize: TYPE.body, fontWeight: 600, color: C.white }}>{n.user}</span>
                         <PlatformBadge platform={n.platform} />
+                        <span style={{ fontSize: TYPE.caption, color: n.commentCount > 0 ? C.accent : C.dimmed, fontWeight: 500 }}>{n.commentCount} Kommentar{n.commentCount === 1 ? "" : "e"}</span>
                       </div>
                       <div style={{ fontSize: TYPE.small, color: C.muted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                        {n.text || n.fullText || "Kommentar"}
+                        {n.postCaption}
                       </div>
                       <div style={{ fontSize: TYPE.micro, color: C.dimmed, marginTop: 3 }}>
-                        {formatTime(n.time)} {n.post ? `· ${n.post}` : ""}
+                        {formatTime(n.time)} · {n.likeCount} Likes
                       </div>
                     </div>
                   </div>
@@ -2108,85 +2162,81 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
               })}
             </div>
 
-            {/* Right: Comment Detail */}
+            {/* Right: Comments on the selected post */}
             <div style={detailPanelStyle}>
-              {!selectedComment ? (
+              {!selectedCommentedPost ? (
                 <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: C.dimmed, gap: SPACE.xl }}>
                   <MessageCircle size={40} color={C.border} />
-                  <div style={{ fontSize: TYPE.bodyLg, fontWeight: 500 }}>Kommentar auswählen</div>
-                  <div style={{ fontSize: TYPE.small }}>Wähle einen Kommentar aus der Liste, um Details zu sehen.</div>
+                  <div style={{ fontSize: TYPE.bodyLg, fontWeight: 500 }}>Beitrag auswählen</div>
+                  <div style={{ fontSize: TYPE.small }}>Wähle einen Beitrag aus der Liste, um seine Kommentare zu sehen.</div>
                 </div>
               ) : (
                 <div style={{ padding: 24, flex: 1, display: "flex", flexDirection: "column" }}>
-                  {/* Comment header */}
+                  {/* Post header */}
                   <div style={{ display: "flex", alignItems: "center", gap: SPACE.xxl, marginBottom: 20, paddingBottom: 16, borderBottom: `1px solid ${C.border}` }}>
-                    <div style={{ width: 44, height: 44, borderRadius: "50%", background: (selectedComment.platform === "instagram" ? C.instagram : C.tiktok) + "20", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                      {selectedComment.avatar
-                        ? <img src={selectedComment.avatar} alt="" style={{ width: 44, height: 44, borderRadius: "50%", objectFit: "cover" }} />
-                        : <span style={{ fontSize: TYPE.h4, fontWeight: 600, color: selectedComment.platform === "instagram" ? C.instagram : C.tiktok }}>{(selectedComment.user || "?")[0].toUpperCase()}</span>
-                      }
-                    </div>
-                    <div style={{ flex: 1 }}>
+                    {selectedCommentedPost.thumbnail && (
+                      <img src={selectedCommentedPost.thumbnail} alt="" style={{ width: 44, height: 44, borderRadius: RADIUS.lg, objectFit: "cover", flexShrink: 0 }} />
+                    )}
+                    <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: SPACE.md }}>
-                        <span style={{ fontSize: TYPE.labelLg, fontWeight: 600, color: C.white }}>{selectedComment.user}</span>
-                        <PlatformBadge platform={selectedComment.platform} />
+                        <PlatformBadge platform={selectedCommentedPost.platform} />
+                        <span style={{ fontSize: TYPE.small, color: C.dimmed }}>{formatTime(selectedCommentedPost.time)}</span>
                       </div>
-                      <div style={{ fontSize: TYPE.small, color: C.dimmed, marginTop: 2 }}>{formatTime(selectedComment.time)}</div>
+                      <div style={{ fontSize: TYPE.small, color: C.muted, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{selectedCommentedPost.postCaption}</div>
                     </div>
-                    {selectedComment.postId && selectedComment.commentId && (
-                      <button onClick={async () => {
-                        try {
-                          await fetch("/api/late", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "hide-comment", postId: selectedComment.postId, commentId: selectedComment.commentId }) });
-                        } catch {}
-                      }} style={{ padding: `${SPACE.sm}px ${SPACE.xl}px`, borderRadius: RADIUS.lg, background: C.card, border: `1px solid ${C.border}`, color: C.dimmed, fontSize: TYPE.caption, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: SPACE.xs }}>
-                        <EyeOff size={12} /> Ausblenden
-                      </button>
+                    {selectedCommentedPost.permalink && (
+                      <a href={selectedCommentedPost.permalink} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: SPACE.xs, padding: `${SPACE.sm}px ${SPACE.xl}px`, borderRadius: RADIUS.lg, background: C.card, border: `1px solid ${C.border}`, color: C.dimmed, fontSize: TYPE.caption, fontWeight: 500, textDecoration: "none", flexShrink: 0 }}>
+                        <ExternalLink size={12} /> Ansehen
+                      </a>
                     )}
                   </div>
 
-                  {/* Post reference */}
-                  {selectedComment.post && (
-                    <div style={{ padding: `${SPACE.xl}px ${SPACE.xxl}px`, borderRadius: RADIUS.xl, background: C.card, border: `1px solid ${C.border}`, marginBottom: 16, fontSize: TYPE.small, color: C.muted }}>
-                      <div style={{ fontSize: TYPE.micro, fontWeight: 600, color: C.dimmed, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Beitrag</div>
-                      {selectedComment.post}
+                  {loadingPostComments && (
+                    <div style={{ textAlign: "center", padding: 30, color: C.dimmed }}>
+                      <Loader2 size={16} style={{ animation: "spin 1s linear infinite", display: "inline-block", marginRight: 6 }} /> Kommentare werden geladen...
                     </div>
                   )}
 
-                  {/* Comment text */}
-                  <div style={{ padding: `${SPACE.xxl}px ${SPACE.xxxl}px`, borderRadius: RADIUS.xxxl, background: C.card, border: `1px solid ${C.border}`, marginBottom: 16 }}>
-                    <div style={{ fontSize: TYPE.bodyLg, color: C.white, lineHeight: 1.7 }}>
-                      {selectedComment.text || selectedComment.fullText || "Kein Text"}
-                    </div>
-                  </div>
+                  {!loadingPostComments && postComments.length === 0 && (
+                    <div style={{ textAlign: "center", padding: 30, color: C.dimmed, fontSize: TYPE.body }}>Noch keine Kommentare zu diesem Beitrag.</div>
+                  )}
 
-                  {/* Replies thread */}
-                  {selectedComment.replies && selectedComment.replies.length > 0 && (
-                    <div style={{ marginBottom: 16 }}>
-                      <div style={{ fontSize: TYPE.caption, fontWeight: 600, color: C.dimmed, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Antworten ({selectedComment.replies.length})</div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: SPACE.md, paddingLeft: 16, borderLeft: `2px solid ${C.border}` }}>
-                        {selectedComment.replies.map((r, ri) => (
-                          <div key={ri} style={{ padding: "10px 14px", borderRadius: RADIUS.xl, background: C.bg, border: `1px solid ${C.border}` }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: SPACE.sm, marginBottom: 4 }}>
-                              <span style={{ fontSize: TYPE.small, fontWeight: 600, color: C.white }}>{r.author?.username || r.username || "Unbekannt"}</span>
-                              <span style={{ fontSize: TYPE.micro, color: C.dimmed }}>{formatTime(r.createdAt)}</span>
-                            </div>
-                            <div style={{ fontSize: TYPE.body, color: C.muted, lineHeight: 1.5 }}>{r.text || r.content || r.message || ""}</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: SPACE.lg }}>
+                    {postComments.map((c) => (
+                      <div key={c.id} style={{ padding: `${SPACE.xl}px ${SPACE.xxl}px`, borderRadius: RADIUS.xl, background: C.card, border: `1px solid ${C.border}` }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: SPACE.md, marginBottom: 6 }}>
+                          {c.avatar
+                            ? <img src={c.avatar} alt="" style={{ width: 24, height: 24, borderRadius: "50%", objectFit: "cover" }} />
+                            : <div style={{ width: 24, height: 24, borderRadius: "50%", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: TYPE.micro, fontWeight: 600, color: C.dimmed }}>{(c.user || "?")[0].toUpperCase()}</div>
+                          }
+                          <span style={{ fontSize: TYPE.small, fontWeight: 600, color: C.white }}>{c.user}</span>
+                          <span style={{ fontSize: TYPE.micro, color: C.dimmed }}>{formatTime(c.time)}</span>
+                          {c.likes > 0 && <span style={{ fontSize: TYPE.micro, color: C.dimmed, marginLeft: "auto", display: "flex", alignItems: "center", gap: 3 }}><Heart size={10} />{c.likes}</span>}
+                          <button onClick={async () => {
+                            try {
+                              await fetch("/api/late", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "hide-comment", postId: selectedCommentedPost.id, commentId: c.id, accountId: selectedCommentedPost.accountId }) });
+                              setPostComments((prev) => prev.filter((pc2) => pc2.id !== c.id));
+                            } catch {}
+                          }} title="Ausblenden" style={{ background: "none", border: "none", color: C.dimmed, cursor: "pointer", padding: 2, flexShrink: 0 }}>
+                            <EyeOff size={12} />
+                          </button>
+                        </div>
+                        <div style={{ fontSize: TYPE.body, color: C.muted, lineHeight: 1.5 }}>{c.text || "Kein Text"}</div>
+                        {c.replies && c.replies.length > 0 && (
+                          <div style={{ display: "flex", flexDirection: "column", gap: SPACE.sm, paddingLeft: 16, borderLeft: `2px solid ${C.border}`, marginTop: 10 }}>
+                            {c.replies.map((r, ri) => (
+                              <div key={ri} style={{ padding: "8px 12px", borderRadius: RADIUS.lg, background: C.bg }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: SPACE.sm, marginBottom: 3 }}>
+                                  <span style={{ fontSize: TYPE.caption, fontWeight: 600, color: C.white }}>{r.author?.username || r.username || "Unbekannt"}</span>
+                                  <span style={{ fontSize: TYPE.micro, color: C.dimmed }}>{formatTime(r.createdAt || r.createdTime)}</span>
+                                </div>
+                                <div style={{ fontSize: TYPE.small, color: C.muted, lineHeight: 1.5 }}>{r.text || r.content || r.message || ""}</div>
+                              </div>
+                            ))}
                           </div>
-                        ))}
+                        )}
                       </div>
-                    </div>
-                  )}
-
-                  {/* Reply input at bottom */}
-                  <div style={{ marginTop: "auto", paddingTop: 16, borderTop: `1px solid ${C.border}` }}>
-                    <div style={{ display: "flex", gap: SPACE.md }}>
-                      <input type="text" value={replyText} onChange={(e) => setReplyText(e.target.value)}
-                        placeholder="Antwort schreiben..."
-                        style={{ flex: 1, padding: "10px 14px", borderRadius: RADIUS.xl, background: C.card, border: `1px solid ${C.border}`, color: C.white, fontSize: TYPE.body, fontFamily: "inherit", outline: "none" }} />
-                      <button style={{ padding: "10px 18px", borderRadius: RADIUS.xl, background: C.accent, border: "none", color: "#fff", fontSize: TYPE.body, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: SPACE.sm, opacity: !replyText.trim() ? 0.5 : 1 }}>
-                        <Send size={14} /> Antworten
-                      </button>
-                    </div>
+                    ))}
                   </div>
                 </div>
               )}
@@ -2213,18 +2263,19 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
               {conversations.map((convo, i) => {
                 const active = selectedConvo?.id === convo.id;
                 const pc = (convo.platform || "instagram") === "instagram" ? C.instagram : C.tiktok;
-                const lastMsg = convo.lastMessage || convo.messages?.[convo.messages.length - 1] || {};
-                const name = convo.participant?.username || convo.participant?.name || convo.name || "Unbekannt";
+                const lastMsgText = typeof convo.lastMessage === "string" ? convo.lastMessage : (convo.lastMessage?.text || convo.lastMessage?.content || convo.lastMessage?.message);
+                const name = convo.participantName || convo.participant?.username || convo.participant?.name || convo.name || "Unbekannt";
                 return (
                   <div key={convo.id || i} onClick={() => setSelectedConvo(convo)} style={listItemStyle(active)}
                     onMouseOver={(e) => { if (!active) e.currentTarget.style.background = C.cardHover; }}
                     onMouseOut={(e) => { if (!active) e.currentTarget.style.background = "transparent"; }}>
                     {/* Avatar */}
-                    <div style={{ width: 38, height: 38, borderRadius: "50%", background: pc + "20", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                      {convo.participant?.profilePicture
-                        ? <img src={convo.participant.profilePicture} alt="" style={{ width: 38, height: 38, borderRadius: "50%", objectFit: "cover" }} />
+                    <div style={{ width: 38, height: 38, borderRadius: "50%", background: pc + "20", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, position: "relative" }}>
+                      {(convo.participantPicture || convo.participant?.profilePicture)
+                        ? <img src={convo.participantPicture || convo.participant?.profilePicture} alt="" style={{ width: 38, height: 38, borderRadius: "50%", objectFit: "cover" }} />
                         : <span style={{ fontSize: TYPE.label, fontWeight: 600, color: pc }}>{name[0].toUpperCase()}</span>
                       }
+                      {convo.unreadCount > 0 && <div style={{ position: "absolute", top: -1, right: -1, width: 10, height: 10, borderRadius: "50%", background: C.accent, border: `2px solid ${C.bg}` }} />}
                     </div>
                     {/* Content */}
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -2234,11 +2285,11 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
                           <PlatformBadge platform={convo.platform} />
                         </div>
                         <span style={{ fontSize: TYPE.micro, color: C.dimmed, flexShrink: 0 }}>
-                          {formatTime(lastMsg.createdAt || convo.updatedAt)}
+                          {formatTime(convo.updatedTime || convo.updatedAt)}
                         </span>
                       </div>
                       <div style={{ fontSize: TYPE.small, color: C.muted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                        {lastMsg.text || lastMsg.content || lastMsg.message || "Keine Nachricht"}
+                        {lastMsgText || "Keine Nachricht"}
                       </div>
                     </div>
                   </div>
@@ -2259,27 +2310,32 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
                   {/* Chat header */}
                   <div style={{ display: "flex", alignItems: "center", gap: SPACE.xxl, padding: "16px 24px", borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
                     <div style={{ width: 38, height: 38, borderRadius: "50%", background: ((selectedConvo.platform || "instagram") === "instagram" ? C.instagram : C.tiktok) + "20", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      {selectedConvo.participant?.profilePicture
-                        ? <img src={selectedConvo.participant.profilePicture} alt="" style={{ width: 38, height: 38, borderRadius: "50%", objectFit: "cover" }} />
-                        : <span style={{ fontSize: TYPE.label, fontWeight: 600, color: (selectedConvo.platform || "instagram") === "instagram" ? C.instagram : C.tiktok }}>{(selectedConvo.participant?.username || selectedConvo.name || "U")[0].toUpperCase()}</span>
+                      {(selectedConvo.participantPicture || selectedConvo.participant?.profilePicture)
+                        ? <img src={selectedConvo.participantPicture || selectedConvo.participant?.profilePicture} alt="" style={{ width: 38, height: 38, borderRadius: "50%", objectFit: "cover" }} />
+                        : <span style={{ fontSize: TYPE.label, fontWeight: 600, color: (selectedConvo.platform || "instagram") === "instagram" ? C.instagram : C.tiktok }}>{(selectedConvo.participantName || selectedConvo.participant?.username || selectedConvo.name || "U")[0].toUpperCase()}</span>
                       }
                     </div>
                     <div>
                       <div style={{ display: "flex", alignItems: "center", gap: SPACE.md }}>
-                        <span style={{ fontSize: TYPE.label, fontWeight: 600, color: C.white }}>{selectedConvo.participant?.username || selectedConvo.name || "Unbekannt"}</span>
+                        <span style={{ fontSize: TYPE.label, fontWeight: 600, color: C.white }}>{selectedConvo.participantName || selectedConvo.participant?.username || selectedConvo.name || "Unbekannt"}</span>
                         <PlatformBadge platform={selectedConvo.platform} />
                       </div>
-                      <div style={{ fontSize: TYPE.caption, color: C.dimmed, marginTop: 1 }}>Konversation</div>
+                      <div style={{ fontSize: TYPE.caption, color: C.dimmed, marginTop: 1 }}>{selectedConvo.participantUsername ? `@${selectedConvo.participantUsername}` : "Konversation"}</div>
                     </div>
                   </div>
 
                   {/* Messages area */}
                   <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px", display: "flex", flexDirection: "column", gap: SPACE.lg }}>
-                    {(selectedConvo.messages || []).length === 0 && (
+                    {loadingConvoMessages && (
+                      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: C.dimmed, fontSize: TYPE.small }}>
+                        <Loader2 size={16} style={{ animation: "spin 1s linear infinite", marginRight: 6 }} /> Wird geladen...
+                      </div>
+                    )}
+                    {!loadingConvoMessages && convoMessages.length === 0 && (
                       <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: C.dimmed, fontSize: TYPE.small }}>Keine Nachrichten in dieser Konversation.</div>
                     )}
-                    {(selectedConvo.messages || []).map((msg, mi) => {
-                      const isOwn = msg.isOwn || msg.direction === "outgoing" || msg.from === "self";
+                    {convoMessages.map((msg, mi) => {
+                      const isOwn = msg.isOwn || msg.direction === "outgoing" || msg.from === "self" || msg.sender === "business";
                       return (
                         <div key={mi} style={{ display: "flex", justifyContent: isOwn ? "flex-end" : "flex-start" }}>
                           <div style={{
@@ -2292,7 +2348,7 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
                               {msg.text || msg.content || msg.message}
                             </div>
                             <div style={{ fontSize: TYPE.micro, color: isOwn ? "rgba(255,255,255,0.6)" : C.dimmed, marginTop: 4, textAlign: isOwn ? "right" : "left" }}>
-                              {formatTime(msg.createdAt)}
+                              {formatTime(msg.createdAt || msg.createdTime || msg.timestamp)}
                             </div>
                           </div>
                         </div>
@@ -2679,346 +2735,6 @@ function _TeamPanelRemoved() { /* removed – demo only */
   );
 }
 
-// ── Skripte Panel ───────────────────────────────────────────────
-function SkriptePanel({ scripts, onRefresh, loading }) {
-  const [selectedIds, setSelectedIds] = useState(new Set());
-  const [searchQuery, setSearchQuery] = useState("");
-  const [expandedId, setExpandedId] = useState(null);
-  const [exporting, setExporting] = useState(false);
-
-  const filtered = scripts.filter((s) => {
-    if (!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
-    return (s.title || "").toLowerCase().includes(q) || (s.script || "").toLowerCase().includes(q) || (s.competitor || "").toLowerCase().includes(q);
-  });
-
-  const toggleSelect = (id) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
-  };
-
-  const selectAll = () => {
-    if (selectedIds.size === filtered.length) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(filtered.map((s) => s.id)));
-    }
-  };
-
-  const exportPDF = async () => {
-    const selected = scripts.filter((s) => selectedIds.has(s.id));
-    if (selected.length === 0) return;
-    setExporting(true);
-
-    try {
-      // Dynamic import jsPDF
-      const { jsPDF } = await import("jspdf");
-      const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-      const pageW = doc.internal.pageSize.getWidth();
-      const pageH = doc.internal.pageSize.getHeight();
-      const margin = 20;
-      const contentW = pageW - margin * 2;
-      const today = new Date().toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
-
-      // ── Cover Page ──
-      // Red accent bar top
-      doc.setFillColor(220, 38, 38);
-      doc.rect(0, 0, pageW, 4, "F");
-
-      // Title
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(28);
-      doc.setTextColor(30, 30, 30);
-      doc.text("Content-Skripte", margin, 50);
-
-      // Subtitle
-      doc.setFontSize(14);
-      doc.setTextColor(120, 120, 120);
-      doc.text("mitunsverkaufen.de", margin, 62);
-
-      // Date + count
-      doc.setFontSize(11);
-      doc.text(`Erstellt am ${today} · ${selected.length} Skript${selected.length !== 1 ? "e" : ""}`, margin, 74);
-
-      // Divider line
-      doc.setDrawColor(220, 38, 38);
-      doc.setLineWidth(0.5);
-      doc.line(margin, 82, pageW - margin, 82);
-
-      // Table of contents
-      doc.setFontSize(12);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(30, 30, 30);
-      doc.text("Inhaltsverzeichnis", margin, 96);
-
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(10);
-      doc.setTextColor(80, 80, 80);
-      selected.forEach((s, i) => {
-        const y = 106 + i * 7;
-        if (y < pageH - 30) {
-          doc.text(`${i + 1}. ${s.title || "Skript " + (i + 1)}`, margin + 4, y);
-        }
-      });
-
-      // Footer on cover
-      doc.setFontSize(8);
-      doc.setTextColor(160, 160, 160);
-      doc.text("mitunsverkaufen.de", margin, pageH - 12);
-      doc.text("Seite 1", pageW - margin, pageH - 12, { align: "right" });
-
-      // ── Script Pages ──
-      selected.forEach((s, i) => {
-        doc.addPage();
-        const pageNum = i + 2;
-
-        // Red accent bar
-        doc.setFillColor(220, 38, 38);
-        doc.rect(0, 0, pageW, 3, "F");
-
-        // Script number badge
-        doc.setFillColor(220, 38, 38);
-        doc.roundedRect(margin, 14, 28, 10, 2, 2, "F");
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(9);
-        doc.setTextColor(255, 255, 255);
-        doc.text(`Skript ${i + 1}`, margin + 14, 20.5, { align: "center" });
-
-        // Title
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(16);
-        doc.setTextColor(30, 30, 30);
-        const titleLines = doc.splitTextToSize(s.title || "Skript " + (i + 1), contentW);
-        doc.text(titleLines, margin, 36);
-        let yPos = 36 + titleLines.length * 7;
-
-        // Meta info line
-        if (s.competitor || s.date) {
-          doc.setFont("helvetica", "normal");
-          doc.setFontSize(9);
-          doc.setTextColor(140, 140, 140);
-          const meta = [s.competitor ? `Quelle: ${s.competitor}` : null, s.date ? `Datum: ${s.date}` : null].filter(Boolean).join("  ·  ");
-          doc.text(meta, margin, yPos + 4);
-          yPos += 10;
-        }
-
-        // Divider
-        doc.setDrawColor(230, 230, 230);
-        doc.setLineWidth(0.3);
-        doc.line(margin, yPos + 2, pageW - margin, yPos + 2);
-        yPos += 10;
-
-        // Script body
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(10.5);
-        doc.setTextColor(50, 50, 50);
-        const bodyLines = doc.splitTextToSize(s.script || "", contentW);
-        const lineH = 5;
-
-        for (const line of bodyLines) {
-          if (yPos + lineH > pageH - 20) {
-            // Footer before new page
-            doc.setFontSize(8);
-            doc.setTextColor(160, 160, 160);
-            doc.text("mitunsverkaufen.de", margin, pageH - 12);
-            doc.text(`Seite ${pageNum}`, pageW - margin, pageH - 12, { align: "right" });
-            doc.addPage();
-            // Red accent on continuation
-            doc.setFillColor(220, 38, 38);
-            doc.rect(0, 0, pageW, 3, "F");
-            yPos = 16;
-            doc.setFont("helvetica", "normal");
-            doc.setFontSize(10.5);
-            doc.setTextColor(50, 50, 50);
-          }
-          doc.text(line, margin, yPos);
-          yPos += lineH;
-        }
-
-        // Footer
-        doc.setFontSize(8);
-        doc.setTextColor(160, 160, 160);
-        doc.text("mitunsverkaufen.de", margin, pageH - 12);
-        doc.text(`Seite ${pageNum}`, pageW - margin, pageH - 12, { align: "right" });
-      });
-
-      doc.save(`content-skripte-${today.replace(/\./g, "-")}.pdf`);
-    } catch (err) {
-      console.error("PDF export error:", err);
-      alert("PDF-Export fehlgeschlagen: " + err.message);
-    } finally {
-      setExporting(false);
-    }
-  };
-
-  return (
-    <div style={{ padding: "28px 32px", maxWidth: 1000, margin: "0 auto" }}>
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
-        <div>
-          <div style={{ fontSize: TYPE.h2, fontWeight: 700, color: C.white, letterSpacing: "-0.02em" }}>Content-Skripte</div>
-          <div style={{ fontSize: TYPE.body, color: C.muted, marginTop: 4 }}>
-            {scripts.length} Skript{scripts.length !== 1 ? "e" : ""}{selectedIds.size > 0 ? ` · ${selectedIds.size} ausgewählt` : ""}
-          </div>
-        </div>
-        <div style={{ display: "flex", gap: SPACE.md }}>
-          <button onClick={onRefresh} disabled={loading}
-            style={{ display: "flex", alignItems: "center", gap: SPACE.sm, padding: "8px 14px", borderRadius: RADIUS.xl, background: C.card, border: `1px solid ${C.border}`, color: C.muted, fontSize: TYPE.small, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>
-            <RefreshCw size={14} className={loading ? "spin" : ""} style={loading ? { animation: "spin 1s linear infinite" } : {}} /> Aktualisieren
-          </button>
-          <button onClick={exportPDF} disabled={selectedIds.size === 0 || exporting}
-            style={{
-              display: "flex", alignItems: "center", gap: SPACE.sm, padding: "8px 18px", borderRadius: RADIUS.xl,
-              background: selectedIds.size > 0 ? C.accent : C.card,
-              border: selectedIds.size > 0 ? "none" : `1px solid ${C.border}`,
-              color: selectedIds.size > 0 ? "#fff" : C.dimmed,
-              fontSize: TYPE.body, fontWeight: 600, cursor: selectedIds.size > 0 ? "pointer" : "default",
-              fontFamily: "inherit", opacity: exporting ? 0.7 : 1,
-              boxShadow: selectedIds.size > 0 ? `inset 0 1px 0 rgba(255,255,255,0.22), 0 4px 16px ${C.accentGlow}` : "none",
-            }}>
-            {exporting ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <Download size={14} />}
-            {exporting ? "Exportiere..." : "PDF exportieren"}
-          </button>
-        </div>
-      </div>
-
-      {/* Search + Select All bar */}
-      <div style={{ display: "flex", gap: SPACE.lg, marginBottom: 16, alignItems: "center" }}>
-        <div style={{ flex: 1, position: "relative" }}>
-          <Search size={15} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: C.dimmed }} />
-          <input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Skripte durchsuchen..."
-            style={{ width: "100%", padding: "10px 12px 10px 36px", borderRadius: RADIUS.xl, border: `1px solid ${C.border}`, background: C.card, color: C.white, fontSize: TYPE.body, fontFamily: "inherit", outline: "none" }}
-          />
-        </div>
-        <button onClick={selectAll}
-          style={{ display: "flex", alignItems: "center", gap: SPACE.sm, padding: `${SPACE.lg}px ${SPACE.xxl}px`, borderRadius: RADIUS.xl, background: C.card, border: `1px solid ${C.border}`, color: C.muted, fontSize: TYPE.small, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>
-          {selectedIds.size === filtered.length && filtered.length > 0 ? <CheckSquare size={14} color={C.accent} /> : <Square size={14} />}
-          {selectedIds.size === filtered.length && filtered.length > 0 ? "Auswahl aufheben" : "Alle auswählen"}
-        </button>
-      </div>
-
-      {/* Empty state */}
-      {scripts.length === 0 && !loading && (
-        <div className="glass-panel glass-border" style={{ textAlign: "center", padding: "60px 20px", background: C.glass, borderRadius: RADIUS.shell, boxShadow: "0 20px 48px rgba(0,0,0,0.3)" }}>
-          <FileText size={40} color={C.dimmed} style={{ marginBottom: 16 }} />
-          <div style={{ fontSize: TYPE.labelLg, fontWeight: 600, color: C.white, marginBottom: 8 }}>Noch keine Skripte</div>
-          <div style={{ fontSize: TYPE.body, color: C.muted, maxWidth: 400, margin: "0 auto", lineHeight: 1.6 }}>
-            Skripte werden automatisch über den Make.com Webhook importiert. Konfiguriere dein Szenario mit der Webhook-URL deines Dashboards.
-          </div>
-          <div style={{ marginTop: 20, padding: `${SPACE.lg}px ${SPACE.xxl}px`, background: C.bg, borderRadius: RADIUS.lg, display: "inline-block", fontSize: TYPE.small, fontFamily: "monospace", color: C.muted }}>
-            POST /api/scripts
-          </div>
-        </div>
-      )}
-
-      {/* Loading */}
-      {loading && scripts.length === 0 && (
-        <div style={{ textAlign: "center", padding: 40 }}>
-          <Loader2 size={24} color={C.accent} style={{ animation: "spin 1s linear infinite" }} />
-        </div>
-      )}
-
-      {/* Scripts list */}
-      <div style={{ display: "flex", flexDirection: "column", gap: SPACE.md }}>
-        {filtered.map((s) => {
-          const isSelected = selectedIds.has(s.id);
-          const isExpanded = expandedId === s.id;
-          return (
-            <div key={s.id}>
-              <div
-                onClick={() => setExpandedId(isExpanded ? null : s.id)}
-                style={{
-                  display: "flex", alignItems: "flex-start", gap: SPACE.xxl, padding: `${SPACE.xxl}px ${SPACE.xxxl}px`,
-                  background: isExpanded ? C.cardHover : C.card,
-                  border: `1px solid ${isExpanded ? C.accent + "50" : isSelected ? C.accent + "30" : C.border}`,
-                  borderRadius: isExpanded ? "12px 12px 0 0" : 12,
-                  borderBottom: isExpanded ? `1px solid ${C.border}` : undefined,
-                  cursor: "pointer", transition: "all 0.2s",
-                }}
-              >
-                {/* Checkbox */}
-                <div onClick={(e) => { e.stopPropagation(); toggleSelect(s.id); }}
-                  style={{ width: 22, height: 22, borderRadius: RADIUS.md, border: `2px solid ${isSelected ? C.accent : C.border}`, background: isSelected ? C.accent : "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", marginTop: 2, flexShrink: 0, transition: "all 0.15s" }}>
-                  {isSelected && <Check size={13} color="#fff" strokeWidth={3} />}
-                </div>
-
-                {/* Content */}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: SPACE.lg, marginBottom: 4 }}>
-                    <div style={{ fontSize: TYPE.bodyLg, fontWeight: 600, color: C.white, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {s.title || "Skript"}
-                    </div>
-                    {s.competitor && (
-                      <div style={{ fontSize: TYPE.micro, fontWeight: 500, color: C.muted, background: C.bg, padding: `${SPACE.xxs}px ${SPACE.md}px`, borderRadius: RADIUS.md, whiteSpace: "nowrap" }}>
-                        {s.competitor}
-                      </div>
-                    )}
-                  </div>
-                  <div style={{ fontSize: TYPE.small, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {s.script?.substring(0, 120) || "Kein Inhalt"}...
-                  </div>
-                </div>
-
-                {/* Date */}
-                <div style={{ fontSize: TYPE.caption, color: C.dimmed, fontWeight: 500, whiteSpace: "nowrap", marginTop: 2 }}>
-                  {s.date ? new Date(s.date).toLocaleDateString("de-DE", { day: "2-digit", month: "short", year: "numeric" }) : "–"}
-                </div>
-
-                {/* Expand indicator */}
-                <ChevronDown size={16} color={C.dimmed} style={{ marginTop: 3, transform: isExpanded ? "rotate(180deg)" : "rotate(0)", transition: "transform 0.2s" }} />
-              </div>
-
-              {/* Expanded detail */}
-              {isExpanded && (
-                <div style={{
-                  background: C.card, border: `1px solid ${C.accent}50`, borderTop: "none",
-                  borderRadius: "0 0 12px 12px", padding: "20px 24px",
-                  animation: "fadeIn 0.2s ease",
-                }}>
-                  {/* Script text */}
-                  <div style={{
-                    fontSize: TYPE.body, color: C.white, lineHeight: 1.8,
-                    whiteSpace: "pre-wrap", wordBreak: "break-word",
-                    background: C.bg, borderRadius: RADIUS.xl, padding: `${SPACE.xxl}px ${SPACE.xxxl}px`,
-                    border: `1px solid ${C.border}`, maxHeight: 400, overflowY: "auto",
-                  }}>
-                    {s.script || "Kein Inhalt"}
-                  </div>
-
-                  {/* Meta info */}
-                  <div style={{ display: "flex", gap: SPACE.xxxl, marginTop: 14, fontSize: TYPE.caption, color: C.dimmed }}>
-                    {s.competitor && <span><strong style={{ color: C.muted }}>Quelle:</strong> {s.competitor}</span>}
-                    {s.date && <span><strong style={{ color: C.muted }}>Datum:</strong> {s.date}</span>}
-                    {s.receivedAt && <span><strong style={{ color: C.muted }}>Empfangen:</strong> {new Date(s.receivedAt).toLocaleString("de-DE")}</span>}
-                  </div>
-
-                  {/* Actions */}
-                  <div style={{ display: "flex", gap: SPACE.md, marginTop: 14 }}>
-                    {s.originalUrl && (
-                      <a href={s.originalUrl} target="_blank" rel="noopener noreferrer"
-                        style={{ display: "flex", alignItems: "center", gap: SPACE.sm, padding: "6px 14px", borderRadius: RADIUS.lg, background: C.bg, border: `1px solid ${C.border}`, color: C.muted, fontSize: TYPE.caption, fontWeight: 500, textDecoration: "none", cursor: "pointer" }}>
-                        <ExternalLink size={12} /> Original ansehen
-                      </a>
-                    )}
-                    <button onClick={() => { navigator.clipboard.writeText(s.script || ""); }}
-                      style={{ display: "flex", alignItems: "center", gap: SPACE.sm, padding: "6px 14px", borderRadius: RADIUS.lg, background: C.bg, border: `1px solid ${C.border}`, color: C.muted, fontSize: TYPE.caption, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>
-                      Skript kopieren
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
 // ── Main Dashboard ──────────────────────────────────────────────
 // ── Logs Panel (Zernio-style table) ──────────────────────────
 function LogsPanel({ errorLog }) {
@@ -3063,22 +2779,39 @@ function LogsPanel({ errorLog }) {
     fetchDetail();
   }, [selectedLog]);
 
+  // Zernio liefert die Log-Felder snake_case (created_at, status_code, account_username, …).
+  // Ein Datum ohne Zeitzonen-Suffix ("2026-09-05 17:55:50") kommt von Zernio in UTC.
+  const parseLogTimestamp = (t) => {
+    if (!t) return "";
+    if (typeof t === "string" && t.includes(" ") && !t.includes("T")) return t.replace(" ", "T") + "Z";
+    return t;
+  };
+
+  const ACTION_LABELS = { "post.published": "Veröffentlicht", "post.scheduled": "Geplant", "post.failed": "Fehlgeschlagen" };
+
   const allLogs = [
-    ...logsData.map((l) => ({
-      _raw: l,
-      id: l.id || l._id || null,
-      action: l.action || l.type || "Veröffentlichung",
-      status: l.statusCode || l.status || 200,
-      endpoint: l.endpoint || l.url || "POST /api/v1/posts",
-      platform: l.platform || l.platforms?.[0] || "—",
-      account: l.account || l.profile || l.accountName || "mitunsverkaufen.de",
-      created: l.createdAt || l.created || l.timestamp || l.loggedAt || "",
-      ok: l.success !== false && ((l.statusCode || l.status || 200) < 400),
-      content: l.content || l.postContent || l.text || "",
-      result: l.result || l.message || "",
-      postId: l.postId || l.post?.id || l.platformPostId || null,
-      mediaCount: l.mediaItems?.length || l.media?.length || 0,
-    })),
+    ...logsData.map((l) => {
+      const statusCode = l.status_code ?? l.statusCode ?? null;
+      const statusStr = String(l.status ?? "").toLowerCase();
+      const ok = statusCode != null
+        ? Number(statusCode) < 400
+        : !["failed", "error", "failure"].some((s) => statusStr.includes(s));
+      return {
+        _raw: l,
+        id: l.id || l._id || l.request_id || null,
+        action: ACTION_LABELS[l.action] || l.action || l.type || "Veröffentlichung",
+        status: l.status || statusCode || (ok ? "success" : "failed"),
+        endpoint: l.endpoint || l.url || "—",
+        platform: l.platform || l.platforms?.[0] || "—",
+        account: l.account_username || l.account || l.profile || l.accountName || "—",
+        created: parseLogTimestamp(l.created_at || l.createdAt || l.created || l.timestamp || l.loggedAt || ""),
+        ok,
+        content: l.content_preview || l.content || l.postContent || l.text || "",
+        result: l.error_message || l.result || l.message || "",
+        postId: l.post_id || l.postId || l.post?.id || l.platform_post_id || l.platformPostId || null,
+        mediaCount: l.media_count ?? l.mediaItems?.length ?? l.media?.length ?? 0,
+      };
+    }),
     ...errorLog.map((e) => ({
       _raw: e,
       id: e.id,
@@ -3211,44 +2944,44 @@ function LogsPanel({ errorLog }) {
               {isSuccess ? (
                 <React.Fragment>
                   <span style={{ color: C.green }}>Veröffentlicht</span>
-                  {(d.platformPostId || d.platformPostUrl || selectedLog.postId) && (
-                    <span style={{ color: C.dimmed, fontSize: TYPE.caption }}>• Plattform-Post-ID: {d.platformPostId || selectedLog.postId || "—"}</span>
+                  {(d.platform_post_id || d.platformPostId || selectedLog.postId) && (
+                    <span style={{ color: C.dimmed, fontSize: TYPE.caption }}>• Plattform-Post-ID: {d.platform_post_id || d.platformPostId || selectedLog.postId || "—"}</span>
                   )}
                 </React.Fragment>
               ) : (
-                <span style={{ color: C.redLight }}>{d.error || d.message || selectedLog.result || "Fehlgeschlagen"}</span>
+                <span style={{ color: C.redLight }}>{d.error_message || d.error || d.message || selectedLog.result || "Fehlgeschlagen"}</span>
               )}
             </span>
           ))}
 
           {/* Content Preview */}
-          {(selectedLog.content || d.content || d.postContent || d.text) && (
+          {(selectedLog.content || d.content_preview || d.content || d.postContent || d.text) && (
             <div style={{ marginTop: 16 }}>
               <div style={{ fontSize: TYPE.small, fontWeight: 500, color: C.dimmed, marginBottom: 8 }}>Content</div>
               <div style={{ padding: 14, background: C.bg, border: `1px solid ${C.border}`, borderRadius: RADIUS.lg, fontSize: TYPE.small, color: C.white, lineHeight: 1.6, whiteSpace: "pre-wrap", maxHeight: 160, overflowY: "auto" }}>
-                {selectedLog.content || d.content || d.postContent || d.text}
+                {selectedLog.content || d.content_preview || d.content || d.postContent || d.text}
               </div>
             </div>
           )}
 
           {/* Media Count */}
-          {(selectedLog.mediaCount > 0 || d.mediaItems?.length > 0) && (
+          {(selectedLog.mediaCount > 0 || d.media_count > 0 || d.mediaItems?.length > 0) && (
             <div style={{ marginTop: 12 }}>
-              {detailRow("Medien", `${selectedLog.mediaCount || d.mediaItems?.length || 0} Datei(en)`)}
+              {detailRow("Medien", `${selectedLog.mediaCount || d.media_count || d.mediaItems?.length || 0} Datei(en)`)}
             </div>
           )}
 
           {/* Expandable JSON Sections */}
-          {jsonSection("Antwort (Response Body)", d.responseBody || d.response || d.result_data || d.apiResponse, "response")}
-          {jsonSection("Anfrage (Request Body)", d.requestBody || d.request || d.payload || d.body, "request")}
+          {jsonSection("Antwort (Response Body)", d.response_body || d.responseBody || d.response || d.result_data || d.apiResponse, "response")}
+          {jsonSection("Anfrage (Request Body)", d.request_payload || d.requestBody || d.request || d.payload || d.body, "request")}
 
           {/* Post ID */}
-          {(selectedLog.postId || d.postId || d._id) && (
+          {(selectedLog.postId || d.post_id || d.postId || d._id) && (
             <div style={{ marginTop: 16 }}>
               {detailRow("Post-ID", (
                 <span style={{ display: "inline-flex", alignItems: "center", gap: SPACE.sm }}>
-                  <span style={{ fontFamily: "monospace", fontSize: TYPE.caption }}>{selectedLog.postId || d.postId || d._id}</span>
-                  <button onClick={() => copyToClipboard(selectedLog.postId || d.postId || d._id, "postId")} style={{ padding: "1px 6px", borderRadius: RADIUS.sm, background: C.bg, border: `1px solid ${C.border}`, color: copiedField === "postId" ? C.green : C.dimmed, fontSize: TYPE.micro, cursor: "pointer", fontFamily: "inherit" }}>
+                  <span style={{ fontFamily: "monospace", fontSize: TYPE.caption }}>{selectedLog.postId || d.post_id || d.postId || d._id}</span>
+                  <button onClick={() => copyToClipboard(selectedLog.postId || d.post_id || d.postId || d._id, "postId")} style={{ padding: "1px 6px", borderRadius: RADIUS.sm, background: C.bg, border: `1px solid ${C.border}`, color: copiedField === "postId" ? C.green : C.dimmed, fontSize: TYPE.micro, cursor: "pointer", fontFamily: "inherit" }}>
                     {copiedField === "postId" ? "Kopiert!" : "Kopieren"}
                   </button>
                 </span>
@@ -3265,9 +2998,9 @@ function LogsPanel({ errorLog }) {
           </div>
 
           {/* Platform Post URL if available */}
-          {(d.platformPostUrl || d.postUrl) && (
+          {(d.platform_post_url || d.platformPostUrl || d.postUrl) && (
             <div style={{ marginTop: 12 }}>
-              <a href={d.platformPostUrl || d.postUrl} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: SPACE.sm, fontSize: TYPE.small, color: C.blue, textDecoration: "none" }}>
+              <a href={d.platform_post_url || d.platformPostUrl || d.postUrl} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: SPACE.sm, fontSize: TYPE.small, color: C.blue, textDecoration: "none" }}>
                 <ExternalLink size={12} /> Auf der Plattform ansehen
               </a>
             </div>
@@ -3337,7 +3070,10 @@ function LogsPanel({ errorLog }) {
                   <span style={{ color: C.white, fontSize: TYPE.small }}>{log.platform}</span>
                 </div>
                 <div style={{ color: C.muted, fontSize: TYPE.small }}>{log.account}</div>
-                <div style={{ color: C.dimmed, fontSize: TYPE.small }}>{formatTimeAgo(log.created)}</div>
+                <div title={formatTimeAgo(log.created)} style={{ color: C.dimmed, fontSize: TYPE.small }}>
+                  <div style={{ color: C.white }}>{formatDate(log.created)}</div>
+                  <div style={{ fontSize: TYPE.micro, color: C.dimmed }}>{formatTimeAgo(log.created)}</div>
+                </div>
               </div>
             );
           })}
@@ -3421,16 +3157,10 @@ export default function Dashboard() {
   const [notifications, setNotifications] = useState(demoNotifications);
   const [debugInfo, setDebugInfo] = useState(null);
   const [selectedPost, setSelectedPost] = useState(null);
-  const [scripts, setScripts] = useState(() => {
-    if (typeof window === "undefined") return [];
-    try { return JSON.parse(localStorage.getItem("scripts") || "[]"); } catch { return []; }
-  });
-  const [scriptsLoading, setScriptsLoading] = useState(false);
   const [errorLog, setErrorLog] = useState(() => {
     if (typeof window === "undefined") return [];
     try { return JSON.parse(localStorage.getItem("errorLog") || "[]"); } catch { return []; }
   });
-  const [expandedError, setExpandedError] = useState(null);
 
   const addErrorLog = useCallback((entry) => {
     const logEntry = { id: `err_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, timestamp: new Date().toISOString(), ...entry };
@@ -3441,44 +3171,40 @@ export default function Dashboard() {
     });
   }, []);
 
-  const clearErrorLog = () => { setErrorLog([]); try { localStorage.removeItem("errorLog"); } catch {} };
-
-  const fetchScripts = useCallback(async () => {
-    setScriptsLoading(true);
-    try {
-      // Send localStorage scripts to server for sync
-      let syncParam = "";
-      try {
-        const local = localStorage.getItem("scripts");
-        if (local && JSON.parse(local).length > 0) {
-          syncParam = `?sync=${encodeURIComponent(local)}`;
-        }
-      } catch {}
-
-      const res = await fetch(`/api/scripts${syncParam}`);
-      if (res.ok) {
-        const data = await res.json();
-        const apiScripts = data.scripts || [];
-        // Merge: keep localStorage scripts + add any new ones from API
-        setScripts((prev) => {
-          const existingIds = new Set(prev.map((s) => s.id));
-          const newOnes = apiScripts.filter((s) => !existingIds.has(s.id));
-          const merged = [...prev, ...newOnes];
-          try { localStorage.setItem("scripts", JSON.stringify(merged)); } catch {}
-          return merged;
-        });
-      }
-    } catch (err) {
-      console.error("Failed to fetch scripts:", err);
-    } finally {
-      setScriptsLoading(false);
-    }
-  }, []);
-
   const unreadCount = notifications.filter((n) => !n.read).length;
   const markAllRead = () => setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
 
   const showNotif = (text, color) => { setNotification({ text, color }); setTimeout(() => setNotification(null), 5000); };
+
+  // ── Browser-Benachrichtigungen (Notification API) für Posting-Status ──
+  const [appSettings, setAppSettings] = useState(() => {
+    if (typeof window === "undefined") return { onSuccess: true, onError: true };
+    try { return { onSuccess: true, onError: true, ...JSON.parse(localStorage.getItem("appSettings") || "{}") }; }
+    catch { return { onSuccess: true, onError: true }; }
+  });
+  const [notifPermission, setNotifPermission] = useState(() => (typeof window !== "undefined" && "Notification" in window ? Notification.permission : "unsupported"));
+
+  const updateAppSetting = (key, value) => {
+    setAppSettings((prev) => {
+      const next = { ...prev, [key]: value };
+      try { localStorage.setItem("appSettings", JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
+
+  const requestNotifPermission = async () => {
+    if (typeof window === "undefined" || !("Notification" in window)) return;
+    const perm = await Notification.requestPermission();
+    setNotifPermission(perm);
+  };
+
+  const sendBrowserNotification = useCallback((title, body, isError) => {
+    if (typeof window === "undefined" || !("Notification" in window)) return;
+    if (Notification.permission !== "granted") return;
+    if (isError && !appSettings.onError) return;
+    if (!isError && !appSettings.onSuccess) return;
+    try { new Notification(title, { body, icon: "/favicon.ico", tag: `post-${isError ? "error" : "success"}-${Date.now()}` }); } catch {}
+  }, [appSettings]);
 
   // ── Post-Analytics nachladen ───────────────────────────────
   // Zernios /posts-Liste enthaelt keine Kennzahlen. GET /analytics
@@ -3780,7 +3506,7 @@ export default function Dashboard() {
     }
   }, []);
 
-  useEffect(() => { fetchAccounts(); fetchPosts(); fetchScripts(); }, [fetchAccounts, fetchPosts, fetchScripts]);
+  useEffect(() => { fetchAccounts(); fetchPosts(); }, [fetchAccounts, fetchPosts]);
 
   // Fetch analytics when tab opens or filters change
   useEffect(() => { if (activeTab === "analytics" && isConnected) fetchAnalytics(); }, [activeTab, isConnected, fetchAnalytics]);
@@ -3803,6 +3529,7 @@ export default function Dashboard() {
           done: false, status: "failed", timezone: tzShort, createdAt: new Date().toISOString(), createdBy: "Dariel" };
         setPosts((prev) => [np, ...prev]);
         showNotif(`Fehler: ${errMsg}`, "red");
+        sendBrowserNotification("Beitrag konnte nicht eingeplant werden", errMsg, true);
         addErrorLog({ action: "Beitrag erstellen", error: errMsg, platforms: plats, content: content.substring(0, 120), scheduledFor: scheduledFor || "Sofort", response: data, mediaCount: mediaItems?.length || 0 });
       } else {
         const tzShort = TIMEZONES.find((t) => t.value === timezone)?.short || "CET";
@@ -3813,6 +3540,11 @@ export default function Dashboard() {
           done: false, status: scheduledFor ? "scheduled" : "published", timezone: tzShort, createdAt: new Date().toISOString(), createdBy: "Dariel" };
         setPosts((prev) => [np, ...prev]);
         showNotif(scheduledFor ? "Beitrag erfolgreich geplant!" : "Beitrag wird gepostet!", "green");
+        sendBrowserNotification(
+          scheduledFor ? "Beitrag erfolgreich eingeplant" : "Beitrag wird veröffentlicht",
+          content.substring(0, 100),
+          false
+        );
         fetchPosts();
       }
     } catch (err) {
@@ -3823,6 +3555,7 @@ export default function Dashboard() {
         done: false, status: "failed", createdAt: new Date().toISOString(), createdBy: "Dariel" };
       setPosts((prev) => [np, ...prev]);
       showNotif("Netzwerkfehler – Upload fehlgeschlagen", "red");
+      sendBrowserNotification("Beitrag konnte nicht eingeplant werden", `Netzwerkfehler: ${err.message}`, true);
       addErrorLog({ action: "Beitrag erstellen", error: `Netzwerkfehler: ${err.message}`, platforms: plats, content: content.substring(0, 120), scheduledFor: scheduledFor || "Sofort", mediaCount: mediaItems?.length || 0 });
     } finally { setIsSubmitting(false); setShowCreateModal(false); }
   };
@@ -3945,7 +3678,7 @@ export default function Dashboard() {
       <div className="app-shell" style={{ width: "100%", backgroundImage: atmosphere, backgroundColor: C.bg, color: C.white, display: "flex" }}>
 
       {/* Sidebar */}
-      <Sidebar activeTab={activeTab} onTabChange={setActiveTab} unreadCount={unreadCount} errorCount={errorLog.length} isDarkMode={isDarkMode} onToggleTheme={toggleTheme} isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+      <Sidebar activeTab={activeTab} onTabChange={setActiveTab} unreadCount={unreadCount} isDarkMode={isDarkMode} onToggleTheme={toggleTheme} isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
 
       {/* Mobile-only backdrop behind the off-canvas sidebar */}
       <div className={`sidebar-backdrop${isSidebarOpen ? " open" : ""}`} onClick={() => setIsSidebarOpen(false)} style={{
@@ -4340,11 +4073,6 @@ export default function Dashboard() {
         />
       )}
 
-      {/* Skripte Tab */}
-      {activeTab === "skripte" && (
-        <SkriptePanel scripts={scripts} onRefresh={fetchScripts} loading={scriptsLoading} />
-      )}
-
       {/* Content-Pipeline Tab */}
       {activeTab === "pipeline" && (
         <ContentPipelinePanel />
@@ -4712,91 +4440,64 @@ export default function Dashboard() {
             </pre>
           </div>
 
-          {/* ── Error Log Panel ──────────────────────────────── */}
+          {/* ── Benachrichtigungen ──────────────────────────────── */}
           <div style={{ background: C.card, borderRadius: RADIUS.xxxl, border: `1px solid ${C.border}`, padding: 20, marginTop: 16 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: SPACE.md }}>
-                <AlertCircle size={16} color={C.redLight} />
-                <div style={{ fontSize: TYPE.bodyLg, fontWeight: 600 }}>Fehler-Protokoll</div>
-                {errorLog.length > 0 && (
-                  <div style={{ fontSize: TYPE.caption, fontWeight: 600, color: "#fff", background: C.red, padding: `${SPACE.xxs}px ${SPACE.md}px`, borderRadius: RADIUS.xl }}>{errorLog.length}</div>
-                )}
-              </div>
-              {errorLog.length > 0 && (
-                <button onClick={clearErrorLog} style={{ display: "flex", alignItems: "center", gap: SPACE.sm, padding: "5px 12px", borderRadius: RADIUS.lg, background: C.bg, border: `1px solid ${C.border}`, color: C.muted, fontSize: TYPE.caption, cursor: "pointer", fontFamily: "inherit" }}>
-                  <Trash2 size={11} /> Alle löschen
+            <div style={{ fontSize: TYPE.bodyLg, fontWeight: 600, marginBottom: 4 }}>Benachrichtigungen</div>
+            <div style={{ fontSize: TYPE.small, color: C.muted, marginBottom: 16 }}>Browser-Benachrichtigungen zum Status geplanter Beiträge, auch wenn dieser Tab nicht im Vordergrund ist.</div>
+
+            <div style={{ display: "flex", alignItems: "center", gap: SPACE.md, padding: `${SPACE.lg}px ${SPACE.xl}px`, borderRadius: RADIUS.lg, background: C.bg, border: `1px solid ${C.border}`, marginBottom: 14 }}>
+              {notifPermission === "granted" ? <Bell size={14} color={C.green} /> : <BellOff size={14} color={C.yellow} />}
+              <span style={{ fontSize: TYPE.small, color: notifPermission === "granted" ? C.green : C.yellow, fontWeight: 500, flex: 1 }}>
+                {notifPermission === "unsupported" && "Browser unterstützt keine Benachrichtigungen"}
+                {notifPermission === "granted" && "Benachrichtigungen erlaubt"}
+                {notifPermission === "denied" && "Benachrichtigungen wurden blockiert – in den Browser-Einstellungen für diese Seite erlauben"}
+                {notifPermission === "default" && "Noch nicht erlaubt"}
+              </span>
+              {notifPermission === "default" && (
+                <button onClick={requestNotifPermission} style={{ padding: "6px 14px", borderRadius: RADIUS.lg, background: C.accent, border: "none", color: "#fff", fontSize: TYPE.small, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>
+                  Erlauben
                 </button>
               )}
             </div>
-            <div style={{ fontSize: TYPE.small, color: C.muted, marginBottom: 12 }}>Alle API-Fehler werden hier protokolliert und bleiben gespeichert.</div>
 
-            {errorLog.length === 0 ? (
-              <div style={{ textAlign: "center", padding: "24px 0", color: C.dimmed, fontSize: TYPE.body }}>
-                <Check size={20} style={{ marginBottom: 6, opacity: 0.5 }} /><br />
-                Keine Fehler vorhanden
+            {[
+              { key: "onSuccess", label: "Bei erfolgreichem Einplanen benachrichtigen" },
+              { key: "onError", label: "Bei Fehlern beim Planen benachrichtigen" },
+            ].map((opt) => (
+              <div key={opt.key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0", borderTop: `1px solid ${C.border}30` }}>
+                <span style={{ fontSize: TYPE.body, color: C.white }}>{opt.label}</span>
+                <button onClick={() => updateAppSetting(opt.key, !appSettings[opt.key])} style={{
+                  width: 38, height: 22, borderRadius: RADIUS.pill, border: "none", cursor: "pointer", position: "relative",
+                  background: appSettings[opt.key] ? C.accent : C.border, transition: "background 0.2s",
+                }}>
+                  <div style={{ width: 16, height: 16, borderRadius: "50%", background: "#fff", position: "absolute", top: 3, left: appSettings[opt.key] ? 19 : 3, transition: "left 0.2s" }} />
+                </button>
               </div>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: SPACE.md, maxHeight: 400, overflowY: "auto" }}>
-                {errorLog.map((entry) => {
-                  const isExpanded = expandedError === entry.id;
-                  const ts = new Date(entry.timestamp);
-                  const timeStr = `${ts.toLocaleDateString("de-DE")} · ${ts.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}`;
-                  return (
-                    <div key={entry.id} style={{ background: C.bg, borderRadius: RADIUS.xl, border: `1px solid ${isExpanded ? C.red + "40" : C.border}`, overflow: "hidden", transition: "border-color 0.2s" }}>
-                      <div onClick={() => setExpandedError(isExpanded ? null : entry.id)} style={{ display: "flex", alignItems: "center", gap: SPACE.lg, padding: "10px 14px", cursor: "pointer" }}>
-                        <div style={{ width: 6, height: 6, borderRadius: RADIUS.sm, background: C.redLight, flexShrink: 0 }} />
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: TYPE.small, fontWeight: 500, color: C.white, marginBottom: 2 }}>{entry.action}</div>
-                          <div style={{ fontSize: TYPE.caption, color: C.redLight, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{entry.error}</div>
-                        </div>
-                        <div style={{ fontSize: TYPE.micro, color: C.dimmed, whiteSpace: "nowrap", flexShrink: 0 }}>{timeStr}</div>
-                        <ChevronDown size={14} color={C.dimmed} style={{ transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s", flexShrink: 0 }} />
-                      </div>
-                      {isExpanded && (
-                        <div style={{ padding: "0 14px 12px", borderTop: `1px solid ${C.border}` }}>
-                          <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "4px 12px", padding: `${SPACE.lg}px 0`, fontSize: TYPE.caption }}>
-                            <span style={{ color: C.dimmed, fontWeight: 500 }}>Aktion:</span>
-                            <span style={{ color: C.white }}>{entry.action}</span>
-                            <span style={{ color: C.dimmed, fontWeight: 500 }}>Fehler:</span>
-                            <span style={{ color: C.redLight }}>{entry.error}</span>
-                            {entry.platforms && <>
-                              <span style={{ color: C.dimmed, fontWeight: 500 }}>Plattformen:</span>
-                              <span style={{ color: C.white }}>{entry.platforms.join(", ")}</span>
-                            </>}
-                            {entry.content && <>
-                              <span style={{ color: C.dimmed, fontWeight: 500 }}>Inhalt:</span>
-                              <span style={{ color: C.muted }}>{entry.content}...</span>
-                            </>}
-                            {entry.scheduledFor && <>
-                              <span style={{ color: C.dimmed, fontWeight: 500 }}>Geplant für:</span>
-                              <span style={{ color: C.white }}>{entry.scheduledFor}</span>
-                            </>}
-                            {entry.postTitle && <>
-                              <span style={{ color: C.dimmed, fontWeight: 500 }}>Beitrag:</span>
-                              <span style={{ color: C.white }}>{entry.postTitle}</span>
-                            </>}
-                            {entry.mediaCount > 0 && <>
-                              <span style={{ color: C.dimmed, fontWeight: 500 }}>Medien:</span>
-                              <span style={{ color: C.white }}>{entry.mediaCount} Datei(en)</span>
-                            </>}
-                            <span style={{ color: C.dimmed, fontWeight: 500 }}>Zeitpunkt:</span>
-                            <span style={{ color: C.white }}>{ts.toLocaleString("de-DE")}</span>
-                          </div>
-                          {entry.response && (
-                            <div>
-                              <div style={{ fontSize: TYPE.caption, color: C.dimmed, fontWeight: 500, marginBottom: 4 }}>API-Antwort:</div>
-                              <pre style={{ background: C.card, borderRadius: RADIUS.lg, border: `1px solid ${C.border}`, padding: 10, fontSize: TYPE.micro, color: C.muted, overflow: "auto", maxHeight: 180, whiteSpace: "pre-wrap", wordBreak: "break-all", lineHeight: 1.5, margin: 0 }}>
-                                {JSON.stringify(entry.response, null, 2)}
-                              </pre>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+            ))}
+          </div>
+
+          {/* ── Standardwerte für neue Beiträge ─────────────────── */}
+          <div style={{ background: C.card, borderRadius: RADIUS.xxxl, border: `1px solid ${C.border}`, padding: 20, marginTop: 16 }}>
+            <div style={{ fontSize: TYPE.bodyLg, fontWeight: 600, marginBottom: 4 }}>Standardwerte für neue Beiträge</div>
+            <div style={{ fontSize: TYPE.small, color: C.muted, marginBottom: 16 }}>Gelten als Vorauswahl beim Erstellen eines neuen Beitrags – lassen sich dort jederzeit pro Post ändern.</div>
+
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0" }}>
+              <div>
+                <div style={{ fontSize: TYPE.body, color: C.white }}>Hashtags bei KI-Caption vorauswählen</div>
+                <div style={{ fontSize: TYPE.caption, color: C.dimmed, marginTop: 1 }}>Gilt für die automatische Caption-Generierung aus Transkripten</div>
               </div>
-            )}
+              <button onClick={() => updateAppSetting("defaultIncludeHashtags", !appSettings.defaultIncludeHashtags)} style={{
+                width: 38, height: 22, borderRadius: RADIUS.pill, border: "none", cursor: "pointer", position: "relative", flexShrink: 0,
+                background: appSettings.defaultIncludeHashtags ? C.accent : C.border, transition: "background 0.2s",
+              }}>
+                <div style={{ width: 16, height: 16, borderRadius: "50%", background: "#fff", position: "absolute", top: 3, left: appSettings.defaultIncludeHashtags ? 19 : 3, transition: "left 0.2s" }} />
+              </button>
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0", borderTop: `1px solid ${C.border}30` }}>
+              <span style={{ fontSize: TYPE.body, color: C.white }}>Zeitzone für geplante Beiträge</span>
+              <span style={{ fontSize: TYPE.small, color: C.dimmed, fontFamily: "monospace" }}>Europe/Berlin</span>
+            </div>
           </div>
         </div>
       )}

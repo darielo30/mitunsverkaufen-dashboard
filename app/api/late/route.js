@@ -352,6 +352,34 @@ export async function GET(request) {
       return Response.json({ _raw: data, _status: res.status, _ok: res.ok });
     }
 
+    // Fetch the actual comments on one specific post (inbox-comments only
+    // lists posts with a comment count, not the comment text itself)
+    if (action === "inbox-post-comments") {
+      const postId = searchParams.get("postId");
+      const accountId = searchParams.get("accountId");
+      if (!postId || !accountId) return Response.json({ error: "postId and accountId required" }, { status: 400 });
+      const res = await fetch(`${BASE}/inbox/comments/${encodeURIComponent(postId)}?accountId=${encodeURIComponent(accountId)}`, { headers: authHeaders() });
+      const rawText = await res.text();
+      let data;
+      try { data = JSON.parse(rawText); } catch { return Response.json({ error: `Inbox API non-JSON: ${rawText.substring(0, 300)}` }, { status: 500 }); }
+      if (!res.ok) return Response.json({ error: data.message || data.error || `Fehler (${res.status})`, details: data }, { status: res.status });
+      return Response.json({ _raw: data, _status: res.status, _ok: res.ok });
+    }
+
+    // Fetch the full message thread for one conversation (inbox-conversations
+    // only lists conversations with a lastMessage preview, not the full thread)
+    if (action === "inbox-conversation") {
+      const conversationId = searchParams.get("conversationId");
+      const accountId = searchParams.get("accountId");
+      if (!conversationId || !accountId) return Response.json({ error: "conversationId and accountId required" }, { status: 400 });
+      const res = await fetch(`${BASE}/inbox/conversations/${encodeURIComponent(conversationId)}?accountId=${encodeURIComponent(accountId)}`, { headers: authHeaders() });
+      const rawText = await res.text();
+      let data;
+      try { data = JSON.parse(rawText); } catch { return Response.json({ error: `Inbox API non-JSON: ${rawText.substring(0, 300)}` }, { status: 500 }); }
+      if (!res.ok) return Response.json({ error: data.message || data.error || `Fehler (${res.status})`, details: data }, { status: res.status });
+      return Response.json({ _raw: data, _status: res.status, _ok: res.ok });
+    }
+
     return Response.json({ error: "Unknown action" }, { status: 400 });
   } catch (err) {
     return Response.json({ error: err.message }, { status: 500 });
@@ -517,14 +545,14 @@ export async function POST(request) {
 
     // ── Reply to inbox conversation (DM) ───────────────────
     if (action === "inbox-reply") {
-      const { conversationId, message } = body;
-      if (!conversationId || !message) {
-        return Response.json({ error: "conversationId and message required" }, { status: 400 });
+      const { conversationId, accountId, message } = body;
+      if (!conversationId || !accountId || !message) {
+        return Response.json({ error: "conversationId, accountId and message required" }, { status: 400 });
       }
       const res = await fetch(`${BASE}/inbox/conversations/${conversationId}/messages`, {
         method: "POST",
         headers: authHeaders(),
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({ accountId, message }),
       });
       const rawText = await res.text();
       let data;
@@ -535,9 +563,9 @@ export async function POST(request) {
 
     // ── Hide/unhide comment ────────────────────────────────
     if (action === "hide-comment") {
-      const { postId, commentId } = body;
-      if (!postId || !commentId) return Response.json({ error: "postId and commentId required" }, { status: 400 });
-      const res = await fetch(`${BASE}/inbox/comments/${postId}/${commentId}/hide`, {
+      const { postId, commentId, accountId } = body;
+      if (!postId || !commentId || !accountId) return Response.json({ error: "postId, commentId and accountId required" }, { status: 400 });
+      const res = await fetch(`${BASE}/inbox/comments/${postId}/${commentId}/hide?accountId=${encodeURIComponent(accountId)}`, {
         method: "POST",
         headers: authHeaders(),
       });
