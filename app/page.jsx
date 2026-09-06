@@ -30,10 +30,10 @@ import {
 // treatment — same class names as the previous glass iteration, now solid
 // instead of translucent/blurred) with a tighter, less-rounded corner scale.
 const darkTheme = {
-  bg: "#07090d", bgSoft: "#0b0e15", card: "#12151d", cardHover: "#181c26",
-  border: "rgba(255,255,255,0.08)",
-  glass: "#12151d", glassHover: "#181c26", glassBorder: "rgba(255,255,255,0.08)",
-  glassStrong: "#12151d",
+  bg: "#0a0a0b", bgSoft: "#101012", card: "#161617", cardHover: "#1d1d1f",
+  border: "rgba(255,255,255,0.09)",
+  glass: "#161617", glassHover: "#1d1d1f", glassBorder: "rgba(255,255,255,0.09)",
+  glassStrong: "#161617",
   accent: "#4C7EFF", accentGlow: "rgba(76,126,255,0.16)", accentLight: "#6F97FF",
   cta: "#F97316", ctaGlow: "rgba(249,115,22,0.16)", ctaLight: "#FB923C",
   red: "#DC2626", redGlow: "rgba(220,38,38,0.12)",
@@ -73,8 +73,11 @@ const TYPE = {
 const SPACE = {
   none: 0, xxs: 2, xs: 4, sm: 6, md: 8, lg: 10, xl: 12, xxl: 16, xxxl: 20,
 };
+// Tightened again for the flat/technical pass: reference screens use crisp
+// rectangular panels with a fine 1px border, not soft rounded cards — badges
+// and status pills are the one place full rounding still reads correctly.
 const RADIUS = {
-  sm: 4, md: 6, lg: 8, xl: 10, xxl: 16, xxxl: 18, pill: 10, shell: 22,
+  sm: 3, md: 4, lg: 4, xl: 5, xxl: 6, xxxl: 6, pill: 999, shell: 6,
 };
 
 // ── TikTok Icon (original logo style, outline) ─────────────────
@@ -96,6 +99,31 @@ const PLATFORM_META = {
   linkedin: { label: "LinkedIn", icon: Linkedin, get color() { return C.accent; } },
 };
 const platformMeta = (p) => PLATFORM_META[p] || { label: p ? p[0].toUpperCase() + p.slice(1) : "Unbekannt", icon: Globe, get color() { return C.muted; } };
+
+// One icon + color per metric, shared by every table that lists engagement
+// numbers (Platform-Übersicht, Top Posts, …) so the same metric always
+// reads the same way across the dashboard.
+const METRIC_META = {
+  likes: { icon: Heart, color: "#F43F5E", label: "Likes" },
+  comments: { icon: MessageCircle, color: "#3B82F6", label: "Kommentare" },
+  shares: { icon: Share2, color: "#22C55E", label: "Geteilt" },
+  saves: { icon: Bookmark, color: "#F59E0B", label: "Gespeichert" },
+  clicks: { icon: MousePointerClick, color: "#A855F7", label: "Klicks" },
+  views: { icon: Eye, color: "#38BDF8", label: "Aufrufe" },
+  follows: { icon: UserPlus, color: "#F472B6", label: "Follows" },
+  impressions: { icon: TrendingUp, color: "#2DD4BF", label: "Impr." },
+  reach: { icon: Users, color: "#FB923C", label: "Reichweite" },
+};
+const MetricCell = ({ metric, value, dash }) => {
+  const meta = METRIC_META[metric];
+  const Icon = meta.icon;
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: SPACE.xs }}>
+      <Icon size={12} color={meta.color} />
+      <span style={{ fontSize: TYPE.small, color: C.white, fontFamily: "inherit", fontVariantNumeric: "tabular-nums" }}>{dash ? "–" : fmt(value)}</span>
+    </div>
+  );
+};
 
 const fmt = (n) => {
   if (n >= 1000000) return (n / 1000000).toFixed(1) + "M";
@@ -3589,6 +3617,7 @@ export default function Dashboard() {
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [analyticsPlatform, setAnalyticsPlatform] = useState("all");
   const [analyticsRange, setAnalyticsRange] = useState("30d");
+  const [heatmapHover, setHeatmapHover] = useState(null); // { day, hour, x, y } | null
 
   const fetchAnalytics = useCallback(async () => {
     setAnalyticsLoading(true);
@@ -3928,14 +3957,11 @@ export default function Dashboard() {
   const totalComments = filtered.reduce((a, p) => a + p.comments, 0);
   const totalShares = filtered.reduce((a, p) => a + p.shares, 0);
 
-  // Restrained atmospheric glow behind the whole app (dark mode only) — the
-  // cards sit on top of this instead of a flat page background. Kept as a
-  // separate backgroundImage (not the `background` shorthand) so it never
-  // collides with the plain backgroundColor fallback.
+  // Flat, neutral backdrop (dark mode only) — a faint grey vignette instead
+  // of the earlier colored blue/purple/orange glow, so panel and icon colors
+  // read against plain dark grey rather than a tinted background.
   const atmosphere = isDarkMode
-    ? `radial-gradient(1100px 560px at 12% -8%, rgba(76,126,255,0.10), transparent 60%),`
-      + `radial-gradient(900px 500px at 100% 0%, rgba(139,92,246,0.08), transparent 55%),`
-      + `radial-gradient(800px 520px at 45% 115%, rgba(249,115,22,0.05), transparent 60%)`
+    ? `radial-gradient(1400px 700px at 50% -10%, rgba(255,255,255,0.03), transparent 60%)`
     : "none";
   // Page backdrop behind the floating shell — deliberately darker/lighter
   // than the shell's own C.bg so the frame reads as a distinct surface
@@ -4429,8 +4455,11 @@ export default function Dashboard() {
         const bestTimeData = bestTimeRaw.slots || bestTimeRaw.data || bestTimeRaw.bestTimes || [];
         const dayLabels = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
         const btMap = {};
+        const btMeta = {};
         (Array.isArray(bestTimeData) ? bestTimeData : []).forEach((s) => {
-          btMap[`${s.dayOfWeek || s.day}-${s.hour}`] = s.avg_engagement || s.engagement || s.score || 0;
+          const key = `${s.day_of_week ?? s.dayOfWeek ?? s.day}-${s.hour}`;
+          btMap[key] = s.avg_engagement ?? s.engagement ?? s.score ?? 0;
+          btMeta[key] = { postCount: s.post_count ?? s.postCount ?? 0 };
         });
         const maxEng = Math.max(...Object.values(btMap), 1);
 
@@ -4494,14 +4523,14 @@ export default function Dashboard() {
           {/* ── Metric Cards (Zernio style: 2 rows of 4) ───────── */}
           <div className="kpi-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: SPACE.lg, marginBottom: 24 }}>
             {[
-              { label: "Likes", icon: Heart, value: fmt(totals.likes), color: C.redLight, change: null },
-              { label: "Kommentare", icon: MessageCircle, value: fmt(totals.comments), color: C.blue, change: null },
-              { label: "Geteilt", icon: Share2, value: fmt(totals.shares), color: C.green, change: null },
-              { label: "Aufrufe", icon: Eye, value: fmt(totals.views), color: C.purple, change: null },
-              { label: "Impressionen", icon: TrendingUp, value: fmt(totals.impressions), color: C.blue, change: null },
-              { label: "Reichweite", icon: Users, value: fmt(totals.reach), color: C.yellow, change: null },
-              { label: "Klicks", icon: ExternalLink, value: fmt(totals.clicks), color: C.green, change: null },
-              { label: "Eng.-Rate", icon: BarChart3, value: `${engRate}%`, color: C.redLight, change: null },
+              { label: "Likes", icon: METRIC_META.likes.icon, value: fmt(totals.likes), color: METRIC_META.likes.color },
+              { label: "Kommentare", icon: METRIC_META.comments.icon, value: fmt(totals.comments), color: METRIC_META.comments.color },
+              { label: "Geteilt", icon: METRIC_META.shares.icon, value: fmt(totals.shares), color: METRIC_META.shares.color },
+              { label: "Aufrufe", icon: METRIC_META.views.icon, value: fmt(totals.views), color: METRIC_META.views.color },
+              { label: "Impressionen", icon: METRIC_META.impressions.icon, value: fmt(totals.impressions), color: METRIC_META.impressions.color },
+              { label: "Reichweite", icon: METRIC_META.reach.icon, value: fmt(totals.reach), color: METRIC_META.reach.color },
+              { label: "Klicks", icon: METRIC_META.clicks.icon, value: fmt(totals.clicks), color: METRIC_META.clicks.color },
+              { label: "Eng.-Rate", icon: BarChart3, value: `${engRate}%`, color: C.white },
             ].map((m) => (
               <div key={m.label} className="glass-panel glass-border" style={{ background: C.glass, borderRadius: RADIUS.xxl, boxShadow: "0 12px 28px rgba(0,0,0,0.25)", padding: "14px 16px", display: "flex", alignItems: "center", gap: SPACE.lg }}>
                 <div style={{ color: m.color, display: "flex", alignItems: "center" }}><m.icon size={16} /></div>
@@ -4533,87 +4562,89 @@ export default function Dashboard() {
             )}
           </div>
 
-          <div className="two-col-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: SPACE.xxxl, marginBottom: 20 }}>
-            {/* ── Best Time to Post (green heatmap like Zernio) ── */}
-            <div className="glass-panel glass-border" style={{ background: C.glass, borderRadius: RADIUS.shell, boxShadow: "0 20px 48px rgba(0,0,0,0.35)", padding: 20 }}>
-              <div style={{ fontSize: TYPE.bodyLg, fontWeight: 600, marginBottom: 14, color: C.white }}>Beste Zeit zum Posten</div>
-              <div style={{ display: "grid", gridTemplateColumns: `36px repeat(7, 1fr)`, gap: SPACE.xs }}>
+          {/* ── Best Time to Post (green heatmap, days × 24h) ──── */}
+          <div className="glass-panel glass-border" style={{ background: C.glass, borderRadius: RADIUS.shell, boxShadow: "0 20px 48px rgba(0,0,0,0.35)", padding: 20, marginBottom: 20 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+              <div style={{ fontSize: TYPE.bodyLg, fontWeight: 600, color: C.white }}>Beste Zeit zum Posten</div>
+              <div style={{ display: "flex", alignItems: "center", gap: SPACE.xs }}>
+                <span style={{ fontSize: TYPE.caption, color: C.dimmed, marginRight: 2 }}>Weniger</span>
+                {[0.12, 0.32, 0.52, 0.72, 0.9].map((o) => <div key={o} style={{ width: 12, height: 12, borderRadius: 2, background: `rgba(34,197,94,${o})` }} />)}
+                <span style={{ fontSize: TYPE.caption, color: C.dimmed, marginLeft: 2 }}>Mehr</span>
+              </div>
+            </div>
+
+            <div style={{ position: "relative" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "40px repeat(24, 1fr)", gap: 3 }}>
                 <div />
-                {dayLabels.map((d) => <div key={d} style={{ textAlign: "center", fontSize: TYPE.micro, color: C.dimmed, fontWeight: 500, paddingBottom: 6 }}>{d}</div>)}
-                {[6, 9, 12, 15, 18, 21].map((h) => (
-                  <React.Fragment key={h}>
-                    <div style={{ fontSize: TYPE.micro, color: C.dimmed, lineHeight: "26px", textAlign: "right", paddingRight: 6 }}>{h < 10 ? "0" : ""}{h}:00</div>
-                    {dayLabels.map((_, di) => {
-                      const val = btMap[`${di}-${h}`] || 0;
+                {Array.from({ length: 24 }, (_, h) => (
+                  <div key={h} style={{ textAlign: "left", fontSize: 9, color: C.dimmed, paddingBottom: 4 }}>
+                    {h % 3 === 0 ? (h === 0 ? "12am" : h < 12 ? `${h}am` : h === 12 ? "12pm" : `${h - 12}pm`) : ""}
+                  </div>
+                ))}
+                {dayLabels.map((label, di) => (
+                  <React.Fragment key={label}>
+                    <div style={{ fontSize: TYPE.micro, color: C.dimmed, lineHeight: "20px", textAlign: "right", paddingRight: 6 }}>{label}</div>
+                    {Array.from({ length: 24 }, (_, h) => {
+                      const key = `${di}-${h}`;
+                      const val = btMap[key] || 0;
                       const intensity = val / maxEng;
-                      // Green gradient (Zernio style)
-                      const bg = intensity > 0 ? `rgba(34,197,94,${0.15 + intensity * 0.75})` : C.bg;
+                      const bg = intensity > 0 ? `rgba(34,197,94,${0.12 + intensity * 0.78})` : C.bg;
                       return (
-                        <div key={di} title={`${dayLabels[di]} ${h}:00 – ${val.toFixed(1)}% Engagement`} style={{
-                          height: 26, borderRadius: RADIUS.sm, background: bg,
-                          border: `1px solid ${intensity > 0.4 ? "rgba(34,197,94,0.3)" : C.border}`,
-                          cursor: "default",
-                        }} />
+                        <div key={h}
+                          onMouseEnter={(e) => { const r = e.currentTarget.getBoundingClientRect(); setHeatmapHover({ day: di, hour: h, val, count: btMeta[key]?.postCount || 0, x: r.left + r.width / 2, y: r.top }); }}
+                          onMouseLeave={() => setHeatmapHover(null)}
+                          style={{ height: 20, borderRadius: 2, background: bg, border: `1px solid ${intensity > 0.4 ? "rgba(34,197,94,0.35)" : "transparent"}`, cursor: "default" }} />
                       );
                     })}
                   </React.Fragment>
                 ))}
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: SPACE.sm, marginTop: 12, justifyContent: "center" }}>
-                <div style={{ fontSize: TYPE.micro, color: C.dimmed }}>Weniger</div>
-                {[0.1, 0.25, 0.45, 0.65, 0.85].map((o) => <div key={o} style={{ width: 14, height: 14, borderRadius: RADIUS.sm, background: `rgba(34,197,94,${o})` }} />)}
-                <div style={{ fontSize: TYPE.micro, color: C.dimmed }}>Mehr</div>
-              </div>
-              {/* Best times badges */}
-              {Object.entries(btMap).length > 0 && (() => {
-                const sorted = Object.entries(btMap).sort((a, b) => b[1] - a[1]).slice(0, 3);
+
+              {heatmapHover && (() => {
+                const fmtHour = (h) => h === 0 ? "12am" : h < 12 ? `${h}am` : h === 12 ? "12pm" : `${h - 12}pm`;
                 return (
-                  <div style={{ display: "flex", gap: SPACE.sm, marginTop: 12, justifyContent: "center" }}>
-                    <span style={{ fontSize: TYPE.caption, color: C.dimmed, marginRight: 4 }}>Beste Zeit:</span>
-                    {sorted.map(([key]) => {
-                      const [d, h] = key.split("-").map(Number);
-                      return <span key={key} style={{ fontSize: TYPE.caption, fontWeight: 500, color: C.green, background: C.green + "15", padding: `${SPACE.xxs}px ${SPACE.lg}px`, borderRadius: RADIUS.md, border: `1px solid ${C.green}25` }}>{dayLabels[d]} {h}:00</span>;
-                    })}
+                  <div style={{
+                    position: "fixed", left: heatmapHover.x, top: heatmapHover.y - 10, transform: "translate(-50%, -100%)",
+                    background: C.card, border: `1px solid ${C.border}`, borderRadius: RADIUS.lg, padding: "10px 14px",
+                    boxShadow: "0 12px 32px rgba(0,0,0,0.5)", zIndex: 50, pointerEvents: "none", whiteSpace: "nowrap",
+                  }}>
+                    <div style={{ fontSize: TYPE.small, fontWeight: 600, color: C.white, marginBottom: 4 }}>
+                      {dayLabels[heatmapHover.day]} {fmtHour(heatmapHover.hour)} – {fmtHour((heatmapHover.hour + 1) % 24)}
+                    </div>
+                    <div style={{ fontSize: TYPE.caption, color: C.muted }}>Ø Engagement: {heatmapHover.val.toFixed(heatmapHover.val < 10 ? 1 : 0)}</div>
+                    <div style={{ fontSize: TYPE.caption, color: C.dimmed }}>{heatmapHover.count} Beitrag{heatmapHover.count === 1 ? "" : "e"}</div>
                   </div>
                 );
               })()}
             </div>
 
-            {/* ── Top Performing Posts ──────────────────────────── */}
-            <div className="glass-panel glass-border" style={{ background: C.glass, borderRadius: RADIUS.shell, boxShadow: "0 20px 48px rgba(0,0,0,0.35)", padding: 20 }}>
-              <div style={{ fontSize: TYPE.bodyLg, fontWeight: 600, marginBottom: 14, color: C.white }}>Top Posts</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: SPACE.md }}>
-                {topPosts.length === 0 && <div style={{ color: C.dimmed, fontSize: TYPE.small, padding: 20, textAlign: "center" }}>Keine veröffentlichten Posts</div>}
-                {topPosts.map((p, i) => {
-                  const eng = (p.likes || 0) + (p.comments || 0) + (p.shares || 0);
-                  const pER = p.views > 0 ? ((eng / p.views) * 100).toFixed(2) : "–";
-                  const postDate = new Date(p.date).toLocaleDateString("de-DE", { day: "numeric", month: "short", year: "numeric" });
-                  return (
-                    <div key={p.id} style={{ display: "flex", alignItems: "center", gap: SPACE.xl, padding: `${SPACE.md}px ${SPACE.lg}px`, borderRadius: RADIUS.lg, cursor: "pointer", transition: "background 0.15s" }}
-                      onMouseOver={(e) => e.currentTarget.style.background = C.bg}
-                      onMouseOut={(e) => e.currentTarget.style.background = "transparent"}
-                      onClick={() => setSelectedPost(p)}>
-                      <div style={{ width: 22, height: 22, borderRadius: RADIUS.md, background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: TYPE.caption, fontWeight: 600, color: C.dimmed, flexShrink: 0 }}>{i + 1}</div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: TYPE.small, color: C.white, fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.title}</div>
-                        <div style={{ fontSize: TYPE.micro, color: C.dimmed }}>{postDate}</div>
-                      </div>
-                      <div style={{ fontSize: TYPE.small, fontWeight: 600, color: C.green, background: C.greenGlow, padding: "3px 10px", borderRadius: RADIUS.md, flexShrink: 0 }}>ER {pER}%</div>
-                      <div style={{ display: "flex", alignItems: "center", gap: SPACE.xs, flexShrink: 0 }}>
-                        <Heart size={11} color={C.dimmed} /><span style={{ fontSize: TYPE.caption, color: C.dimmed }}>{p.likes || 0}</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+            {Object.entries(btMap).length > 0 && (() => {
+              const sorted = Object.entries(btMap).sort((a, b) => b[1] - a[1]).slice(0, 3);
+              const fmtHour = (h) => h === 0 ? "12am" : h < 12 ? `${h}am` : h === 12 ? "12pm" : `${h - 12}pm`;
+              return (
+                <div style={{ display: "flex", gap: SPACE.sm, marginTop: 16, alignItems: "center" }}>
+                  <span style={{ fontSize: TYPE.caption, color: C.dimmed, marginRight: 2 }}>Beste Zeiten:</span>
+                  {sorted.map(([key, val]) => {
+                    const [d, h] = key.split("-").map(Number);
+                    return <span key={key} style={{ fontSize: TYPE.caption, fontWeight: 500, color: C.green, background: C.green + "15", padding: `${SPACE.xxs}px ${SPACE.lg}px`, borderRadius: RADIUS.md, border: `1px solid ${C.green}25` }}>{dayLabels[d]} {fmtHour(h)} · {val % 1 === 0 ? val : val.toFixed(1)}</span>;
+                  })}
+                </div>
+              );
+            })()}
           </div>
 
-          {/* ── Platform Breakdown (Zernio style cards) ────────── */}
+          {/* ── Platform Breakdown ──────────────────────────────── */}
           {platformCards.length > 0 && (
-            <div style={{ background: C.card, borderRadius: RADIUS.xxxl, border: `1px solid ${C.border}`, padding: 20, marginBottom: 20 }}>
+            <div style={{ background: C.card, borderRadius: RADIUS.shell, border: `1px solid ${C.border}`, padding: 20, marginBottom: 20, overflowX: "auto" }}>
               <div style={{ fontSize: TYPE.bodyLg, fontWeight: 600, marginBottom: 14, color: C.white }}>Plattform-Übersicht</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: SPACE.md }}>
+              <div style={{ minWidth: 760 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1.6fr repeat(9, 1fr)", gap: SPACE.md, padding: "0 12px 10px", borderBottom: `1px solid ${C.border}`, fontSize: TYPE.caption, fontWeight: 500, color: C.dimmed }}>
+                  <div>Plattform</div><div>Posts</div>
+                  {["likes", "comments", "shares", "saves", "clicks", "views", "impressions", "reach"].map((k) => (
+                    <div key={k} style={{ display: "flex", alignItems: "center", gap: 4 }}>{React.createElement(METRIC_META[k].icon, { size: 11, color: C.dimmed })}{METRIC_META[k].label}</div>
+                  ))}
+                  <div>ER</div>
+                </div>
                 {platformCards.map((pc) => {
                   const key = pc.platform.toLowerCase();
                   const detected = ["instagram", "tiktok", "youtube", "facebook", "linkedin"].find((k) => key.includes(k));
@@ -4621,36 +4652,77 @@ export default function Dashboard() {
                   const Icon = meta.icon;
                   const m = pc.metrics;
                   const eng = (m.likes || 0) + (m.comments || 0) + (m.shares || 0);
-                  const er = m.impressions > 0 ? ((eng / m.impressions) * 100).toFixed(2) : m.reach > 0 ? ((eng / m.reach) * 100).toFixed(2) : "–";
+                  const er = m.impressions > 0 ? ((eng / m.impressions) * 100).toFixed(2) : m.reach > 0 ? ((eng / m.reach) * 100).toFixed(2) : null;
                   return (
-                    <div key={pc.key} style={{ display: "flex", alignItems: "center", gap: SPACE.xxl, padding: `${SPACE.xl}px ${SPACE.xxl}px`, borderRadius: RADIUS.xl, background: C.bg, border: `1px solid ${C.border}` }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: SPACE.md, minWidth: 140 }}>
-                        <Icon size={16} color={meta.color} />
-                        <div>
-                          <div style={{ fontSize: TYPE.body, fontWeight: 600, color: meta.color }}>{meta.label}</div>
-                          <div style={{ fontSize: TYPE.micro, color: C.dimmed }}>{pc.postCount} posts</div>
-                        </div>
+                    <div key={pc.key} style={{ display: "grid", gridTemplateColumns: "1.6fr repeat(9, 1fr)", gap: SPACE.md, padding: "12px", alignItems: "center", borderBottom: `1px solid ${C.border}40` }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: SPACE.md, minWidth: 0 }}>
+                        <div style={{ width: 24, height: 24, borderRadius: RADIUS.md, background: meta.color + "18", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Icon size={13} color={meta.color} /></div>
+                        <span style={{ fontSize: TYPE.body, fontWeight: 500, color: C.white, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{meta.label}</span>
                       </div>
-                      <div style={{ flex: 1, display: "flex", gap: SPACE.xxxl, justifyContent: "space-around" }}>
-                        {[
-                          { icon: Heart, val: m.likes || 0 },
-                          { icon: MessageCircle, val: m.comments || 0 },
-                          { icon: Share2, val: m.shares || 0 },
-                          { icon: Eye, val: m.views || 0 },
-                        ].map((s, si) => (
-                          <div key={si} style={{ display: "flex", alignItems: "center", gap: SPACE.xs }}>
-                            <s.icon size={12} color={C.dimmed} />
-                            <span style={{ fontSize: TYPE.small, color: C.white, fontWeight: 500 }}>{fmt(s.val)}</span>
-                          </div>
-                        ))}
-                      </div>
-                      <div style={{ fontSize: TYPE.small, fontWeight: 600, color: C.green, background: C.greenGlow, padding: `${SPACE.xs}px ${SPACE.xl}px`, borderRadius: RADIUS.md }}>ER {er}%</div>
+                      <div style={{ fontSize: TYPE.small, color: C.muted, fontVariantNumeric: "tabular-nums" }}>{pc.postCount}</div>
+                      <MetricCell metric="likes" value={m.likes} />
+                      <MetricCell metric="comments" value={m.comments} />
+                      <MetricCell metric="shares" value={m.shares} />
+                      <MetricCell metric="saves" value={m.saves} dash={!m.saves} />
+                      <MetricCell metric="clicks" value={m.clicks} dash={!m.clicks} />
+                      <MetricCell metric="views" value={m.views} dash={!m.views} />
+                      <MetricCell metric="impressions" value={m.impressions} dash={!m.impressions} />
+                      <MetricCell metric="reach" value={m.reach} dash={!m.reach} />
+                      <div>{er != null ? <span style={{ fontSize: TYPE.small, fontWeight: 600, color: C.green, background: C.greenGlow, padding: "3px 10px", borderRadius: RADIUS.md }}>{er}%</span> : <span style={{ color: C.dimmed }}>–</span>}</div>
                     </div>
                   );
                 })}
               </div>
             </div>
           )}
+
+          {/* ── Top Performing Posts ─────────────────────────────── */}
+          <div style={{ background: C.card, borderRadius: RADIUS.shell, border: `1px solid ${C.border}`, padding: 20, marginBottom: 20, overflowX: "auto" }}>
+            <div style={{ fontSize: TYPE.bodyLg, fontWeight: 600, marginBottom: 14, color: C.white }}>Top Performing Posts</div>
+            {topPosts.length === 0 ? (
+              <div style={{ color: C.dimmed, fontSize: TYPE.small, padding: 20, textAlign: "center" }}>Keine veröffentlichten Posts</div>
+            ) : (
+              <div style={{ minWidth: 820 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "2fr repeat(8, 1fr)", gap: SPACE.md, padding: "0 12px 10px", borderBottom: `1px solid ${C.border}`, fontSize: TYPE.caption, fontWeight: 500, color: C.dimmed }}>
+                  <div>Beitrag</div>
+                  {["likes", "comments", "shares", "saves", "views", "follows", "impressions", "reach"].map((k) => (
+                    <div key={k} style={{ display: "flex", alignItems: "center", gap: 4 }}>{React.createElement(METRIC_META[k].icon, { size: 11, color: C.dimmed })}{METRIC_META[k].label}</div>
+                  ))}
+                  <div>ER</div>
+                </div>
+                {topPosts.map((p) => {
+                  const eng = (p.likes || 0) + (p.comments || 0) + (p.shares || 0);
+                  const pER = p.views > 0 ? ((eng / p.views) * 100).toFixed(2) : null;
+                  const postDate = new Date(p.date).toLocaleDateString("de-DE", { day: "numeric", month: "short", year: "numeric" });
+                  const plat = p.platforms?.[0] || "instagram";
+                  const meta = platformMeta(plat);
+                  const PIcon = meta.icon;
+                  return (
+                    <div key={p.id} onClick={() => setSelectedPost(p)} style={{ display: "grid", gridTemplateColumns: "2fr repeat(8, 1fr)", gap: SPACE.md, padding: "12px", alignItems: "center", borderBottom: `1px solid ${C.border}40`, cursor: "pointer" }}
+                      onMouseOver={(e) => e.currentTarget.style.background = C.bg}
+                      onMouseOut={(e) => e.currentTarget.style.background = "transparent"}>
+                      <div style={{ display: "flex", alignItems: "center", gap: SPACE.md, minWidth: 0 }}>
+                        <PIcon size={14} color={meta.color} style={{ flexShrink: 0 }} />
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontSize: TYPE.small, color: C.white, fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.title}</div>
+                          <div style={{ fontSize: TYPE.micro, color: C.dimmed }}>{postDate}</div>
+                        </div>
+                      </div>
+                      <MetricCell metric="likes" value={p.likes} dash={!p.likes} />
+                      <MetricCell metric="comments" value={p.comments} dash={!p.comments} />
+                      <MetricCell metric="shares" value={p.shares} dash={!p.shares} />
+                      <MetricCell metric="saves" value={p.saves} dash={!p.saves} />
+                      <MetricCell metric="views" value={p.views} dash={!p.views} />
+                      <MetricCell metric="follows" value={p.follows} dash={!p.follows} />
+                      <MetricCell metric="impressions" value={p.impressions} dash={!p.impressions} />
+                      <MetricCell metric="reach" value={p.reach} dash={!p.reach} />
+                      <div>{pER != null ? <span style={{ fontSize: TYPE.small, fontWeight: 600, color: C.green, background: C.greenGlow, padding: "3px 10px", borderRadius: RADIUS.md }}>{pER}%</span> : <span style={{ color: C.dimmed }}>–</span>}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
 
           {/* ── Content Decay Chart ────────────────────────────── */}
           {decayData.length > 0 && (
