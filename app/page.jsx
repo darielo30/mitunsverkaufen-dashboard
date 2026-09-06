@@ -1951,6 +1951,8 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
           time: c.createdTime || c.createdAt || c.timestamp || c.created || "",
           likes: c.likeCount ?? c.likes ?? 0,
           liked: c.liked || c.isLiked || false,
+          canLike: c.canLike !== false,
+          canReply: c.canReply !== false,
           replies: c.replies || c.children || [],
         }));
         setPostComments(mapped);
@@ -2282,14 +2284,22 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
                         </div>
                         <div style={{ fontSize: TYPE.body, color: C.muted, lineHeight: 1.5 }}>{c.text || "Kein Text"}</div>
 
-                        {/* Like & Reply Aktionen */}
+                        {/* Like & Reply Aktionen — nur anzeigen/aktivieren, wenn Zernio die Aktion für diesen Kommentar erlaubt (canLike/canReply) */}
                         <div style={{ display: "flex", alignItems: "center", gap: SPACE.xl, marginTop: 8 }}>
-                          <button onClick={() => toggleLikeComment(c)} style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "none", cursor: "pointer", padding: "2px 0", color: c.liked ? C.redLight : C.dimmed, fontSize: TYPE.caption, fontWeight: 500, fontFamily: "inherit" }}>
-                            <Heart size={12} fill={c.liked ? C.redLight : "none"} /> {c.likes > 0 ? c.likes : "Gefällt mir"}
-                          </button>
-                          <button onClick={() => { setCommentReplyingId(commentReplyingId === c.id ? null : c.id); setCommentReplyText(""); }} style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "none", cursor: "pointer", padding: "2px 0", color: C.dimmed, fontSize: TYPE.caption, fontWeight: 500, fontFamily: "inherit" }}>
-                            <MessageCircle size={12} /> Antworten
-                          </button>
+                          {c.canLike ? (
+                            <button onClick={() => toggleLikeComment(c)} style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "none", cursor: "pointer", padding: "2px 0", color: c.liked ? C.redLight : C.dimmed, fontSize: TYPE.caption, fontWeight: 500, fontFamily: "inherit" }}>
+                              <Heart size={12} fill={c.liked ? C.redLight : "none"} /> {c.likes > 0 ? c.likes : "Gefällt mir"}
+                            </button>
+                          ) : c.likes > 0 ? (
+                            <span title="Liken ist über die API für diese Plattform nicht möglich" style={{ display: "flex", alignItems: "center", gap: 4, color: C.dimmed, fontSize: TYPE.caption, fontWeight: 500 }}>
+                              <Heart size={12} /> {c.likes}
+                            </span>
+                          ) : null}
+                          {c.canReply && (
+                            <button onClick={() => { setCommentReplyingId(commentReplyingId === c.id ? null : c.id); setCommentReplyText(""); }} style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "none", cursor: "pointer", padding: "2px 0", color: C.dimmed, fontSize: TYPE.caption, fontWeight: 500, fontFamily: "inherit" }}>
+                              <MessageCircle size={12} /> Antworten
+                            </button>
+                          )}
                         </div>
 
                         {commentReplyingId === c.id && (
