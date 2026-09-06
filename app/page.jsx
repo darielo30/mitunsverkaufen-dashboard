@@ -2482,6 +2482,62 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
   );
 }
 
+// ── Post Thumbnail ──────────────────────────────────────────────
+// Zernio rarely returns a real thumbnail image for a post, so most cards
+// fall back to painting the video's own first frame. With ~20 of these on
+// screen at once competing for bandwidth, some (especially larger files)
+// never finish decoding a frame in time and would otherwise sit blank
+// forever with no indication anything went wrong. This only mounts the
+// <video> once the card is near the viewport (fewer simultaneous loads)
+// and swaps to a plain placeholder if no frame appears within a few seconds.
+function PostThumbnail({ post }) {
+  const containerRef = useRef(null);
+  const [inView, setInView] = useState(false);
+  const [frameLoaded, setFrameLoaded] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    if (!containerRef.current || inView) return;
+    const obs = new IntersectionObserver((entries) => {
+      if (entries[0]?.isIntersecting) setInView(true);
+    }, { rootMargin: "300px" });
+    obs.observe(containerRef.current);
+    return () => obs.disconnect();
+  }, [inView]);
+
+  useEffect(() => {
+    if (!inView || !post.videoUrl || post.thumbnail || frameLoaded) return;
+    const timeout = setTimeout(() => setFailed(true), 4000);
+    return () => clearTimeout(timeout);
+  }, [inView, post.videoUrl, post.thumbnail, frameLoaded]);
+
+  return (
+    <div ref={containerRef} style={{ position: "relative", width: 76, flexShrink: 0, alignSelf: "stretch", overflow: "hidden", background: C.bg }}>
+      {post.thumbnail ? (
+        <img src={post.thumbnail} alt="" loading="lazy"
+          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+          onError={(e) => { e.currentTarget.style.display = "none"; }} />
+      ) : post.videoUrl && inView && !failed ? (
+        <video src={`${post.videoUrl}#t=0.1`} preload="metadata" muted playsInline
+          onLoadedData={() => setFrameLoaded(true)}
+          onError={() => setFailed(true)}
+          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", pointerEvents: "none" }} />
+      ) : (
+        <div style={{ width: "100%", height: "100%", background: `linear-gradient(135deg, ${C.cardHover} 0%, ${C.bg} 100%)`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <FileVideo size={20} color={C.dimmed} />
+        </div>
+      )}
+      {post.type === "Video" && (post.thumbnail || (frameLoaded && !failed)) && (
+        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ width: 26, height: 26, borderRadius: "50%", background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ width: 0, height: 0, borderTop: "5px solid transparent", borderBottom: "5px solid transparent", borderLeft: "8px solid #fff", marginLeft: 2 }} />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Calendar Panel ──────────────────────────────────────────────
 function CalendarPanel({ posts, onSelectPost, onNewPost }) {
   const [calMonth, setCalMonth] = useState(new Date().getMonth());
@@ -4875,27 +4931,7 @@ export default function Dashboard() {
                   </div>
 
                   {/* Thumbnail rechts – Bild, Video-Erstframe oder Platzhalter */}
-                  <div style={{ position: "relative", width: 76, flexShrink: 0, alignSelf: "stretch", overflow: "hidden", background: C.bg }}>
-                    {post.thumbnail ? (
-                      <img src={post.thumbnail} alt="" loading="lazy"
-                        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                        onError={(e) => { e.currentTarget.style.display = "none"; }} />
-                    ) : post.videoUrl ? (
-                      <video src={`${post.videoUrl}#t=0.1`} preload="metadata" muted playsInline
-                        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", pointerEvents: "none" }} />
-                    ) : (
-                      <div style={{ width: "100%", height: "100%", background: `linear-gradient(135deg, ${C.cardHover} 0%, ${C.bg} 100%)`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        <FileVideo size={20} color={C.dimmed} />
-                      </div>
-                    )}
-                    {post.type === "Video" && (
-                      <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        <div style={{ width: 26, height: 26, borderRadius: "50%", background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                          <div style={{ width: 0, height: 0, borderTop: "5px solid transparent", borderBottom: "5px solid transparent", borderLeft: "8px solid #fff", marginLeft: 2 }} />
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                  <PostThumbnail post={post} />
                 </div>
 
                 {/* Fußzeile: Status + Metriken */}

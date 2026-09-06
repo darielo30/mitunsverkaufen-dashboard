@@ -39,26 +39,12 @@ export default function RootLayout({ children }) {
           }
           .glass-border { position: relative; }
 
-          /* ── Framed app shell (desktop only) ──────────────────────
-             The whole app floats as one rounded, shadowed card with a
-             sliver of breathing room top/bottom, but always spans the
-             full viewport width — no max-width, so it reads identically
-             on every monitor instead of leaving side gaps on wide ones
-             while looking full-bleed on narrower ones. Below 1024px this
-             collapses back to a normal full-bleed page — a floating frame
-             has no room to read as premium on a phone, and the sidebar
-             needs to stay a true fixed-position off-canvas drawer there. */
+          /* ── App shell (desktop only) ──────────────────────────────
+             Full-bleed: spans the entire viewport with no outer margin,
+             radius, or shadow, so the app uses all available width and
+             height instead of floating as a letterboxed card. */
           @media (min-width: 1024px) {
-            .app-shell {
-              margin: 28px 0; height: calc(100vh - 56px);
-              border-radius: 28px; overflow: hidden;
-              border: 1px solid rgba(255,255,255,0.07);
-              box-shadow: 0 40px 90px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.05);
-            }
-            [data-theme="light"] .app-shell {
-              border-color: rgba(15,23,42,0.08);
-              box-shadow: 0 30px 70px rgba(15,23,42,0.22), inset 0 1px 0 rgba(255,255,255,0.6);
-            }
+            .app-shell { height: 100vh; }
             .app-sidebar { position: sticky !important; top: 0; align-self: stretch; height: 100%; min-height: 0 !important; }
             .app-main { overflow-y: auto; height: 100%; }
           }
