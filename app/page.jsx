@@ -2398,10 +2398,10 @@ function CalendarPanel({ posts, onSelectPost, onNewPost }) {
       </div>
 
       {/* Calendar grid */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: SPACE.xxs }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gridAutoRows: 116, gap: SPACE.xxs }}>
         {/* Empty cells before first day */}
         {Array.from({ length: firstDay }, (_, i) => (
-          <div key={`e${i}`} style={{ minHeight: 100, background: C.bg, borderRadius: RADIUS.lg }} />
+          <div key={`e${i}`} style={{ height: 116, background: C.bg, borderRadius: RADIUS.lg }} />
         ))}
 
         {/* Day cells */}
@@ -2415,10 +2415,10 @@ function CalendarPanel({ posts, onSelectPost, onNewPost }) {
               onMouseOver={() => setHoveredDay(day)}
               onMouseOut={() => setHoveredDay(null)}
               style={{
-                minHeight: 100, padding: 6, background: isHovered ? C.cardHover : C.card,
+                height: 116, padding: 6, background: isHovered ? C.cardHover : C.card,
                 borderRadius: RADIUS.lg, border: `1px solid ${isTodayCell ? C.accent + "60" : C.border}`,
                 transition: "all 0.15s", cursor: "default", position: "relative",
-                display: "flex", flexDirection: "column",
+                display: "flex", flexDirection: "column", overflow: "hidden",
               }}>
               {/* Day number */}
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>

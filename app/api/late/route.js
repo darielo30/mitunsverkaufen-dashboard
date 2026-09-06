@@ -44,18 +44,66 @@ export async function GET(request) {
     }
 
     // Fetch all posts (include full platform data with platformPostUrl)
+    // Zernio liefert per Default nur 10 Posts (max. 500 pro Seite) und
+    // gibt ein pagination-Objekt zurueck. Wir laufen alle Seiten ab,
+    // damit das Dashboard die komplette Historie filtern kann.
     if (action === "posts") {
-      const res = await fetch(`${BASE}/posts`, {
-        headers: authHeaders(),
-      });
-      const rawText = await res.text();
-      let data;
-      try {
-        data = JSON.parse(rawText);
-      } catch {
-        return Response.json({ error: `Posts API non-JSON: ${rawText.substring(0, 300)}` }, { status: 500 });
+      const PAGE_SIZE = 100;
+      const MAX_PAGES = 20; // Sicherheitsnetz: max. 2000 Posts
+
+      const collected = [];
+      let pagination = null;
+      let lastStatus = 200;
+      let apiError = null;
+
+      for (let page = 1; page <= MAX_PAGES; page++) {
+        const params = new URLSearchParams({
+          limit: String(PAGE_SIZE),
+          page: String(page),
+          sortBy: "scheduled-desc",
+        });
+        const res = await fetch(`${BASE}/posts?${params}`, { headers: authHeaders() });
+        lastStatus = res.status;
+        const rawText = await res.text();
+
+        let data;
+        try {
+          data = JSON.parse(rawText);
+        } catch {
+          if (page === 1) {
+            return Response.json({ error: `Posts API non-JSON: ${rawText.substring(0, 300)}` }, { status: 500 });
+          }
+          apiError = { stage: "parse", page, body: rawText.substring(0, 300) };
+          break;
+        }
+
+        if (!res.ok) {
+          if (page === 1) {
+            return Response.json({ error: data.error || `Posts API Fehler (${res.status})`, details: data }, { status: res.status });
+          }
+          apiError = { stage: "http", page, status: res.status, body: data };
+          break;
+        }
+
+        const items = Array.isArray(data) ? data : (data.posts || data.data || []);
+        collected.push(...items);
+        pagination = data.pagination || pagination;
+
+        // Abbruch, wenn die letzte Seite erreicht ist
+        const totalPages = pagination?.pages;
+        if (totalPages && page >= totalPages) break;
+        if (!totalPages && items.length < PAGE_SIZE) break;
+        if (items.length === 0) break;
       }
-      return Response.json({ _raw: data, _status: res.status, _ok: res.ok, ...(typeof data === "object" && !Array.isArray(data) ? data : { posts: data }) });
+
+      return Response.json({
+        posts: collected,
+        pagination,
+        _count: collected.length,
+        _status: lastStatus,
+        _ok: true,
+        _error: apiError,
+      });
     }
 
     // Fetch single post by ID (debug: shows all platform fields incl. platformPostUrl)
@@ -420,6 +468,40 @@ export async function POST(request) {
         }),
       });
       const data = await res.json();
+      return Response.json(data);
+    }
+
+    // ── Update an existing (draft/scheduled) post ────────────
+    if (action === "update-post") {
+      const { postId } = body;
+      if (!postId) return Response.json({ error: "postId required" }, { status: 400 });
+
+      const payload = {};
+      if (body.content !== undefined) payload.content = body.content;
+      if (body.platforms) {
+        payload.platforms = body.platforms
+          .filter((p) => p.platform && p.accountId)
+          .map((p) => {
+            const clean = { platform: p.platform, accountId: p.accountId };
+            if (p.platformSpecificData) clean.platformSpecificData = p.platformSpecificData;
+            return clean;
+          });
+      }
+      if (body.scheduledFor !== undefined) payload.scheduledFor = body.scheduledFor;
+      if (body.timezone !== undefined) payload.timezone = body.timezone;
+
+      const res = await fetch(`${BASE}/posts/${postId}`, {
+        method: "PUT",
+        headers: authHeaders(),
+        body: JSON.stringify(payload),
+      });
+      const rawText = await res.text();
+      let data;
+      try { data = JSON.parse(rawText); } catch { return Response.json({ error: rawText.substring(0, 300) }, { status: res.status }); }
+      if (!res.ok) {
+        const errMsg = data.message || data.error || JSON.stringify(data).substring(0, 200);
+        return Response.json({ error: errMsg, details: data }, { status: res.status });
+      }
       return Response.json(data);
     }
 
