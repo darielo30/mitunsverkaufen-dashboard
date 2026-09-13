@@ -1775,9 +1775,15 @@ function isLikelyGermanCaption(content) {
 }
 
 function addDaysStr(dateStr, n) {
-  const d = new Date(`${dateStr}T00:00:00`);
-  d.setDate(d.getDate() + n);
-  return d.toISOString().slice(0, 10);
+  // Bleibt komplett in lokaler Zeit – ein toISOString()-Umweg über UTC würde
+  // in Europe/Berlin (UTC+1/+2) das Datum systematisch einen Tag zurückschieben.
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const dt = new Date(y, m - 1, d);
+  dt.setDate(dt.getDate() + n);
+  const yy = dt.getFullYear();
+  const mm = String(dt.getMonth() + 1).padStart(2, "0");
+  const dd = String(dt.getDate()).padStart(2, "0");
+  return `${yy}-${mm}-${dd}`;
 }
 
 function BulkYoutubePanel() {
@@ -1795,7 +1801,9 @@ function BulkYoutubePanel() {
       const saved = JSON.parse(localStorage.getItem("bulkYoutubeConfig") || "null");
       if (saved) return saved;
     } catch {}
-    return { startDate: addDaysStr(new Date().toISOString().slice(0, 10), 1), times: YT_DEFAULT_TIMES };
+    const now = new Date();
+    const todayLocal = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    return { startDate: addDaysStr(todayLocal, 1), times: YT_DEFAULT_TIMES };
   });
   const persistConfig = (next) => { setConfig(next); try { localStorage.setItem("bulkYoutubeConfig", JSON.stringify(next)); } catch {} };
 
