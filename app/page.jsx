@@ -1743,6 +1743,324 @@ function ContentPipelinePanel() {
   );
 }
 
+// ── YouTube-Reupload (Bulk) ───────────────────────────────────────
+// Findet bereits vorhandene Instagram-Reels mit Video, die noch nicht als
+// YouTube-Post existieren, und legt sie gestaffelt (X Slots/Tag) als
+// YouTube-Shorts-Posts an – ohne erneuten Datei-Upload, da das Video schon
+// auf Zernios CDN liegt (media.zernio.com / media.getlate.dev).
+const YT_DEFAULT_TIMES = ["09:00", "12:00", "15:00", "18:00", "21:00"];
+
+function deriveYoutubeTitle(content) {
+  const clean = (content || "")
+    .replace(/#[^\s#]+/g, "")           // Hashtags raus
+    .replace(/[\r\n]+/g, " ")           // Zeilenumbrüche zu Leerzeichen
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!clean) return "Ohne Titel";
+  // Ersten Satz bis zum ersten Satzzeichen nehmen, sonst hart bei 95 Zeichen
+  // an einer Wortgrenze kappen (YouTube-Limit: 100 Zeichen).
+  const sentenceMatch = clean.match(/^.{1,95}?[.!?](?:\s|$)/);
+  let title = sentenceMatch ? sentenceMatch[0].trim() : clean;
+  if (title.length > 95) {
+    title = title.slice(0, 95).replace(/\s+\S*$/, "").trim();
+  }
+  return title || clean.slice(0, 95);
+}
+
+function isLikelyGermanCaption(content) {
+  const text = content || "";
+  const en = (text.match(/\b(the|and|my|was|it|you|your|this|that|with|from|have|were)\b/gi) || []).length;
+  const de = (text.match(/\b(der|die|das|und|ist|nicht|wir|ich|du|für|mit|auf|von|dass|ein|eine|sich|im|den|dem|zu)\b/gi) || []).length;
+  return de >= en;
+}
+
+function addDaysStr(dateStr, n) {
+  const d = new Date(`${dateStr}T00:00:00`);
+  d.setDate(d.getDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+function BulkYoutubePanel() {
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
+  const [rawPosts, setRawPosts] = useState([]);
+  const [ytAccountId, setYtAccountId] = useState(CHANNEL_GOALS.find((g) => g.platform === "youtube")?.accountId || "");
+
+  const [selected, setSelected] = useState(() => new Set());
+  const [titleOverrides, setTitleOverrides] = useState({});
+  const [hideNonGerman, setHideNonGerman] = useState(true);
+
+  const [config, setConfig] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("bulkYoutubeConfig") || "null");
+      if (saved) return saved;
+    } catch {}
+    return { startDate: addDaysStr(new Date().toISOString().slice(0, 10), 1), times: YT_DEFAULT_TIMES };
+  });
+  const persistConfig = (next) => { setConfig(next); try { localStorage.setItem("bulkYoutubeConfig", JSON.stringify(next)); } catch {} };
+
+  const [running, setRunning] = useState(false);
+  const [progress, setProgress] = useState({ done: 0, total: 0 });
+  const [rowStatus, setRowStatus] = useState({}); // id -> "ok" | "error" | "pending"
+  const stopRef = useRef(false);
+
+  const loadData = useCallback(async () => {
+    setLoading(true); setLoadError(null);
+    try {
+      const [postsRes, accRes] = await Promise.all([
+        fetch("/api/late?action=posts").then((r) => r.json()),
+        fetch("/api/late?action=accounts").then((r) => r.json()),
+      ]);
+      if (postsRes.error) throw new Error(postsRes.error);
+      setRawPosts(postsRes.posts || []);
+      const accList = Array.isArray(accRes._raw) ? accRes._raw : (accRes._raw?.accounts || accRes._raw?.data || []);
+      const yt = accList.find((a) => a.platform === "youtube");
+      if (yt) setYtAccountId(yt._id || yt.id);
+    } catch (err) {
+      setLoadError(err.message || "Konnte Daten nicht laden");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { loadData(); }, [loadData]);
+
+  // Bereits auf YouTube vorhandene Captions (Dedupe-Basis)
+  const ytContentSet = new Set(
+    rawPosts.filter((p) => (p.platforms || []).some((pl) => pl.platform === "youtube")).map((p) => (p.content || "").trim())
+  );
+
+  const eligible = rawPosts
+    .filter((p) =>
+      (p.platforms || []).some((pl) => pl.platform === "instagram") &&
+      (p.mediaItems || []).some((m) => m.type === "video") &&
+      !ytContentSet.has((p.content || "").trim()) &&
+      !rowStatus[p._id] // schon in diesem Lauf erledigt → raus aus der Liste
+    )
+    .sort((a, b) => (a.scheduledFor || "").localeCompare(b.scheduledFor || ""));
+
+  const filteredEligible = hideNonGerman ? eligible.filter((p) => isLikelyGermanCaption(p.content)) : eligible;
+
+  const rows = filteredEligible.map((p) => ({
+    id: p._id,
+    date: p.scheduledFor,
+    content: p.content || "",
+    videoUrl: (p.mediaItems || []).find((m) => m.type === "video")?.url,
+    title: titleOverrides[p._id] ?? deriveYoutubeTitle(p.content),
+  }));
+
+  const selectedRows = rows.filter((r) => selected.has(r.id)); // in derselben Reihenfolge = älteste zuerst
+
+  const times = config.times.length ? config.times : YT_DEFAULT_TIMES;
+  const scheduledPlan = selectedRows.map((r, i) => {
+    const dayOffset = Math.floor(i / times.length);
+    const time = times[i % times.length];
+    const date = addDaysStr(config.startDate, dayOffset);
+    return { ...r, plannedFor: `${date} ${time}` };
+  });
+
+  const toggleRow = (id) => setSelected((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const selectFirstN = (n) => setSelected(new Set(rows.slice(0, n).map((r) => r.id)));
+  const selectAll = () => setSelected(new Set(rows.map((r) => r.id)));
+  const clearSelection = () => setSelected(new Set());
+
+  const lastPlanDate = scheduledPlan.length ? scheduledPlan[scheduledPlan.length - 1].plannedFor.slice(0, 10) : null;
+
+  const runImport = async () => {
+    if (!ytAccountId || scheduledPlan.length === 0 || running) return;
+    setRunning(true); stopRef.current = false;
+    setProgress({ done: 0, total: scheduledPlan.length });
+    for (let i = 0; i < scheduledPlan.length; i++) {
+      if (stopRef.current) break;
+      const row = scheduledPlan[i];
+      setRowStatus((prev) => ({ ...prev, [row.id]: "pending" }));
+      try {
+        const scheduledFor = new Date(row.plannedFor.replace(" ", "T")).toISOString();
+        const res = await fetch("/api/late", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "create-post",
+            content: row.content,
+            platforms: [{ platform: "youtube", accountId: ytAccountId, platformSpecificData: { title: row.title } }],
+            mediaItems: [{ type: "video", url: row.videoUrl }],
+            scheduledFor,
+            timezone: "Europe/Berlin",
+          }),
+        });
+        const data = await res.json();
+        setRowStatus((prev) => ({ ...prev, [row.id]: data.error ? "error" : "ok" }));
+      } catch {
+        setRowStatus((prev) => ({ ...prev, [row.id]: "error" }));
+      }
+      setProgress((prev) => ({ ...prev, done: prev.done + 1 }));
+      await new Promise((r) => setTimeout(r, 600)); // Zernio/YouTube-Quota schonen
+    }
+    setRunning(false);
+    setSelected(new Set());
+  };
+
+  const btnStyle = (active) => ({
+    padding: "6px 12px", borderRadius: RADIUS.md, border: `1px solid ${active ? C.accent : C.border}`,
+    background: active ? C.accent + "22" : C.card, color: active ? C.accent : C.dimmed,
+    fontSize: TYPE.caption, fontWeight: 500, cursor: "pointer", fontFamily: "inherit",
+  });
+
+  return (
+    <div style={{ padding: "24px 32px", minHeight: "100vh" }}>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 20, flexWrap: "wrap", gap: SPACE.lg }}>
+        <div>
+          <div style={{ fontSize: TYPE.h2, fontWeight: 700, letterSpacing: "-0.02em", color: C.white, display: "flex", alignItems: "center", gap: SPACE.lg }}>
+            <Youtube size={22} color={C.accent} /> YouTube-Reupload
+          </div>
+          <div style={{ fontSize: TYPE.body, color: C.muted, marginTop: 2 }}>
+            Bestehende Instagram-Reels (Video liegt schon bei Zernio) gestaffelt als YouTube Shorts einplanen – kein erneuter Upload nötig.
+          </div>
+        </div>
+        <button onClick={loadData} disabled={loading} style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: RADIUS.lg, border: `1px solid ${C.border}`, background: C.card, color: C.dimmed, fontSize: TYPE.caption, fontWeight: 500, cursor: loading ? "default" : "pointer", fontFamily: "inherit" }}>
+          <RefreshCw size={13} style={loading ? { animation: "spin 1s linear infinite" } : undefined} /> Neu laden
+        </button>
+      </div>
+
+      {loadError && (
+        <div style={{ padding: "12px 16px", borderRadius: RADIUS.lg, background: C.red + "18", border: `1px solid ${C.red}55`, color: C.red, fontSize: TYPE.small, marginBottom: 16 }}>
+          {loadError}
+        </div>
+      )}
+
+      {!loading && !ytAccountId && (
+        <div style={{ padding: "12px 16px", borderRadius: RADIUS.lg, background: C.orange ? C.orange + "18" : "#F59E0B18", border: `1px solid #F59E0B55`, color: "#F59E0B", fontSize: TYPE.small, marginBottom: 16 }}>
+          Kein verbundener YouTube-Account gefunden. Verbinde ihn zuerst unter „Verbindungen".
+        </div>
+      )}
+
+      {/* Kennzahlen */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: SPACE.lg, marginBottom: 20 }}>
+        {[
+          { label: "Bereit zum Reupload", value: rows.length },
+          { label: "Ausgewählt", value: selectedRows.length },
+          { label: "Slots pro Tag", value: times.length },
+          { label: "Fertig bis", value: lastPlanDate || "–" },
+        ].map((s) => (
+          <div key={s.label} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: RADIUS.xl, padding: "14px 16px" }}>
+            <div style={{ fontSize: TYPE.caption, color: C.dimmed, marginBottom: 4 }}>{s.label}</div>
+            <div style={{ fontSize: TYPE.h3, fontWeight: 700, color: C.white }}>{s.value}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Konfiguration */}
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: RADIUS.xl, padding: "16px 18px", marginBottom: 20, display: "flex", flexWrap: "wrap", gap: SPACE.xxl, alignItems: "flex-end" }}>
+        <div>
+          <div style={{ fontSize: TYPE.caption, color: C.dimmed, marginBottom: 6 }}>Startdatum</div>
+          <input type="date" value={config.startDate} onChange={(e) => persistConfig({ ...config, startDate: e.target.value })}
+            style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: RADIUS.md, padding: "7px 10px", color: C.white, fontSize: TYPE.body, fontFamily: "inherit" }} />
+        </div>
+        <div style={{ flex: 1, minWidth: 260 }}>
+          <div style={{ fontSize: TYPE.caption, color: C.dimmed, marginBottom: 6 }}>Uhrzeiten pro Tag ({times.length} Slots)</div>
+          <div style={{ display: "flex", gap: SPACE.sm, flexWrap: "wrap" }}>
+            {times.map((t, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <input type="time" value={t} onChange={(e) => {
+                  const next = [...times]; next[i] = e.target.value; persistConfig({ ...config, times: next.sort() });
+                }} style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: RADIUS.md, padding: "6px 8px", color: C.white, fontSize: TYPE.small, fontFamily: "inherit" }} />
+                {times.length > 1 && (
+                  <button onClick={() => persistConfig({ ...config, times: times.filter((_, j) => j !== i) })} style={{ background: "transparent", border: "none", cursor: "pointer", color: C.dimmed }}>
+                    <X size={12} />
+                  </button>
+                )}
+              </div>
+            ))}
+            <button onClick={() => persistConfig({ ...config, times: [...times, "12:00"].sort() })} style={btnStyle(false)}>
+              <Plus size={12} /> Slot
+            </button>
+          </div>
+        </div>
+        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: TYPE.small, color: C.dimmed, cursor: "pointer" }}>
+          <input type="checkbox" checked={hideNonGerman} onChange={(e) => setHideNonGerman(e.target.checked)} />
+          Nicht-deutsche Captions ausblenden
+        </label>
+      </div>
+
+      {/* Auswahl-Werkzeuge */}
+      <div style={{ display: "flex", gap: SPACE.sm, marginBottom: 12, flexWrap: "wrap" }}>
+        <button onClick={() => selectFirstN(1)} style={btnStyle(false)}>Erste 1 auswählen (Test)</button>
+        <button onClick={() => selectFirstN(times.length)} style={btnStyle(false)}>Erste {times.length} auswählen</button>
+        <button onClick={selectAll} style={btnStyle(false)}>Alle auswählen ({rows.length})</button>
+        <button onClick={clearSelection} style={btnStyle(false)}>Auswahl leeren</button>
+      </div>
+
+      {/* Tabelle */}
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: RADIUS.xl, overflow: "hidden" }}>
+        <div style={{ maxHeight: 520, overflowY: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: TYPE.small }}>
+            <thead>
+              <tr style={{ position: "sticky", top: 0, background: C.bgSoft, zIndex: 1 }}>
+                {["", "Ursprungsdatum", "Caption", "YouTube-Titel", "Geplant für", "Status"].map((h, i) => (
+                  <th key={i} style={{ textAlign: "left", padding: "10px 12px", color: C.dimmed, fontWeight: 500, borderBottom: `1px solid ${C.border}`, whiteSpace: "nowrap" }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {loading && (
+                <tr><td colSpan={6} style={{ padding: 24, textAlign: "center", color: C.dimmed }}>Lade Posts…</td></tr>
+              )}
+              {!loading && rows.length === 0 && (
+                <tr><td colSpan={6} style={{ padding: 24, textAlign: "center", color: C.dimmed }}>Keine offenen Reels gefunden – alles bereits auf YouTube.</td></tr>
+              )}
+              {!loading && rows.map((r) => {
+                const isSelected = selected.has(r.id);
+                const plan = scheduledPlan.find((p) => p.id === r.id);
+                const status = rowStatus[r.id];
+                return (
+                  <tr key={r.id} style={{ borderBottom: `1px solid ${C.border}`, opacity: status === "ok" ? 0.5 : 1 }}>
+                    <td style={{ padding: "8px 12px" }}>
+                      <input type="checkbox" checked={isSelected} disabled={running || status === "ok"} onChange={() => toggleRow(r.id)} />
+                    </td>
+                    <td style={{ padding: "8px 12px", color: C.dimmed, whiteSpace: "nowrap" }}>{r.date ? r.date.slice(0, 10) : "–"}</td>
+                    <td style={{ padding: "8px 12px", color: C.muted, maxWidth: 320, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={r.content}>{r.content.replace(/\n/g, " ")}</td>
+                    <td style={{ padding: "8px 12px", minWidth: 240 }}>
+                      <input value={r.title} disabled={running} onChange={(e) => setTitleOverrides((prev) => ({ ...prev, [r.id]: e.target.value }))}
+                        style={{ width: "100%", background: C.bg, border: `1px solid ${C.border}`, borderRadius: RADIUS.md, padding: "5px 8px", color: C.white, fontSize: TYPE.small, fontFamily: "inherit", boxSizing: "border-box" }} />
+                    </td>
+                    <td style={{ padding: "8px 12px", color: C.dimmed, whiteSpace: "nowrap" }}>{isSelected && plan ? plan.plannedFor : "–"}</td>
+                    <td style={{ padding: "8px 12px", whiteSpace: "nowrap" }}>
+                      {status === "ok" && <span style={{ color: "#22C55E" }}>✓ geplant</span>}
+                      {status === "error" && <span style={{ color: C.red }}>✕ Fehler</span>}
+                      {status === "pending" && <span style={{ color: C.dimmed }}>…</span>}
+                      {!status && <span style={{ color: C.border }}>–</span>}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Footer / Ausführen */}
+      <div style={{ display: "flex", alignItems: "center", gap: SPACE.lg, marginTop: 20, flexWrap: "wrap" }}>
+        <button onClick={runImport} disabled={running || selectedRows.length === 0 || !ytAccountId}
+          style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 20px", borderRadius: RADIUS.lg, border: "none",
+            background: (running || selectedRows.length === 0 || !ytAccountId) ? C.border : C.cta, color: "#fff",
+            fontSize: TYPE.body, fontWeight: 600, cursor: (running || selectedRows.length === 0 || !ytAccountId) ? "default" : "pointer", fontFamily: "inherit" }}>
+          {running ? <Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} /> : <Rocket size={15} />}
+          {running ? `Plane ein … (${progress.done}/${progress.total})` : `${selectedRows.length} Beitrag${selectedRows.length === 1 ? "" : "e"} einplanen`}
+        </button>
+        {running && (
+          <button onClick={() => { stopRef.current = true; }} style={{ padding: "10px 16px", borderRadius: RADIUS.lg, border: `1px solid ${C.border}`, background: "transparent", color: C.dimmed, fontSize: TYPE.body, cursor: "pointer", fontFamily: "inherit" }}>
+            Stoppen
+          </button>
+        )}
+        {running && (
+          <div style={{ flex: 1, minWidth: 160, height: 6, background: C.border, borderRadius: 999, overflow: "hidden" }}>
+            <div style={{ width: `${(progress.done / Math.max(progress.total, 1)) * 100}%`, height: "100%", background: C.accent, transition: "width 0.3s" }} />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function Sidebar({ activeTab, onTabChange, unreadCount, isDarkMode, onToggleTheme, isOpen, onClose }) {
   const [expandedMenu, setExpandedMenu] = useState(null);
 
@@ -1766,6 +2084,7 @@ function Sidebar({ activeTab, onTabChange, unreadCount, isDarkMode, onToggleThem
       children: [
         { key: "dashboard", label: "Alle Posts" },
         { key: "calendar", label: "Warteschlange" },
+        { key: "bulk-youtube", label: "YouTube-Reupload" },
       ],
     },
     { key: "analytics", icon: BarChart3, label: "Statistiken" },
@@ -1797,7 +2116,7 @@ function Sidebar({ activeTab, onTabChange, unreadCount, isDarkMode, onToggleThem
   });
 
   // Auto-expand parent menus based on active tab
-  const isPostsChild = ["dashboard", "calendar"].includes(activeTab);
+  const isPostsChild = ["dashboard", "calendar", "bulk-youtube"].includes(activeTab);
   const isInboxChild = ["notifications", "comments"].includes(activeTab);
 
   return (
@@ -4393,6 +4712,11 @@ export default function Dashboard() {
       {/* Content-Pipeline Tab */}
       {activeTab === "pipeline" && (
         <ContentPipelinePanel />
+      )}
+
+      {/* YouTube-Reupload (Bulk) Tab */}
+      {activeTab === "bulk-youtube" && (
+        <BulkYoutubePanel />
       )}
 
       {/* Inbox Tabs (Messages & Comments share one panel with preset view) */}
