@@ -3106,7 +3106,7 @@ function PostThumbnail({ post }) {
         <img src={post.thumbnail} alt="" loading="lazy"
           style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
           onError={(e) => { e.currentTarget.style.display = "none"; }} />
-      ) : post.videoUrl && hasSlot && !failed ? (
+      ) : post.videoUrl && (hasSlot || frameLoaded) && !failed ? (
         <video key={attempt} src={`${post.videoUrl}#t=0.1`} preload="metadata" muted playsInline
           onLoadedData={() => setFrameLoaded(true)}
           onError={handleVideoError}
