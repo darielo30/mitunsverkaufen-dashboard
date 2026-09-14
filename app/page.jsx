@@ -3019,13 +3019,48 @@ function NotificationPanel({ notifications, onMarkAllRead, isConnected, defaultV
 // screen at once competing for bandwidth, some (especially larger files)
 // never finish decoding a frame in time and would otherwise sit blank
 // forever with no indication anything went wrong. This only mounts the
-// <video> once the card is near the viewport (fewer simultaneous loads)
-// and swaps to a plain placeholder if no frame appears within a few seconds.
+// <video> once the card is near the viewport, throttles how many videos
+// load metadata at once (browsers otherwise queue/stall the rest), retries
+// once on failure/timeout, and swaps to a plain placeholder only after that.
+
+// Simple global concurrency gate: at most N <video> elements may be actively
+// loading metadata at once. Everyone else waits in a FIFO queue. This is the
+// main lever against "some thumbnails almost never load" under a full grid.
+const THUMB_MAX_CONCURRENT = 6;
+let thumbActiveCount = 0;
+const thumbWaitQueue = [];
+function acquireThumbSlot(onGranted) {
+  const tryGrant = () => {
+    if (thumbActiveCount >= THUMB_MAX_CONCURRENT) return false;
+    thumbActiveCount++;
+    onGranted();
+    return true;
+  };
+  if (!tryGrant()) thumbWaitQueue.push(tryGrant);
+  return () => {
+    const idx = thumbWaitQueue.indexOf(tryGrant);
+    if (idx !== -1) {
+      thumbWaitQueue.splice(idx, 1);
+      return; // was never granted, nothing to release
+    }
+    thumbActiveCount = Math.max(0, thumbActiveCount - 1);
+    while (thumbWaitQueue.length && thumbActiveCount < THUMB_MAX_CONCURRENT) {
+      const next = thumbWaitQueue.shift();
+      if (!next()) break;
+    }
+  };
+}
+
+const THUMB_TIMEOUT_MS = 8000;
+const THUMB_MAX_RETRIES = 1;
+
 function PostThumbnail({ post }) {
   const containerRef = useRef(null);
   const [inView, setInView] = useState(false);
+  const [hasSlot, setHasSlot] = useState(false);
   const [frameLoaded, setFrameLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     if (!containerRef.current || inView) return;
@@ -3036,11 +3071,34 @@ function PostThumbnail({ post }) {
     return () => obs.disconnect();
   }, [inView]);
 
+  // Wait for a free loading slot before mounting the <video> element.
   useEffect(() => {
-    if (!inView || !post.videoUrl || post.thumbnail || frameLoaded) return;
-    const timeout = setTimeout(() => setFailed(true), 4000);
+    if (!inView || !post.videoUrl || post.thumbnail || frameLoaded || failed) return;
+    const release = acquireThumbSlot(() => setHasSlot(true));
+    return () => { release(); setHasSlot(false); };
+  }, [inView, post.videoUrl, post.thumbnail, frameLoaded, failed, attempt]);
+
+  useEffect(() => {
+    if (!hasSlot || frameLoaded) return;
+    const timeout = setTimeout(() => {
+      if (attempt < THUMB_MAX_RETRIES) {
+        setHasSlot(false);
+        setAttempt((a) => a + 1);
+      } else {
+        setFailed(true);
+      }
+    }, THUMB_TIMEOUT_MS);
     return () => clearTimeout(timeout);
-  }, [inView, post.videoUrl, post.thumbnail, frameLoaded]);
+  }, [hasSlot, frameLoaded, attempt]);
+
+  const handleVideoError = () => {
+    if (attempt < THUMB_MAX_RETRIES) {
+      setHasSlot(false);
+      setAttempt((a) => a + 1);
+    } else {
+      setFailed(true);
+    }
+  };
 
   return (
     <div ref={containerRef} style={{ position: "relative", width: 76, flexShrink: 0, alignSelf: "stretch", overflow: "hidden", background: C.bg }}>
@@ -3048,10 +3106,10 @@ function PostThumbnail({ post }) {
         <img src={post.thumbnail} alt="" loading="lazy"
           style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
           onError={(e) => { e.currentTarget.style.display = "none"; }} />
-      ) : post.videoUrl && inView && !failed ? (
-        <video src={`${post.videoUrl}#t=0.1`} preload="metadata" muted playsInline
+      ) : post.videoUrl && hasSlot && !failed ? (
+        <video key={attempt} src={`${post.videoUrl}#t=0.1`} preload="metadata" muted playsInline
           onLoadedData={() => setFrameLoaded(true)}
-          onError={() => setFailed(true)}
+          onError={handleVideoError}
           style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", pointerEvents: "none" }} />
       ) : (
         <div style={{ width: "100%", height: "100%", background: `linear-gradient(135deg, ${C.cardHover} 0%, ${C.bg} 100%)`, display: "flex", alignItems: "center", justifyContent: "center" }}>
